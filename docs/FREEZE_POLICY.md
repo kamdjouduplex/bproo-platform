@@ -7,9 +7,8 @@
 
 Do **not** create or deepen duplicate copies of shared packages across:
 
-- `apps/erp/packages/inovcom/*`
-- `apps/pressing/packages/inovcom/*`
-- `apps/bat/packages/inovcom/*` (for packages that will become shared: `kernel`, `users`, `branding`, `items`)
+- `apps/erp/packages/inovcom/*` and `apps/pressing/packages/inovcom/*` for packages **not yet** shared
+- Do **not** re-create copies of packages that live under `packages/inovcom/` (see Phase M2 list)
 
 ## Allowed
 

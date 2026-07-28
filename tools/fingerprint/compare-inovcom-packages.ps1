@@ -1,99 +1,89 @@
-# Compare inovcom package fingerprints — ERP vs Pressing
+# Compare shared inovcom packages vs leftover per-app copies + ERP/Pressing drift on non-shared packages
 # Usage:
-#   pwsh tools/fingerprint/compare-inovcom-packages.ps1
-#   pwsh tools/fingerprint/compare-inovcom-packages.ps1 -FailOnDrift
-# Exit code 1 if -FailOnDrift and any tracked package has Diff/Only* > 0 for packages that should stay identical.
+#   powershell -ExecutionPolicy Bypass -File tools/fingerprint/compare-inovcom-packages.ps1
+#   powershell -ExecutionPolicy Bypass -File tools/fingerprint/compare-inovcom-packages.ps1 -FailOnDrift
 
 param(
     [string]$Root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
     [switch]$FailOnDrift,
-    # Packages that must remain 100% identical during freeze / after M2
-    [string[]]$StrictPackages = @(
+    [string[]]$SharedPackages = @(
         'kernel', 'items', 'sales', 'purchases', 'providers', 'debts', 'inventory',
         'losses', 'payroll', 'batches', 'prescriptions', 'prospects', 'reservations',
         'tickets', 'returns', 'branding'
     )
 )
 
+$sharedRoot = Join-Path $Root 'packages\inovcom'
 $erp = Join-Path $Root 'apps\erp\packages\inovcom'
 $prs = Join-Path $Root 'apps\pressing\packages\inovcom'
 
-if (-not (Test-Path $erp) -or -not (Test-Path $prs)) {
-    Write-Error "Expected packages at:`n  $erp`n  $prs"
+if (-not (Test-Path $sharedRoot)) {
+    Write-Error "Shared packages missing at $sharedRoot"
     exit 2
 }
 
+Write-Host "Shared: $sharedRoot"
+Write-Host "ERP local: $erp"
+Write-Host "PRS local: $prs"
+
+$failed = @()
+
+Write-Host "`n=== Shared packages (must exist once; must NOT exist under apps) ==="
+foreach ($pkg in $SharedPackages) {
+    $s = Test-Path (Join-Path $sharedRoot $pkg)
+    $e = Test-Path (Join-Path $erp $pkg)
+    $p = Test-Path (Join-Path $prs $pkg)
+    $ok = $s -and (-not $e) -and (-not $p)
+    $status = if ($ok) { 'OK' } else { 'FAIL' }
+    Write-Host ("{0,-18} shared={1} erpCopy={2} prsCopy={3} {4}" -f $pkg, $s, $e, $p, $status)
+    if (-not $ok) { $failed += $pkg }
+}
+
 function Compare-Pkg($pathA, $pathB) {
-    $mapA = @{}
-    Get-ChildItem $pathA -Recurse -Include *.php -File -ErrorAction SilentlyContinue | ForEach-Object {
-        $rel = $_.FullName.Substring($pathA.Length).TrimStart('\')
-        $mapA[$rel] = (Get-FileHash $_.FullName -Algorithm MD5).Hash
+    $mapA = @{}; $mapB = @{}
+    Get-ChildItem $pathA -Recurse -Include *.php -File -EA SilentlyContinue | ForEach-Object {
+        $mapA[$_.FullName.Substring($pathA.Length).TrimStart('\')] = (Get-FileHash $_.FullName -Algorithm MD5).Hash
     }
-    $mapB = @{}
-    Get-ChildItem $pathB -Recurse -Include *.php -File -ErrorAction SilentlyContinue | ForEach-Object {
-        $rel = $_.FullName.Substring($pathB.Length).TrimStart('\')
-        $mapB[$rel] = (Get-FileHash $_.FullName -Algorithm MD5).Hash
+    Get-ChildItem $pathB -Recurse -Include *.php -File -EA SilentlyContinue | ForEach-Object {
+        $mapB[$_.FullName.Substring($pathB.Length).TrimStart('\')] = (Get-FileHash $_.FullName -Algorithm MD5).Hash
     }
     $all = ($mapA.Keys + $mapB.Keys) | Sort-Object -Unique
-    $same = 0; $diff = 0; $onlyA = 0; $onlyB = 0
+    $same = 0; $diff = 0
     foreach ($r in $all) {
         if ($mapA[$r] -and $mapB[$r]) {
             if ($mapA[$r] -eq $mapB[$r]) { $same++ } else { $diff++ }
-        } elseif ($mapA[$r]) { $onlyA++ } else { $onlyB++ }
+        } else { $diff++ }
     }
-    $union = [Math]::Max($all.Count, 1)
-    [PSCustomObject]@{
-        Same    = $same
-        Diff    = $diff
-        OnlyERP = $onlyA
-        OnlyPRS = $onlyB
-        Union   = $all.Count
-        DupPct  = [math]::Round(100.0 * $same / $union, 1)
-    }
+    $u = [Math]::Max($all.Count, 1)
+    [PSCustomObject]@{ Same = $same; Diff = $diff; DupPct = [math]::Round(100.0 * $same / $u, 1); Union = $all.Count }
 }
 
-$pkgs = (Get-ChildItem $erp -Directory).Name | Sort-Object
-$failed = @()
-$rows = @()
-
-Write-Host "ERP: $erp"
-Write-Host "PRS: $prs"
-Write-Host ("{0,-20} {1,7} {2,6} {3,6} {4,8} {5,8} {6}" -f 'Package', 'Dup%', 'Same', 'Diff', 'OnlyERP', 'OnlyPRS', 'Strict')
-Write-Host ('-' * 72)
-
-foreach ($pkg in $pkgs) {
+Write-Host "`n=== Non-shared local packages (ERP vs Pressing drift — expected until M3) ==="
+$localPkgs = @()
+if (Test-Path $erp) { $localPkgs += (Get-ChildItem $erp -Directory).Name }
+$localPkgs = $localPkgs | Sort-Object -Unique
+foreach ($pkg in $localPkgs) {
     $pe = Join-Path $erp $pkg
     $pp = Join-Path $prs $pkg
-    if (-not (Test-Path $pp)) {
-        Write-Host ("{0,-20} MISSING in Pressing" -f $pkg)
-        continue
-    }
+    if (-not (Test-Path $pp)) { Write-Host ("{0,-18} only in ERP" -f $pkg); continue }
     $c = Compare-Pkg $pe $pp
-    $strict = $StrictPackages -contains $pkg
-    $flag = if ($strict) { 'YES' } else { '' }
-    Write-Host ("{0,-20} {1,6}% {2,6} {3,6} {4,8} {5,8} {6}" -f $pkg, $c.DupPct, $c.Same, $c.Diff, $c.OnlyERP, $c.OnlyPRS, $flag)
-    $rows += [PSCustomObject]@{ Package = $pkg; DupPct = $c.DupPct; Diff = $c.Diff; OnlyERP = $c.OnlyERP; OnlyPRS = $c.OnlyPRS; Strict = $strict }
-    if ($strict -and ($c.Diff -gt 0 -or $c.OnlyERP -gt 0 -or $c.OnlyPRS -gt 0)) {
-        $failed += $pkg
-    }
+    Write-Host ("{0,-18} {1,6}% same={2} diff={3}" -f $pkg, $c.DupPct, $c.Same, $c.Diff)
 }
 
 $reportDir = Join-Path $Root 'docs\fingerprint'
 New-Item -ItemType Directory -Path $reportDir -Force | Out-Null
-$out = Join-Path $reportDir ("inovcom-erp-pressing-{0:yyyyMMdd-HHmmss}.csv" -f (Get-Date))
-$rows | Export-Csv -Path $out -NoTypeInformation
+$out = Join-Path $reportDir ("m2-shared-check-{0:yyyyMMdd-HHmmss}.txt" -f (Get-Date))
+"failed=$($failed -join ',')" | Set-Content $out
 Write-Host "`nReport: $out"
 
 if ($FailOnDrift -and $failed.Count -gt 0) {
-    Write-Host "`nSTRICT DRIFT DETECTED:" -ForegroundColor Red
-    $failed | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
+    Write-Host "SHARED LAYOUT DRIFT" -ForegroundColor Red
     exit 1
 }
 
-if ($failed.Count -gt 0) {
-    Write-Host "`nNote: strict packages already drifted (expected until M2/M3): $($failed -join ', ')" -ForegroundColor Yellow
+if ($failed.Count -eq 0) {
+    Write-Host "`nM2 shared layout OK." -ForegroundColor Green
     exit 0
 }
-
-Write-Host "`nAll strict packages identical." -ForegroundColor Green
+Write-Host "`nIssues: $($failed -join ', ')" -ForegroundColor Yellow
 exit 0

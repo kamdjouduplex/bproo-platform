@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7522217b800c2242b39d9c877e7cc19d",
+    "content-hash": "862153190da62775afbbdbc05d3c8071",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -1463,7 +1463,7 @@
         },
         {
             "name": "inovcom/attendance",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "./packages/inovcom/attendance",
@@ -1499,10 +1499,10 @@
         },
         {
             "name": "inovcom/batches",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/batches",
+                "url": "../../packages/inovcom/batches",
                 "reference": "5810493a1cd2b5027bcff71832d993460d97b050"
             },
             "require": {
@@ -1535,7 +1535,7 @@
         },
         {
             "name": "inovcom/caisse",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "./packages/inovcom/caisse",
@@ -1570,7 +1570,7 @@
         },
         {
             "name": "inovcom/clients",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "./packages/inovcom/clients",
@@ -1605,7 +1605,7 @@
         },
         {
             "name": "inovcom/configuration",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "./packages/inovcom/configuration",
@@ -1641,10 +1641,10 @@
         },
         {
             "name": "inovcom/debts",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/debts",
+                "url": "../../packages/inovcom/debts",
                 "reference": "74adcf61b5d76cb324a88ab76d66e982074a75be"
             },
             "require": {
@@ -1677,7 +1677,7 @@
         },
         {
             "name": "inovcom/expenses",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "./packages/inovcom/expenses",
@@ -1712,10 +1712,10 @@
         },
         {
             "name": "inovcom/inventory",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/inventory",
+                "url": "../../packages/inovcom/inventory",
                 "reference": "376edd9119fb10f6b6c0716a026dfc8a846d1558"
             },
             "require": {
@@ -1747,7 +1747,7 @@
         },
         {
             "name": "inovcom/invoice-payments",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "./packages/inovcom/invoice_payments",
@@ -1783,7 +1783,7 @@
         },
         {
             "name": "inovcom/invoicing",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "./packages/inovcom/invoicing",
@@ -1821,10 +1821,10 @@
         },
         {
             "name": "inovcom/items",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/items",
+                "url": "../../packages/inovcom/items",
                 "reference": "70545937848fb2a47ae9fded52458a8391ffef38"
             },
             "require": {
@@ -1856,10 +1856,10 @@
         },
         {
             "name": "inovcom/kernel",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/kernel",
+                "url": "../../packages/inovcom/kernel",
                 "reference": "d804aff552c96b6a7a38ad3cf4eea170b5547edb"
             },
             "require": {
@@ -1883,10 +1883,10 @@
         },
         {
             "name": "inovcom/losses",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/losses",
+                "url": "../../packages/inovcom/losses",
                 "reference": "62248225c586721516358d79a1e2c397722de9fc"
             },
             "require": {
@@ -1920,10 +1920,10 @@
         },
         {
             "name": "inovcom/payroll",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/payroll",
+                "url": "../../packages/inovcom/payroll",
                 "reference": "c66dbb649fb20350a364d4b3602ba8ec546d7e75"
             },
             "require": {
@@ -1956,10 +1956,10 @@
         },
         {
             "name": "inovcom/prescriptions",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/prescriptions",
+                "url": "../../packages/inovcom/prescriptions",
                 "reference": "f06c27f43dfe96c4f8fd4131110d194b39310c35"
             },
             "require": {
@@ -1993,10 +1993,10 @@
         },
         {
             "name": "inovcom/prospects",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/prospects",
+                "url": "../../packages/inovcom/prospects",
                 "reference": "9e0adc5e8e6f7aa7ae65a4f18c6a00b15b09538c"
             },
             "require": {
@@ -2030,10 +2030,10 @@
         },
         {
             "name": "inovcom/providers",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/providers",
+                "url": "../../packages/inovcom/providers",
                 "reference": "03bd2bc9a5bb0cf956795b3bda3368b8235b56f5"
             },
             "require": {
@@ -2065,10 +2065,10 @@
         },
         {
             "name": "inovcom/purchases",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/purchases",
+                "url": "../../packages/inovcom/purchases",
                 "reference": "104c7a0c235e0f0f13c1c415d60a6ba5c2d6881b"
             },
             "require": {
@@ -2103,7 +2103,7 @@
         },
         {
             "name": "inovcom/quotations",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "./packages/inovcom/quotations",
@@ -2140,7 +2140,7 @@
         },
         {
             "name": "inovcom/reporting",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "./packages/inovcom/reporting",
@@ -2175,10 +2175,10 @@
         },
         {
             "name": "inovcom/reservations",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/reservations",
+                "url": "../../packages/inovcom/reservations",
                 "reference": "cdfa11961bc2e1b57b0111277edae6d82c4d8ae3"
             },
             "require": {
@@ -2213,10 +2213,10 @@
         },
         {
             "name": "inovcom/returns",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/returns",
+                "url": "../../packages/inovcom/returns",
                 "reference": "eb1ef95a3919ab21ebff51d825c9bd082369b225"
             },
             "require": {
@@ -2252,10 +2252,10 @@
         },
         {
             "name": "inovcom/sales",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/sales",
+                "url": "../../packages/inovcom/sales",
                 "reference": "3b322c7e141d3b12929072330f8ee4e62425f733"
             },
             "require": {
@@ -2289,7 +2289,7 @@
         },
         {
             "name": "inovcom/stock",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "./packages/inovcom/stock",
@@ -2325,10 +2325,10 @@
         },
         {
             "name": "inovcom/tickets",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/tickets",
+                "url": "../../packages/inovcom/tickets",
                 "reference": "83c05aeb426975fa4b0537dc76d9d0ca66888e5a"
             },
             "require": {
@@ -2361,7 +2361,7 @@
         },
         {
             "name": "inovcom/users",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "./packages/inovcom/users",
@@ -2396,11 +2396,11 @@
         },
         {
             "name": "kamfo/pressing",
-            "version": "dev-trams-negoce",
+            "version": "dev-main",
             "dist": {
                 "type": "path",
                 "url": "./packages/pressing",
-                "reference": "baa4e3d4d2e507aa2fddcc4de991d991f9520e54"
+                "reference": "57cb358d92e35a6baba146f985b74c9f7562d011"
             },
             "require": {
                 "inovcom/kernel": "@dev",

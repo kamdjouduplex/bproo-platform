@@ -8,11 +8,11 @@
     "repositories": [
         {
             "type": "path",
-            "url": "./packages/inovcom/kernel"
+            "url": "../../packages/inovcom/kernel"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/items"
+            "url": "../../packages/inovcom/items"
         },
         {
             "type": "path",
@@ -24,11 +24,11 @@
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/providers"
+            "url": "../../packages/inovcom/providers"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/sales"
+            "url": "../../packages/inovcom/sales"
         },
         {
             "type": "path",
@@ -36,11 +36,11 @@
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/purchases"
+            "url": "../../packages/inovcom/purchases"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/inventory"
+            "url": "../../packages/inovcom/inventory"
         },
         {
             "type": "path",
@@ -48,11 +48,11 @@
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/losses"
+            "url": "../../packages/inovcom/losses"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/debts"
+            "url": "../../packages/inovcom/debts"
         },
         {
             "type": "path",
@@ -60,7 +60,7 @@
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/payroll"
+            "url": "../../packages/inovcom/payroll"
         },
         {
             "type": "path",
@@ -72,11 +72,11 @@
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/batches"
+            "url": "../../packages/inovcom/batches"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/prescriptions"
+            "url": "../../packages/inovcom/prescriptions"
         },
         {
             "type": "path",
@@ -96,19 +96,19 @@
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/tickets"
+            "url": "../../packages/inovcom/tickets"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/returns"
+            "url": "../../packages/inovcom/returns"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/reservations"
+            "url": "../../packages/inovcom/reservations"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/prospects"
+            "url": "../../packages/inovcom/prospects"
         }
     ],
     "require": {
@@ -164,32 +164,32 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/",
-            "InovCom\\Kernel\\": "packages/inovcom/kernel/src/",
-            "InovCom\\Items\\": "packages/inovcom/items/src/",
+            "InovCom\\Kernel\\": "../../packages/inovcom/kernel/src/",
+            "InovCom\\Items\\": "../../packages/inovcom/items/src/",
             "InovCom\\Users\\": "packages/inovcom/users/src/",
             "InovCom\\Clients\\": "packages/inovcom/clients/src/",
-            "InovCom\\Providers\\": "packages/inovcom/providers/src/",
+            "InovCom\\Providers\\": "../../packages/inovcom/providers/src/",
             "InovCom\\Expenses\\": "packages/inovcom/expenses/src/",
-            "InovCom\\Inventory\\": "packages/inovcom/inventory/src/",
-            "InovCom\\Debts\\": "packages/inovcom/debts/src/",
-            "InovCom\\Losses\\": "packages/inovcom/losses/src/",
-            "InovCom\\Purchases\\": "packages/inovcom/purchases/src/",
-            "InovCom\\Sales\\": "packages/inovcom/sales/src/",
+            "InovCom\\Inventory\\": "../../packages/inovcom/inventory/src/",
+            "InovCom\\Debts\\": "../../packages/inovcom/debts/src/",
+            "InovCom\\Losses\\": "../../packages/inovcom/losses/src/",
+            "InovCom\\Purchases\\": "../../packages/inovcom/purchases/src/",
+            "InovCom\\Sales\\": "../../packages/inovcom/sales/src/",
             "InovCom\\Stock\\": "packages/inovcom/stock/src/",
             "InovCom\\Reporting\\": "packages/inovcom/reporting/src/",
-            "InovCom\\Payroll\\": "packages/inovcom/payroll/src/",
+            "InovCom\\Payroll\\": "../../packages/inovcom/payroll/src/",
             "InovCom\\Attendance\\": "packages/inovcom/attendance/src/",
             "InovCom\\Configuration\\": "packages/inovcom/configuration/src/",
-            "InovCom\\Batches\\": "packages/inovcom/batches/src/",
-            "InovCom\\Prescriptions\\": "packages/inovcom/prescriptions/src/",
+            "InovCom\\Batches\\": "../../packages/inovcom/batches/src/",
+            "InovCom\\Prescriptions\\": "../../packages/inovcom/prescriptions/src/",
             "InovCom\\Caisse\\": "packages/inovcom/caisse/src/",
             "InovCom\\Quotations\\": "packages/inovcom/quotations/src/",
             "InovCom\\Invoicing\\": "packages/inovcom/invoicing/src/",
             "InovCom\\InvoicePayments\\": "packages/inovcom/invoice_payments/src/",
-            "InovCom\\Tickets\\": "packages/inovcom/tickets/src/",
-            "InovCom\\Returns\\": "packages/inovcom/returns/src/",
-            "InovCom\\Reservations\\": "packages/inovcom/reservations/src/",
-            "InovCom\\Prospects\\": "packages/inovcom/prospects/src/"
+            "InovCom\\Tickets\\": "../../packages/inovcom/tickets/src/",
+            "InovCom\\Returns\\": "../../packages/inovcom/returns/src/",
+            "InovCom\\Reservations\\": "../../packages/inovcom/reservations/src/",
+            "InovCom\\Prospects\\": "../../packages/inovcom/prospects/src/"
         }
     },
     "autoload-dev": {

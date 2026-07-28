@@ -10,6 +10,7 @@ Official architecture and migration docs for the Bproo ecosystem.
 | [MIGRATION_ROADMAP.md](./MIGRATION_ROADMAP.md) | Incremental migration plan (v1.1) |
 | [PHASE_0_STATUS.md](./PHASE_0_STATUS.md) | Phase 0 progress |
 | [PHASE_1_STATUS.md](./PHASE_1_STATUS.md) | Phase 1 monorepo scaffold |
+| [PHASE_2_STATUS.md](./PHASE_2_STATUS.md) | Phase 2 shared identical packages |
 | [FREEZE_POLICY.md](./FREEZE_POLICY.md) | No-duplicate-packages rule (M0–M3) |
 
 ## Analysis (inputs)

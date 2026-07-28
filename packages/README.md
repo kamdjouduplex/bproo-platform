@@ -1,15 +1,27 @@
 # Shared Composer packages
 
-Populated in **Phase M2** (ERP ↔ Pressing identical packages).
+## Phase M2 (done)
 
-Target layout (Architecture v1.0):
+These packages are the **single source of truth** for ERP and Pressing:
 
 ```
-packages/
-  platform/    # tenancy, auth, modules, billing, …
-  shared/      # crm, catalogue, sales, inventory, …
-  verticals/   # pressing, bat-*, …
-  ui/          # design system
+packages/inovcom/
+  batches, branding, debts, inventory, items, kernel, losses, payroll,
+  prescriptions, prospects, providers, purchases, reservations, returns,
+  sales, tickets
 ```
 
-Until M2, each app keeps its own `apps/*/packages/inovcom/` tree.
+Apps consume them via Composer path repositories:
+
+```json
+{ "type": "path", "url": "../../packages/inovcom/sales" }
+```
+
+Still **per-app** (drift — Phase M3):
+
+`users`, `clients`, `stock`, `caisse`, `expenses`, `reporting`, `attendance`, `configuration`, `quotations`, `invoicing`, `invoice_payments`
+
+## Later phases
+
+- M4+: move toward `packages/platform/*` and `packages/shared/*` naming
+- Verticals: `apps/pressing/packages/pressing`, `apps/bat/packages/inovcom/*`
