@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Base overrides ─────────────────────────────────────────────────── */
+@layer base {
+    * { box-sizing: border-box; }
+    body { font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif; }
+    a { color: inherit; text-decoration: none; }
+    select { appearance: auto; cursor: pointer; }
+}
+
+/* ── Reusable component shortcuts ───────────────────────────────────── */
+@layer components {
+    /* Buttons */
+    .btn {
+        @apply inline-flex items-center justify-center h-8 px-3 text-[13px] font-medium border cursor-pointer transition-colors duration-150 whitespace-nowrap;
+    }
+    .btn-primary   { @apply bg-blue-600 text-white border-blue-600 hover:bg-blue-700 hover:border-blue-700; }
+    .btn-secondary { @apply bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:border-slate-300 hover:text-slate-800; }
+    .btn-success   { @apply bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700; }
+    .btn-danger    { @apply bg-red-600 text-white border-red-600 hover:bg-red-700; }
+    .btn-warning   { @apply bg-amber-500 text-white border-amber-500 hover:bg-amber-600; }
+    .btn-sm        { @apply h-7 px-2.5 text-xs; }
+
+    /* Form inputs */
+    .input {
+        @apply w-full border border-slate-200 px-2.5 h-8 text-[13px] text-slate-800 bg-white focus:outline-none focus:border-blue-500 transition-colors duration-150;
+    }
+    .input-sm { @apply h-7 px-2 text-xs; }
+    textarea.input {
+        @apply h-auto min-h-[64px] py-1.5 leading-relaxed resize-y;
+    }
+
+    /* Field wrapper */
+    .field       { @apply flex flex-col gap-1.5; }
+    .field-label { @apply text-xs text-slate-500 font-medium; }
+    .field-error { @apply text-[11px] text-red-600 mt-0.5; }
+
+    /* Cards */
+    .card       { @apply bg-white border border-slate-200 p-4 sm:p-5; }
+    .card-title { @apply text-sm font-semibold text-slate-800 mb-2.5; }
+    .card-body  { @apply text-[13px] text-slate-500 leading-relaxed; }
+
+    /* Badges */
+    .badge           { @apply inline-block px-2 py-0.5 rounded-full text-[11px] font-medium; }
+    .badge-success   { @apply bg-emerald-100 text-emerald-700; }
+    .badge-warning   { @apply bg-amber-100 text-amber-700; }
+    .badge-danger    { @apply bg-red-100 text-red-700; }
+    .badge-info      { @apply bg-blue-100 text-blue-700; }
+    .badge-secondary { @apply bg-slate-100 text-slate-500; }
+
+    /* Table action buttons */
+    .table-action {
+        @apply inline-flex items-center justify-center w-8 h-8 border border-slate-200 bg-white text-slate-500 cursor-pointer rounded-md transition-colors duration-150 hover:text-slate-700 hover:border-slate-300 hover:bg-slate-50;
+    }
+    .table-action-edit:hover   { @apply text-blue-600 border-blue-200 bg-blue-50; }
+    .table-action-delete:hover { @apply text-red-600 border-red-200 bg-red-50; }
+
+    /* Module tabs */
+    .module-tab {
+        @apply inline-flex items-center gap-1.5 px-4 py-2 rounded-t-md text-sm font-medium text-slate-500 border border-transparent border-b-0 -mb-0.5 transition-colors duration-150 hover:text-blue-700 hover:bg-slate-50;
+    }
+    .module-tab--active { @apply text-blue-700 bg-white border-slate-200; }
+
+    /* KPI cards */
+    .kpi-card        { @apply bg-white border border-slate-200 border-l-[3px] p-3.5 flex flex-col gap-1; }
+    .kpi-card__value { @apply text-2xl font-bold text-slate-800 leading-none; }
+    .kpi-card__label { @apply text-[10px] font-semibold text-slate-400 uppercase tracking-wider; }
+    .kpi-card__sub   { @apply text-xs text-slate-500; }
+}
+
+/* ── Dialog backdrop (no Tailwind equivalent) ───────────────────────── */
+dialog::backdrop {
+    background: rgba(15, 23, 42, 0.50);
+}
+dialog {
+    padding: 0;
+    border: none;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+/* ── Scrollbar hiding ───────────────────────────────────────────────── */
+.scrollbar-hidden { scrollbar-width: none; }
+.scrollbar-hidden::-webkit-scrollbar { display: none; }
+
+/* ── Laravel Notify toast overrides ────────────────────────────────── */
+#laravel-notify .notify { z-index: 9999; }
+#laravel-notify .notify > div { max-width: 22rem; width: 100%; }
+#laravel-notify .notify svg {
+    width: 24px; height: 24px;
+    min-width: 24px; min-height: 24px;
+    flex-shrink: 0;
+}
+#laravel-notify .notify .flex.items-start { display: flex; align-items: flex-start; gap: 12px; }
+#laravel-notify .notify .flex.items-start > div.ml-4.w-0 { flex: 1; min-width: 0; }
+#laravel-notify .notify .flex.items-start > div.ml-4.shrink-0 { flex-shrink: 0; }
+
+/* ── Catalog picker dialog ──────────────────────────────────────────── */
+#catalog-picker {
+    width: min(880px, calc(100vw - 40px));
+    max-height: 88vh;
+    display: flex;
+    flex-direction: column;
+    border-radius: 14px;
+}

@@ -1,0 +1,2 @@
+# Deprecated: web image is built from the root Dockerfile target "web".
+# See docker-compose.prod.yml → services.web.build.target: web

@@ -1,0 +1,170 @@
+{
+    "name": "inovcom/app",
+    "type": "project",
+    "description": "Inov-Com multi-tenant kernel and module platform.",
+    "version": "1.0.0",
+    "keywords": ["laravel", "multi-tenant", "inov-com", "modules"],
+    "license": "MIT",
+    "repositories": [
+        {
+            "type": "path",
+            "url": "./packages/inovcom/kernel"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/items"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/branding"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/users"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/clients"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/offres"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/devis"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/projets"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/facturation"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/achats"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/maintenance"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/dms"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/planning"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/suivi"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/rh"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/stock"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/logistique"
+        }
+    ],
+    "require": {
+        "php": "^8.1",
+        "barryvdh/laravel-dompdf": "^2.2",
+        "guzzlehttp/guzzle": "^7.2",
+        "inovcom/achats": "@dev",
+        "inovcom/branding": "@dev",
+        "inovcom/clients": "@dev",
+        "inovcom/devis": "@dev",
+        "inovcom/dms": "@dev",
+        "inovcom/facturation": "@dev",
+        "inovcom/items": "@dev",
+        "inovcom/kernel": "@dev",
+        "inovcom/maintenance": "@dev",
+        "inovcom/offres": "@dev",
+        "inovcom/planning": "@dev",
+        "inovcom/projets": "@dev",
+        "inovcom/logistique": "@dev",
+        "inovcom/rh": "@dev",
+        "inovcom/stock": "@dev",
+        "inovcom/suivi": "@dev",
+        "inovcom/users": "@dev",
+        "laravel/framework": "^10.10",
+        "laravel/sanctum": "^3.3",
+        "laravel/tinker": "^2.8",
+        "livewire/livewire": "4.0",
+        "maatwebsite/excel": "^3.1",
+        "mckenziearts/laravel-notify": "^2.7",
+        "spatie/laravel-ignition": "2.4"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.9.1",
+        "laravel/pint": "^1.0",
+        "laravel/sail": "^1.18",
+        "mockery/mockery": "^1.4.4",
+        "nunomaduro/collision": "^7.0",
+        "phpunit/phpunit": "^10.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/",
+            "InovCom\\Kernel\\": "packages/inovcom/kernel/src/",
+            "InovCom\\Items\\": "packages/inovcom/items/src/",
+            "InovCom\\Branding\\": "packages/inovcom/branding/src/",
+            "InovCom\\Users\\": "packages/inovcom/users/src/",
+            "InovCom\\Achats\\": "packages/inovcom/achats/src/",
+            "InovCom\\Dms\\": "packages/inovcom/dms/src/",
+            "InovCom\\Maintenance\\": "packages/inovcom/maintenance/src/",
+            "InovCom\\Planning\\": "packages/inovcom/planning/src/",
+            "InovCom\\Suivi\\": "packages/inovcom/suivi/src/",
+            "InovCom\\Rh\\": "packages/inovcom/rh/src/",
+            "InovCom\\Stock\\": "packages/inovcom/stock/src/",
+            "InovCom\\Logistique\\": "packages/inovcom/logistique/src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

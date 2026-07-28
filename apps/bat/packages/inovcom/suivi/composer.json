@@ -1,0 +1,27 @@
+{
+    "name": "inovcom/suivi",
+    "description": "BPROO ERP Suivi terrain module: daily site reports, photos, client PV signatures",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.1",
+        "inovcom/kernel": "@dev",
+        "inovcom/clients": "@dev",
+        "inovcom/users": "@dev",
+        "laravel/framework": "^10.0",
+        "livewire/livewire": "^3.0|^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "InovCom\\Suivi\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "InovCom\\Suivi\\SuiviServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable"
+}

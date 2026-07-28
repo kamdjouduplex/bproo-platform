@@ -1,0 +1,1 @@
+1. Make sure from the admin dasboard we cannot delete a tenant that already have clients,more than one user. and if it was just freshly created with no data yet we need a strong confirmation for the delete action to take place

@@ -1,0 +1,238 @@
+{
+    "name": "inovcom/app",
+    "type": "project",
+    "description": "Inov-Com multi-tenant kernel and module platform.",
+    "version": "1.0.0",
+    "keywords": ["laravel", "multi-tenant", "inov-com", "modules"],
+    "license": "MIT",
+    "repositories": [
+        {
+            "type": "path",
+            "url": "./packages/inovcom/kernel"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/items"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/users"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/clients"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/providers"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/sales"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/stock"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/purchases"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/inventory"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/expenses"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/losses"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/debts"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/reporting"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/payroll"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/attendance"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/configuration"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/batches"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/prescriptions"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/caisse"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/quotations"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/invoicing"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/invoice_payments"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/tickets"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/returns"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/reservations"
+        },
+        {
+            "type": "path",
+            "url": "./packages/inovcom/prospects"
+        },
+        {
+            "type": "path",
+            "url": "./packages/pressing"
+        }
+    ],
+    "require": {
+        "php": "^8.1",
+        "barryvdh/laravel-dompdf": "^3.1",
+        "endroid/qr-code": "^6.0",
+        "guzzlehttp/guzzle": "^7.2",
+        "inovcom/attendance": "@dev",
+        "inovcom/batches": "@dev",
+        "inovcom/caisse": "@dev",
+        "inovcom/clients": "@dev",
+        "inovcom/configuration": "@dev",
+        "inovcom/debts": "@dev",
+        "inovcom/expenses": "@dev",
+        "inovcom/inventory": "@dev",
+        "inovcom/invoice-payments": "@dev",
+        "inovcom/invoicing": "@dev",
+        "inovcom/items": "@dev",
+        "inovcom/kernel": "@dev",
+        "inovcom/losses": "@dev",
+        "inovcom/payroll": "@dev",
+        "inovcom/prescriptions": "@dev",
+        "inovcom/prospects": "@dev",
+        "inovcom/providers": "@dev",
+        "inovcom/purchases": "@dev",
+        "inovcom/quotations": "@dev",
+        "inovcom/reporting": "@dev",
+        "inovcom/reservations": "@dev",
+        "inovcom/returns": "@dev",
+        "inovcom/sales": "@dev",
+        "inovcom/stock": "@dev",
+        "inovcom/tickets": "@dev",
+        "inovcom/users": "@dev",
+        "kamfo/pressing": "@dev",
+        "laravel/framework": "^10.10",
+        "laravel/sanctum": "^3.3",
+        "laravel/tinker": "^2.8",
+        "livewire/livewire": "4.0",
+        "mckenziearts/laravel-notify": "^2.7",
+        "spatie/laravel-ignition": "2.4"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.9.1",
+        "laravel/pint": "^1.0",
+        "laravel/sail": "^1.18",
+        "mockery/mockery": "^1.4.4",
+        "nunomaduro/collision": "^7.0",
+        "phpunit/phpunit": "^10.1"
+    },
+    "autoload": {
+        "files": [
+            "app/helpers.php"
+        ],
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/",
+            "InovCom\\Kernel\\": "packages/inovcom/kernel/src/",
+            "InovCom\\Items\\": "packages/inovcom/items/src/",
+            "InovCom\\Users\\": "packages/inovcom/users/src/",
+            "InovCom\\Clients\\": "packages/inovcom/clients/src/",
+            "InovCom\\Providers\\": "packages/inovcom/providers/src/",
+            "InovCom\\Expenses\\": "packages/inovcom/expenses/src/",
+            "InovCom\\Inventory\\": "packages/inovcom/inventory/src/",
+            "InovCom\\Debts\\": "packages/inovcom/debts/src/",
+            "InovCom\\Losses\\": "packages/inovcom/losses/src/",
+            "InovCom\\Purchases\\": "packages/inovcom/purchases/src/",
+            "InovCom\\Sales\\": "packages/inovcom/sales/src/",
+            "InovCom\\Stock\\": "packages/inovcom/stock/src/",
+            "InovCom\\Reporting\\": "packages/inovcom/reporting/src/",
+            "InovCom\\Payroll\\": "packages/inovcom/payroll/src/",
+            "InovCom\\Attendance\\": "packages/inovcom/attendance/src/",
+            "InovCom\\Configuration\\": "packages/inovcom/configuration/src/",
+            "InovCom\\Batches\\": "packages/inovcom/batches/src/",
+            "InovCom\\Prescriptions\\": "packages/inovcom/prescriptions/src/",
+            "InovCom\\Caisse\\": "packages/inovcom/caisse/src/",
+            "InovCom\\Quotations\\": "packages/inovcom/quotations/src/",
+            "InovCom\\Invoicing\\": "packages/inovcom/invoicing/src/",
+            "InovCom\\InvoicePayments\\": "packages/inovcom/invoice_payments/src/",
+            "InovCom\\Tickets\\": "packages/inovcom/tickets/src/",
+            "InovCom\\Returns\\": "packages/inovcom/returns/src/",
+            "InovCom\\Reservations\\": "packages/inovcom/reservations/src/",
+            "InovCom\\Prospects\\": "packages/inovcom/prospects/src/",
+            "Pressing\\": "packages/pressing/src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

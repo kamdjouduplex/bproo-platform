@@ -1,0 +1,39 @@
+# Bproo Platform monorepo
+/.idea/
+/.vscode/
+*.log
+.DS_Store
+Thumbs.db
+
+# Env / secrets (never commit)
+.env
+.env.*
+!.env.example
+**/.env
+!**/.env.example
+
+# Dependencies & build (per app)
+**/node_modules/
+**/vendor/
+**/public/build/
+**/public/hot
+**/public/storage
+**/storage/*.key
+**/storage/logs/*
+**/storage/framework/cache/*
+**/storage/framework/sessions/*
+**/storage/framework/views/*
+**/bootstrap/cache/*.php
+
+# PHP / testing
+.phpunit.result.cache
+.phpunit.cache/
+coverage/
+
+# OS / tooling
+*.swp
+*.swo
+
+# Local backups already under backups/ — keep bundles, ignore huge dumps if added
+backups/*.sql
+backups/*.dump

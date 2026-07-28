@@ -1,0 +1,27 @@
+{
+    "name": "inovcom/devis",
+    "description": "BPROO ERP Devis module: quotes, line items, status and history",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.1",
+        "inovcom/kernel": "@dev",
+        "inovcom/clients": "@dev",
+        "inovcom/offres": "@dev",
+        "laravel/framework": "^10.0",
+        "livewire/livewire": "^3.0|^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "InovCom\\Devis\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "InovCom\\Devis\\DevisServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable"
+}

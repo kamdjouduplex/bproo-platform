@@ -1,0 +1,27 @@
+{
+    "name": "inovcom/offres",
+    "description": "BPROO ERP Offres module: reception and categorisation of offers (Projet / Maintenance)",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.1",
+        "inovcom/kernel": "@dev",
+        "inovcom/clients": "@dev",
+        "inovcom/users": "@dev",
+        "laravel/framework": "^10.0",
+        "livewire/livewire": "^3.0|^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "InovCom\\Offres\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "InovCom\\Offres\\OffresServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable"
+}

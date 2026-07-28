@@ -1,0 +1,26 @@
+{
+    "name": "inovcom/logistique",
+    "description": "InovCom ERP Logistique module: deliveries, vehicles, drivers, stock deduction on delivery.",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.1",
+        "inovcom/kernel": "@dev",
+        "inovcom/stock": "@dev",
+        "laravel/framework": "^10.0",
+        "livewire/livewire": "^3.0|^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "InovCom\\Logistique\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "InovCom\\Logistique\\LogistiqueServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable"
+}

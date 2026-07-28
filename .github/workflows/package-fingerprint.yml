@@ -1,0 +1,22 @@
+name: Package fingerprint (ERP vs Pressing)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'apps/erp/packages/inovcom/**'
+      - 'apps/pressing/packages/inovcom/**'
+      - 'packages/**'
+      - 'tools/fingerprint/**'
+
+jobs:
+  fingerprint:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare inovcom packages
+        shell: pwsh
+        run: |
+          ./tools/fingerprint/compare-inovcom-packages.ps1
+          # After M2, enable hard fail for strict set:
+          # ./tools/fingerprint/compare-inovcom-packages.ps1 -FailOnDrift

@@ -1,0 +1,25 @@
+{
+    "name": "inovcom/items",
+    "description": "Inov-Com Items module: catalogue, categories, brands, units",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.1",
+        "inovcom/kernel": "@dev",
+        "laravel/framework": "^10.0",
+        "livewire/livewire": "^3.0|^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "InovCom\\Items\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "InovCom\\Items\\ItemsServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable"
+}
