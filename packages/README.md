@@ -29,8 +29,11 @@ packages/platform/
 
 Composer names: `bproo/platform-*`. Classes keep `App\*` namespaces for compatibility.
 
+## Phase M4b (done)
+
+Ops host: `apps/control-center` — consumes platform packages; same landlord DB as product Admin.
+
 ## Later phases
 
-- M4b: `apps/control-center`
 - M5+: `packages/verticals/*`
 - M7: Composer/vendor rename toward `bproo/*` + `platform/core` from kernel

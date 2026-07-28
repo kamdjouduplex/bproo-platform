@@ -1,0 +1,30 @@
+# Copy to deploy/docker/docker-compose.override.yml (gitignored on server)
+# Compose merges this automatically with docker-compose.prod.yml
+
+services:
+  app:
+    networks:
+      - default
+      - erp-net
+  queue:
+    networks:
+      - default
+      - erp-net
+  scheduler:
+    networks:
+      - default
+      - erp-net
+  web:
+    ports:
+      # Bind only on localhost — Caddy on the host terminates TLS
+      # Adapter le port (8080, 8081, 8082…) selon l’app
+      - "127.0.0.1:8081:80"
+    networks:
+      - default
+      - proxy_net
+
+networks:
+  erp-net:
+    external: true
+  proxy_net:
+    external: true

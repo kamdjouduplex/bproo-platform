@@ -55,5 +55,5 @@ Namespaces stay **`App\*`** for one release (Composer PSR-4 merge) — no mass `
 
 ## Next
 
-**M4b** — Control Center MVP (`apps/control-center`) consuming these packages.  
+**M4b** — Control Center MVP (`apps/control-center`) — see `docs/PHASE_4b_STATUS.md`.  
 Optional follow-up: wire BAT to tenancy/modules/auth (no billing force-merge).

@@ -1,7 +1,7 @@
 # Smoke runbook — Admin / Control plane
 
 **Scope:** Platform Admin inside each product today (`/admin`).  
-**Future:** same checks against Control Center (Phase M4b) using `smoke-control-center.md` (to be added then).
+**Control Center:** use [`smoke-control-center.md`](smoke-control-center.md) for `apps/control-center` (M4b).
 
 **Approx time:** 10–15 minutes per product
 
