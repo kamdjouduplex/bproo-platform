@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "7a73ca284db24c505710488991a68687",
+    "content-hash": "1f1344a7a01371c4671145648b003058",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -137,6 +137,228 @@
                 }
             ],
             "time": "2026-02-21T08:51:10+00:00"
+        },
+        {
+            "name": "bproo/platform-admin",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../../packages/platform/admin",
+                "reference": "63b470eafa7ab9c8204dea40916bbd939c3b28f7"
+            },
+            "require": {
+                "illuminate/database": "^10.0",
+                "illuminate/support": "^10.0",
+                "php": "^8.1"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Bproo\\Platform\\Admin\\AdminServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "App\\Http\\Controllers\\Admin\\": "src/Http/Controllers/Admin/",
+                    "App\\Livewire\\Admin\\": "src/Livewire/Admin/",
+                    "Bproo\\Platform\\Admin\\": "src/Platform/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Bproo platform Admin Livewire suite",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "bproo/platform-auth",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../../packages/platform/auth",
+                "reference": "427f81c8628e3252f116113a3b906fba18bb7c50"
+            },
+            "require": {
+                "illuminate/database": "^10.0",
+                "illuminate/support": "^10.0",
+                "php": "^8.1"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Bproo\\Platform\\Auth\\AuthServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "App\\Http\\Controllers\\Admin\\": "src/Http/Controllers/Admin/",
+                    "App\\Http\\Controllers\\Tenant\\": "src/Http/Controllers/Tenant/",
+                    "App\\Models\\": "src/Models/",
+                    "Bproo\\Platform\\Auth\\": "src/Platform/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Bproo platform admin and company auth controllers",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "bproo/platform-billing",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../../packages/platform/billing",
+                "reference": "e85c2bedd55091b9beb2bee804f1cd2e192cf2a0"
+            },
+            "require": {
+                "illuminate/database": "^10.0",
+                "illuminate/support": "^10.0",
+                "php": "^8.1"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Bproo\\Platform\\Billing\\BillingServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "App\\Models\\": "src/Models/",
+                    "App\\Services\\": "src/Services/",
+                    "Bproo\\Platform\\Billing\\": "src/Platform/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Bproo platform plans, subscriptions, payments",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "bproo/platform-modules",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../../packages/platform/modules",
+                "reference": "063fa0cc57747a78530ce2d211089c66f321ede7"
+            },
+            "require": {
+                "illuminate/database": "^10.0",
+                "illuminate/support": "^10.0",
+                "php": "^8.1"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Bproo\\Platform\\Modules\\ModulesServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "App\\Events\\": "src/Events/",
+                    "App\\Http\\Middleware\\": "src/Http/Middleware/",
+                    "App\\Jobs\\": "src/Jobs/",
+                    "App\\Models\\": "src/Models/",
+                    "App\\Services\\": "src/Services/",
+                    "Bproo\\Platform\\Modules\\": "src/Platform/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Bproo platform module registry and lifecycle",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "bproo/platform-printing",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../../packages/platform/printing",
+                "reference": "0870e96083213048482047f32dd011742d9872e4"
+            },
+            "require": {
+                "illuminate/database": "^10.0",
+                "illuminate/support": "^10.0",
+                "php": "^8.1"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Bproo\\Platform\\Printing\\PrintingServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "App\\Support\\": "src/Support/",
+                    "Bproo\\Platform\\Printing\\": "src/Platform/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Bproo platform print/PDF helpers",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
+            "name": "bproo/platform-tenancy",
+            "version": "dev-main",
+            "dist": {
+                "type": "path",
+                "url": "../../packages/platform/tenancy",
+                "reference": "a751db6ae21b7570bbb937cf1f02683cbe5a25f5"
+            },
+            "require": {
+                "illuminate/database": "^10.0",
+                "illuminate/support": "^10.0",
+                "php": "^8.1"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Bproo\\Platform\\Tenancy\\TenancyServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "App\\Http\\Middleware\\": "src/Http/Middleware/",
+                    "App\\Jobs\\": "src/Jobs/",
+                    "App\\Models\\": "src/Models/",
+                    "App\\Services\\": "src/Services/",
+                    "App\\Support\\": "src/Support/",
+                    "Bproo\\Platform\\Tenancy\\": "src/Platform/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Bproo platform tenancy (company/tenant runtime)",
+            "transport-options": {
+                "relative": true
+            }
         },
         {
             "name": "brick/math",
@@ -10010,6 +10232,12 @@
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {
+        "bproo/platform-admin": 20,
+        "bproo/platform-auth": 20,
+        "bproo/platform-billing": 20,
+        "bproo/platform-modules": 20,
+        "bproo/platform-printing": 20,
+        "bproo/platform-tenancy": 20,
         "inovcom/attendance": 20,
         "inovcom/batches": 20,
         "inovcom/caisse": 20,

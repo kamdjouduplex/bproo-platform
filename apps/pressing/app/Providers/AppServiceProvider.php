@@ -2,7 +2,6 @@
 
 namespace App\Providers;
 
-use App\Services\TenantManager;
 use App\Support\InovComPackageProviders;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\URL;
@@ -15,10 +14,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(TenantManager::class, function () {
-            return new TenantManager();
-        });
-
+        // TenantManager is registered by bproo/platform-tenancy.
         // Garantit que les routes des modules path sont disponibles pour le menu
         // dès que le code est présent (activation admin + permissions).
         InovComPackageProviders::register($this->app);

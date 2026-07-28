@@ -1,14 +1,15 @@
 # Shared Composer packages
 
-## Phase M2 (done)
+## Phase M2–M3 (done)
 
-These packages are the **single source of truth** for ERP and Pressing:
+Retail/domain packages — **single source of truth** for ERP and Pressing:
 
 ```
 packages/inovcom/
-  batches, branding, debts, inventory, items, kernel, losses, payroll,
-  prescriptions, prospects, providers, purchases, reservations, returns,
-  sales, tickets
+  attendance, batches, branding, caisse, clients, configuration, debts,
+  expenses, inventory, invoice_payments, invoicing, items, kernel, losses,
+  payroll, prescriptions, prospects, providers, purchases, quotations,
+  reporting, reservations, returns, sales, stock, tickets, users
 ```
 
 Apps consume them via Composer path repositories:
@@ -17,11 +18,19 @@ Apps consume them via Composer path repositories:
 { "type": "path", "url": "../../packages/inovcom/sales" }
 ```
 
-Still **per-app** (drift — Phase M3):
+## Phase M4 (done for ERP/Pressing)
 
-`users`, `clients`, `stock`, `caisse`, `expenses`, `reporting`, `attendance`, `configuration`, `quotations`, `invoicing`, `invoice_payments`
+Control-plane packages:
+
+```
+packages/platform/
+  tenancy, modules, billing, admin, auth, printing
+```
+
+Composer names: `bproo/platform-*`. Classes keep `App\*` namespaces for compatibility.
 
 ## Later phases
 
-- M4+: move toward `packages/platform/*` and `packages/shared/*` naming
-- Verticals: `apps/pressing/packages/pressing`, `apps/bat/packages/inovcom/*`
+- M4b: `apps/control-center`
+- M5+: `packages/verticals/*`
+- M7: Composer/vendor rename toward `bproo/*` + `platform/core` from kernel

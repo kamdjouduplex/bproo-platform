@@ -1,0 +1,27 @@
+{
+    "name": "bproo/platform-auth",
+    "description": "Bproo platform admin and company auth controllers",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.1",
+        "illuminate/support": "^10.0",
+        "illuminate/database": "^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\Http\\Controllers\\Admin\\": "src/Http/Controllers/Admin/",
+            "App\\Http\\Controllers\\Tenant\\": "src/Http/Controllers/Tenant/",
+            "App\\Models\\": "src/Models/",
+            "Bproo\\Platform\\Auth\\": "src/Platform/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Bproo\\Platform\\Auth\\AuthServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "stable"
+}

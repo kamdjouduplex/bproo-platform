@@ -109,6 +109,30 @@
         {
             "type": "path",
             "url": "../../packages/inovcom/prospects"
+        }        ,
+        {
+            "type": "path",
+            "url": "../../packages/platform/tenancy"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/platform/modules"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/platform/billing"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/platform/admin"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/platform/auth"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/platform/printing"
         },
         {
             "type": "path",
@@ -117,6 +141,12 @@
     ],
     "require": {
         "php": "^8.1",
+        "bproo/platform-tenancy": "@dev",
+        "bproo/platform-modules": "@dev",
+        "bproo/platform-billing": "@dev",
+        "bproo/platform-admin": "@dev",
+        "bproo/platform-auth": "@dev",
+        "bproo/platform-printing": "@dev",
         "barryvdh/laravel-dompdf": "^3.1",
         "endroid/qr-code": "^6.0",
         "guzzlehttp/guzzle": "^7.2",
@@ -168,6 +198,14 @@
         ],
         "psr-4": {
             "App\\": "app/",
+            "App\\Models\\": "app/Models/",
+            "App\\Services\\": "app/Services/",
+            "App\\Http\\Middleware\\": "app/Http/Middleware/",
+            "App\\Http\\Controllers\\": "app/Http/Controllers/",
+            "App\\Jobs\\": "app/Jobs/",
+            "App\\Livewire\\": "app/Livewire/",
+            "App\\Support\\": "app/Support/",
+            "App\\Events\\": "app/Events/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/",
             "InovCom\\Kernel\\": "../../packages/inovcom/kernel/src/",
