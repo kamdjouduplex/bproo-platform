@@ -136,7 +136,7 @@
         },
         {
             "type": "path",
-            "url": "./packages/pressing"
+            "url": "../../packages/verticals/pressing"
         }
     ],
     "require": {
@@ -234,7 +234,7 @@
             "InovCom\\Returns\\": "../../packages/inovcom/returns/src/",
             "InovCom\\Reservations\\": "../../packages/inovcom/reservations/src/",
             "InovCom\\Prospects\\": "../../packages/inovcom/prospects/src/",
-            "Pressing\\": "packages/pressing/src/"
+            "Pressing\\": "../../packages/verticals/pressing/src/"
         }
     },
     "autoload-dev": {

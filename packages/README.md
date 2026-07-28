@@ -33,7 +33,17 @@ Composer names: `bproo/platform-*`. Classes keep `App\*` namespaces for compatib
 
 Ops host: `apps/control-center` — consumes platform packages; same landlord DB as product Admin.
 
+## Phase M5 (done)
+
+Vertical plugins:
+
+```
+packages/verticals/
+  pressing, bat-offers, bat-quotes, bat-projects, bat-maintenance,
+  bat-planning, bat-site-tracking, bat-logistics, bat-purchasing, bat-invoicing
+```
+
 ## Later phases
 
-- M5+: `packages/verticals/*`
+- M6: BAT foundation align (shared platform / users)
 - M7: Composer/vendor rename toward `bproo/*` + `platform/core` from kernel

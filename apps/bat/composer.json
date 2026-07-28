@@ -28,27 +28,27 @@
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/offres"
+            "url": "../../packages/verticals/bat-offers"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/devis"
+            "url": "../../packages/verticals/bat-quotes"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/projets"
+            "url": "../../packages/verticals/bat-projects"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/facturation"
+            "url": "../../packages/verticals/bat-invoicing"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/achats"
+            "url": "../../packages/verticals/bat-purchasing"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/maintenance"
+            "url": "../../packages/verticals/bat-maintenance"
         },
         {
             "type": "path",
@@ -56,11 +56,11 @@
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/planning"
+            "url": "../../packages/verticals/bat-planning"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/suivi"
+            "url": "../../packages/verticals/bat-site-tracking"
         },
         {
             "type": "path",
@@ -72,7 +72,7 @@
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/logistique"
+            "url": "../../packages/verticals/bat-logistics"
         }
     ],
     "require": {
@@ -121,14 +121,14 @@
             "InovCom\\Items\\": "packages/inovcom/items/src/",
             "InovCom\\Branding\\": "packages/inovcom/branding/src/",
             "InovCom\\Users\\": "packages/inovcom/users/src/",
-            "InovCom\\Achats\\": "packages/inovcom/achats/src/",
+            "InovCom\\Achats\\": "../../packages/verticals/bat-purchasing/src/",
             "InovCom\\Dms\\": "packages/inovcom/dms/src/",
-            "InovCom\\Maintenance\\": "packages/inovcom/maintenance/src/",
-            "InovCom\\Planning\\": "packages/inovcom/planning/src/",
-            "InovCom\\Suivi\\": "packages/inovcom/suivi/src/",
+            "InovCom\\Maintenance\\": "../../packages/verticals/bat-maintenance/src/",
+            "InovCom\\Planning\\": "../../packages/verticals/bat-planning/src/",
+            "InovCom\\Suivi\\": "../../packages/verticals/bat-site-tracking/src/",
             "InovCom\\Rh\\": "packages/inovcom/rh/src/",
             "InovCom\\Stock\\": "packages/inovcom/stock/src/",
-            "InovCom\\Logistique\\": "packages/inovcom/logistique/src/"
+            "InovCom\\Logistique\\": "../../packages/verticals/bat-logistics/src/"
         }
     },
     "autoload-dev": {

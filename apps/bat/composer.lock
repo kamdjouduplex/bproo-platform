@@ -1414,7 +1414,7 @@
             "version": "dev-new-skin",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/achats",
+                "url": "./packages/verticals/bat-purchasing",
                 "reference": "15eded3356fd48904e282eb65a5d74d547503906"
             },
             "require": {
@@ -1520,7 +1520,7 @@
             "version": "dev-new-skin",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/devis",
+                "url": "./packages/verticals/bat-quotes",
                 "reference": "9e01d3b35bd6a33adcd312c2dc0743aefd51b9a9"
             },
             "require": {
@@ -1593,7 +1593,7 @@
             "version": "dev-new-skin",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/facturation",
+                "url": "./packages/verticals/bat-invoicing",
                 "reference": "630eac46d36ed9ea306f7a6173ffb1faf71d9f64"
             },
             "require": {
@@ -1693,7 +1693,7 @@
             "version": "dev-new-skin",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/logistique",
+                "url": "./packages/verticals/bat-logistics",
                 "reference": "0274771b05171f8f898637c79872350e5f74607a"
             },
             "require": {
@@ -1729,7 +1729,7 @@
             "version": "dev-new-skin",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/maintenance",
+                "url": "./packages/verticals/bat-maintenance",
                 "reference": "4d3732bc203aec4e189ae857875ea59d007f10ff"
             },
             "require": {
@@ -1766,7 +1766,7 @@
             "version": "dev-new-skin",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/offres",
+                "url": "./packages/verticals/bat-offers",
                 "reference": "506df8da02af924efb2bf07ed915a68243517072"
             },
             "require": {
@@ -1803,7 +1803,7 @@
             "version": "dev-new-skin",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/planning",
+                "url": "./packages/verticals/bat-planning",
                 "reference": "65387aad5a75382a93edc8244c1c689cd429b947"
             },
             "require": {
@@ -1840,7 +1840,7 @@
             "version": "dev-new-skin",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/projets",
+                "url": "./packages/verticals/bat-projects",
                 "reference": "4eb5420787f38ab742838d967c2e25cff7eca0f6"
             },
             "require": {
@@ -1950,7 +1950,7 @@
             "version": "dev-new-skin",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/suivi",
+                "url": "./packages/verticals/bat-site-tracking",
                 "reference": "40354911fc2f4d22dbc4ad040c0be7e419c0689b"
             },
             "require": {
