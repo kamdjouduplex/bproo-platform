@@ -58,7 +58,7 @@ function Compare-Pkg($pathA, $pathB) {
     [PSCustomObject]@{ Same = $same; Diff = $diff; DupPct = [math]::Round(100.0 * $same / $u, 1); Union = $all.Count }
 }
 
-Write-Host "`n=== Non-shared local packages (ERP vs Pressing drift — expected until M3) ==="
+Write-Host "`n=== Non-shared local packages (ERP vs Pressing drift - expected until M3) ==="
 $localPkgs = @()
 if (Test-Path $erp) { $localPkgs += (Get-ChildItem $erp -Directory).Name }
 $localPkgs = $localPkgs | Sort-Object -Unique
