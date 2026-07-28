@@ -31,9 +31,9 @@ Location: `packages/inovcom/{name}`
 | returns | |
 | branding | On disk (not always composer-required) |
 
-## Apps still keep (local copies — M3)
+## Apps still keep (local copies — M3) — **done in M3**
 
-`users`, `clients`, `stock`, `caisse`, `expenses`, `reporting`, `attendance`, `configuration`, `quotations`, `invoicing`, `invoice_payments`
+Formerly local: `users`, `clients`, `stock`, `caisse`, `expenses`, `reporting`, `attendance`, `configuration`, `quotations`, `invoicing`, `invoice_payments` → see `docs/PHASE_3_STATUS.md`.
 
 ## Verification
 

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "862153190da62775afbbdbc05d3c8071",
+    "content-hash": "7a73ca284db24c505710488991a68687",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -1466,7 +1466,7 @@
             "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/attendance",
+                "url": "../../packages/inovcom/attendance",
                 "reference": "0489f6304a4be2a997153ec27c006876a3d44c75"
             },
             "require": {
@@ -1538,7 +1538,7 @@
             "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/caisse",
+                "url": "../../packages/inovcom/caisse",
                 "reference": "c8d1b02ebedc0e7e37c6ec7b8308a49b350a25b7"
             },
             "require": {
@@ -1573,7 +1573,7 @@
             "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/clients",
+                "url": "../../packages/inovcom/clients",
                 "reference": "c7142d4732123fe7d7dd179b4c1f3aed10461eff"
             },
             "require": {
@@ -1608,7 +1608,7 @@
             "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/configuration",
+                "url": "../../packages/inovcom/configuration",
                 "reference": "d162cc489a0678196d5f905ba5404085d9992f24"
             },
             "require": {
@@ -1680,7 +1680,7 @@
             "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/expenses",
+                "url": "../../packages/inovcom/expenses",
                 "reference": "71ebd8f5ec8cebdd660a2cb171528a17137e46e1"
             },
             "require": {
@@ -1750,7 +1750,7 @@
             "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/invoice_payments",
+                "url": "../../packages/inovcom/invoice_payments",
                 "reference": "567015832451c8c45d488644ec2057605d2b3be9"
             },
             "require": {
@@ -1786,7 +1786,7 @@
             "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/invoicing",
+                "url": "../../packages/inovcom/invoicing",
                 "reference": "dd74f9519c9694925e32920c8b273c272ae2631e"
             },
             "require": {
@@ -2106,7 +2106,7 @@
             "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/quotations",
+                "url": "../../packages/inovcom/quotations",
                 "reference": "ca91353641ad3e621ae89edbcf087aaf406b5c10"
             },
             "require": {
@@ -2143,7 +2143,7 @@
             "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/reporting",
+                "url": "../../packages/inovcom/reporting",
                 "reference": "857b11f6ede3e561c775b180b304f2108050c043"
             },
             "require": {
@@ -2292,7 +2292,7 @@
             "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/stock",
+                "url": "../../packages/inovcom/stock",
                 "reference": "aa468e657c75eebc5d48ef85343f1b0b5becd818"
             },
             "require": {
@@ -2364,7 +2364,7 @@
             "version": "dev-main",
             "dist": {
                 "type": "path",
-                "url": "./packages/inovcom/users",
+                "url": "../../packages/inovcom/users",
                 "reference": "3abfc342c65b74b3ef2d2eb003e82a9939fd7dc7"
             },
             "require": {

@@ -7,9 +7,13 @@ param(
     [string]$Root = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
     [switch]$FailOnDrift,
     [string[]]$SharedPackages = @(
+        # M2 — byte-identical lift
         'kernel', 'items', 'sales', 'purchases', 'providers', 'debts', 'inventory',
         'losses', 'payroll', 'batches', 'prescriptions', 'prospects', 'reservations',
-        'tickets', 'returns', 'branding'
+        'tickets', 'returns', 'branding',
+        # M3 — reconciled winners
+        'clients', 'caisse', 'quotations', 'invoice_payments', 'reporting', 'invoicing',
+        'configuration', 'users', 'attendance', 'expenses', 'stock'
     )
 )
 
@@ -58,21 +62,24 @@ function Compare-Pkg($pathA, $pathB) {
     [PSCustomObject]@{ Same = $same; Diff = $diff; DupPct = [math]::Round(100.0 * $same / $u, 1); Union = $all.Count }
 }
 
-Write-Host "`n=== Non-shared local packages (ERP vs Pressing drift - expected until M3) ==="
-$localPkgs = @()
-if (Test-Path $erp) { $localPkgs += (Get-ChildItem $erp -Directory).Name }
-$localPkgs = $localPkgs | Sort-Object -Unique
-foreach ($pkg in $localPkgs) {
-    $pe = Join-Path $erp $pkg
-    $pp = Join-Path $prs $pkg
-    if (-not (Test-Path $pp)) { Write-Host ("{0,-18} only in ERP" -f $pkg); continue }
-    $c = Compare-Pkg $pe $pp
-    Write-Host ("{0,-18} {1,6}% same={2} diff={3}" -f $pkg, $c.DupPct, $c.Same, $c.Diff)
+Write-Host "`n=== Leftover local inovcom dirs (ERP/Pressing should be empty after M3) ==="
+foreach ($label in @(@{N='erp'; P=$erp}, @{N='pressing'; P=$prs})) {
+    if (-not (Test-Path $label.P)) {
+        Write-Host ("{0,-10} (no packages/inovcom dir)" -f $label.N)
+        continue
+    }
+    $dirs = @(Get-ChildItem $label.P -Directory -EA SilentlyContinue | Select-Object -ExpandProperty Name)
+    if ($dirs.Count -eq 0) {
+        Write-Host ("{0,-10} empty OK" -f $label.N)
+    } else {
+        Write-Host ("{0,-10} leftover: {1}" -f $label.N, ($dirs -join ', '))
+        $failed += ($label.N + ':' + ($dirs -join '+'))
+    }
 }
 
 $reportDir = Join-Path $Root 'docs\fingerprint'
 New-Item -ItemType Directory -Path $reportDir -Force | Out-Null
-$out = Join-Path $reportDir ("m2-shared-check-{0:yyyyMMdd-HHmmss}.txt" -f (Get-Date))
+$out = Join-Path $reportDir ("m3-shared-check-{0:yyyyMMdd-HHmmss}.txt" -f (Get-Date))
 "failed=$($failed -join ',')" | Set-Content $out
 Write-Host "`nReport: $out"
 
@@ -82,7 +89,7 @@ if ($FailOnDrift -and $failed.Count -gt 0) {
 }
 
 if ($failed.Count -eq 0) {
-    Write-Host "`nM2 shared layout OK." -ForegroundColor Green
+    Write-Host "`nM3 shared layout OK." -ForegroundColor Green
     exit 0
 }
 Write-Host "`nIssues: $($failed -join ', ')" -ForegroundColor Yellow

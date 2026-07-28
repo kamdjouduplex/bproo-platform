@@ -16,11 +16,11 @@
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/users"
+            "url": "../../packages/inovcom/users"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/clients"
+            "url": "../../packages/inovcom/clients"
         },
         {
             "type": "path",
@@ -32,7 +32,7 @@
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/stock"
+            "url": "../../packages/inovcom/stock"
         },
         {
             "type": "path",
@@ -44,7 +44,7 @@
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/expenses"
+            "url": "../../packages/inovcom/expenses"
         },
         {
             "type": "path",
@@ -56,7 +56,7 @@
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/reporting"
+            "url": "../../packages/inovcom/reporting"
         },
         {
             "type": "path",
@@ -64,11 +64,11 @@
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/attendance"
+            "url": "../../packages/inovcom/attendance"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/configuration"
+            "url": "../../packages/inovcom/configuration"
         },
         {
             "type": "path",
@@ -80,19 +80,19 @@
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/caisse"
+            "url": "../../packages/inovcom/caisse"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/quotations"
+            "url": "../../packages/inovcom/quotations"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/invoicing"
+            "url": "../../packages/inovcom/invoicing"
         },
         {
             "type": "path",
-            "url": "./packages/inovcom/invoice_payments"
+            "url": "../../packages/inovcom/invoice_payments"
         },
         {
             "type": "path",
@@ -172,26 +172,26 @@
             "Database\\Seeders\\": "database/seeders/",
             "InovCom\\Kernel\\": "../../packages/inovcom/kernel/src/",
             "InovCom\\Items\\": "../../packages/inovcom/items/src/",
-            "InovCom\\Users\\": "packages/inovcom/users/src/",
-            "InovCom\\Clients\\": "packages/inovcom/clients/src/",
+            "InovCom\\Users\\": "../../packages/inovcom/users/src/",
+            "InovCom\\Clients\\": "../../packages/inovcom/clients/src/",
             "InovCom\\Providers\\": "../../packages/inovcom/providers/src/",
-            "InovCom\\Expenses\\": "packages/inovcom/expenses/src/",
+            "InovCom\\Expenses\\": "../../packages/inovcom/expenses/src/",
             "InovCom\\Inventory\\": "../../packages/inovcom/inventory/src/",
             "InovCom\\Debts\\": "../../packages/inovcom/debts/src/",
             "InovCom\\Losses\\": "../../packages/inovcom/losses/src/",
             "InovCom\\Purchases\\": "../../packages/inovcom/purchases/src/",
             "InovCom\\Sales\\": "../../packages/inovcom/sales/src/",
-            "InovCom\\Stock\\": "packages/inovcom/stock/src/",
-            "InovCom\\Reporting\\": "packages/inovcom/reporting/src/",
+            "InovCom\\Stock\\": "../../packages/inovcom/stock/src/",
+            "InovCom\\Reporting\\": "../../packages/inovcom/reporting/src/",
             "InovCom\\Payroll\\": "../../packages/inovcom/payroll/src/",
-            "InovCom\\Attendance\\": "packages/inovcom/attendance/src/",
-            "InovCom\\Configuration\\": "packages/inovcom/configuration/src/",
+            "InovCom\\Attendance\\": "../../packages/inovcom/attendance/src/",
+            "InovCom\\Configuration\\": "../../packages/inovcom/configuration/src/",
             "InovCom\\Batches\\": "../../packages/inovcom/batches/src/",
             "InovCom\\Prescriptions\\": "../../packages/inovcom/prescriptions/src/",
-            "InovCom\\Caisse\\": "packages/inovcom/caisse/src/",
-            "InovCom\\Quotations\\": "packages/inovcom/quotations/src/",
-            "InovCom\\Invoicing\\": "packages/inovcom/invoicing/src/",
-            "InovCom\\InvoicePayments\\": "packages/inovcom/invoice_payments/src/",
+            "InovCom\\Caisse\\": "../../packages/inovcom/caisse/src/",
+            "InovCom\\Quotations\\": "../../packages/inovcom/quotations/src/",
+            "InovCom\\Invoicing\\": "../../packages/inovcom/invoicing/src/",
+            "InovCom\\InvoicePayments\\": "../../packages/inovcom/invoice_payments/src/",
             "InovCom\\Tickets\\": "../../packages/inovcom/tickets/src/",
             "InovCom\\Returns\\": "../../packages/inovcom/returns/src/",
             "InovCom\\Reservations\\": "../../packages/inovcom/reservations/src/",
