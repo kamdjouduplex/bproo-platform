@@ -140,6 +140,10 @@
         },
         {
             "type": "path",
+            "url": "../../packages/ui/core"
+        },
+        {
+            "type": "path",
             "url": "../../packages/verticals/pressing"
         }
     ],
@@ -151,6 +155,7 @@
         "bproo/platform-admin": "@dev",
         "bproo/platform-auth": "@dev",
         "bproo/platform-printing": "@dev",
+        "bproo/ui-core": "@dev",
         "barryvdh/laravel-dompdf": "^3.1",
         "endroid/qr-code": "^6.0",
         "guzzlehttp/guzzle": "^7.2",

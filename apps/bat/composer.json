@@ -12,6 +12,10 @@
         },
         {
             "type": "path",
+            "url": "../../packages/ui/core"
+        },
+        {
+            "type": "path",
             "url": "./packages/inovcom/items"
         },
         {
@@ -87,6 +91,7 @@
         "inovcom/facturation": "@dev",
         "inovcom/items": "@dev",
         "bproo/core": "@dev",
+        "bproo/ui-core": "@dev",
         "inovcom/maintenance": "@dev",
         "inovcom/offres": "@dev",
         "inovcom/planning": "@dev",

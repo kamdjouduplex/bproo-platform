@@ -23,3 +23,4 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="{{ $d }}"/>
     </svg>
 </span>
+

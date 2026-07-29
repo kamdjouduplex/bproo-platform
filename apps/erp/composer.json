@@ -137,6 +137,10 @@
         {
             "type": "path",
             "url": "../../packages/platform/printing"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/ui/core"
         }
     ],
     "require": {
@@ -147,6 +151,7 @@
         "bproo/platform-admin": "@dev",
         "bproo/platform-auth": "@dev",
         "bproo/platform-printing": "@dev",
+        "bproo/ui-core": "@dev",
         "barryvdh/laravel-dompdf": "^3.1",
         "guzzlehttp/guzzle": "^7.2",
         "bproo/attendance": "@dev",

@@ -6,3 +6,4 @@
     'actions' => $actions,
     'slot' => $slot,
 ])
+
