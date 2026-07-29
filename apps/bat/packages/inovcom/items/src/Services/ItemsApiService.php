@@ -20,13 +20,15 @@ class ItemsApiService implements ItemsApi
         return Item::on('tenant')->find($id);
     }
 
-    public function getItemPrice(string $sku, string $tier = 'retail'): ?float
+    public function getItemPrice(string $sku, mixed $context = null): ?float
     {
         $item = $this->findItem($sku);
         
         if (!$item) {
             return null;
         }
+
+        $tier = is_string($context) ? $context : 'retail';
 
         return match ($tier) {
             'retail' => $item->price,

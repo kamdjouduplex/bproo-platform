@@ -8,7 +8,7 @@
     "repositories": [
         {
             "type": "path",
-            "url": "./packages/inovcom/kernel"
+            "url": "../../packages/inovcom/kernel"
         },
         {
             "type": "path",
@@ -117,7 +117,7 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/",
-            "InovCom\\Kernel\\": "packages/inovcom/kernel/src/",
+            "InovCom\\Kernel\\": "../../packages/inovcom/kernel/src/",
             "InovCom\\Items\\": "packages/inovcom/items/src/",
             "InovCom\\Branding\\": "packages/inovcom/branding/src/",
             "InovCom\\Users\\": "packages/inovcom/users/src/",

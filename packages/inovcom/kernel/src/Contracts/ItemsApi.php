@@ -23,13 +23,13 @@ interface ItemsApi
     public function findItemById(int $id): ?object;
 
     /**
-     * Get item price
+     * Get item price.
      *
-     * @param string $sku Item reference (sku column)
-     * @param int|null $unitId Optional unit ID for unit-specific price
-     * @return float|null Price or null if item not found
+     * ERP passes ?int $unitId (unit-specific price).
+     * BAT passes string $tier ('retail'|'semi_wholesale'|'wholesale').
+     * Implementations should handle their own second-arg semantics.
      */
-    public function getItemPrice(string $sku, ?int $unitId = null): ?float;
+    public function getItemPrice(string $sku, mixed $context = null): ?float;
 
     /**
      * Check if an item is active
