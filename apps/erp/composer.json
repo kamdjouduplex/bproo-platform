@@ -8,7 +8,7 @@
     "repositories": [
         {
             "type": "path",
-            "url": "../../packages/inovcom/kernel"
+            "url": "../../packages/inovcom/core"
         },
         {
             "type": "path",
@@ -20,7 +20,7 @@
         },
         {
             "type": "path",
-            "url": "../../packages/inovcom/clients"
+            "url": "../../packages/inovcom/crm"
         },
         {
             "type": "path",
@@ -32,7 +32,7 @@
         },
         {
             "type": "path",
-            "url": "../../packages/inovcom/stock"
+            "url": "../../packages/inovcom/inventory"
         },
         {
             "type": "path",
@@ -40,7 +40,7 @@
         },
         {
             "type": "path",
-            "url": "../../packages/inovcom/inventory"
+            "url": "../../packages/inovcom/inventory-count"
         },
         {
             "type": "path",
@@ -60,7 +60,7 @@
         },
         {
             "type": "path",
-            "url": "../../packages/inovcom/payroll"
+            "url": "../../packages/inovcom/hr"
         },
         {
             "type": "path",
@@ -80,7 +80,7 @@
         },
         {
             "type": "path",
-            "url": "../../packages/inovcom/caisse"
+            "url": "../../packages/inovcom/cash-register"
         },
         {
             "type": "path",
@@ -92,7 +92,7 @@
         },
         {
             "type": "path",
-            "url": "../../packages/inovcom/invoice_payments"
+            "url": "../../packages/inovcom/payments"
         },
         {
             "type": "path",
@@ -109,7 +109,11 @@
         {
             "type": "path",
             "url": "../../packages/inovcom/prospects"
-        }        ,
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/settings"
+        },
         {
             "type": "path",
             "url": "../../packages/platform/tenancy"
@@ -145,32 +149,33 @@
         "bproo/platform-printing": "@dev",
         "barryvdh/laravel-dompdf": "^3.1",
         "guzzlehttp/guzzle": "^7.2",
-        "inovcom/batches": "@dev",
-        "inovcom/caisse": "@dev",
-        "inovcom/clients": "@dev",
-        "inovcom/configuration": "@dev",
-        "inovcom/debts": "@dev",
-        "inovcom/expenses": "@dev",
-        "inovcom/invoice-payments": "@dev",
-        "inovcom/inventory": "@dev",
-        "inovcom/invoicing": "@dev",
-        "inovcom/items": "@dev",
-        "inovcom/kernel": "@dev",
-        "inovcom/losses": "@dev",
-        "inovcom/payroll": "@dev",
-        "inovcom/attendance": "@dev",
-        "inovcom/prescriptions": "@dev",
-        "inovcom/providers": "@dev",
-        "inovcom/quotations": "@dev",
-        "inovcom/purchases": "@dev",
-        "inovcom/reporting": "@dev",
-        "inovcom/reservations": "@dev",
-        "inovcom/prospects": "@dev",
-        "inovcom/returns": "@dev",
-        "inovcom/sales": "@dev",
-        "inovcom/stock": "@dev",
-        "inovcom/tickets": "@dev",
-        "inovcom/users": "@dev",
+        "bproo/attendance": "@dev",
+        "bproo/batches": "@dev",
+        "bproo/cash-register": "@dev",
+        "bproo/configuration": "@dev",
+        "bproo/core": "@dev",
+        "bproo/crm": "@dev",
+        "bproo/debts": "@dev",
+        "bproo/expenses": "@dev",
+        "bproo/hr": "@dev",
+        "bproo/inventory": "@dev",
+        "bproo/inventory-count": "@dev",
+        "bproo/invoicing": "@dev",
+        "bproo/items": "@dev",
+        "bproo/losses": "@dev",
+        "bproo/payments": "@dev",
+        "bproo/prescriptions": "@dev",
+        "bproo/prospects": "@dev",
+        "bproo/providers": "@dev",
+        "bproo/purchases": "@dev",
+        "bproo/quotations": "@dev",
+        "bproo/reporting": "@dev",
+        "bproo/reservations": "@dev",
+        "bproo/returns": "@dev",
+        "bproo/sales": "@dev",
+        "bproo/settings": "@dev",
+        "bproo/tickets": "@dev",
+        "bproo/users": "@dev",
         "laravel/framework": "^10.10",
         "laravel/sanctum": "^3.3",
         "laravel/tinker": "^2.8",
@@ -202,32 +207,33 @@
             "App\\Events\\": "app/Events/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/",
-            "InovCom\\Kernel\\": "../../packages/inovcom/kernel/src/",
+            "InovCom\\Kernel\\": "../../packages/inovcom/core/src/",
             "InovCom\\Items\\": "../../packages/inovcom/items/src/",
             "InovCom\\Users\\": "../../packages/inovcom/users/src/",
-            "InovCom\\Clients\\": "../../packages/inovcom/clients/src/",
+            "InovCom\\Clients\\": "../../packages/inovcom/crm/src/",
             "InovCom\\Providers\\": "../../packages/inovcom/providers/src/",
             "InovCom\\Expenses\\": "../../packages/inovcom/expenses/src/",
-            "InovCom\\Inventory\\": "../../packages/inovcom/inventory/src/",
+            "InovCom\\Inventory\\": "../../packages/inovcom/inventory-count/src/",
             "InovCom\\Debts\\": "../../packages/inovcom/debts/src/",
             "InovCom\\Losses\\": "../../packages/inovcom/losses/src/",
             "InovCom\\Purchases\\": "../../packages/inovcom/purchases/src/",
             "InovCom\\Sales\\": "../../packages/inovcom/sales/src/",
-            "InovCom\\Stock\\": "../../packages/inovcom/stock/src/",
+            "InovCom\\Stock\\": "../../packages/inovcom/inventory/src/",
             "InovCom\\Reporting\\": "../../packages/inovcom/reporting/src/",
-            "InovCom\\Payroll\\": "../../packages/inovcom/payroll/src/",
+            "InovCom\\Payroll\\": "../../packages/inovcom/hr/src/",
             "InovCom\\Attendance\\": "../../packages/inovcom/attendance/src/",
             "InovCom\\Configuration\\": "../../packages/inovcom/configuration/src/",
             "InovCom\\Batches\\": "../../packages/inovcom/batches/src/",
             "InovCom\\Prescriptions\\": "../../packages/inovcom/prescriptions/src/",
-            "InovCom\\Caisse\\": "../../packages/inovcom/caisse/src/",
+            "InovCom\\Caisse\\": "../../packages/inovcom/cash-register/src/",
             "InovCom\\Quotations\\": "../../packages/inovcom/quotations/src/",
             "InovCom\\Invoicing\\": "../../packages/inovcom/invoicing/src/",
-            "InovCom\\InvoicePayments\\": "../../packages/inovcom/invoice_payments/src/",
+            "InovCom\\InvoicePayments\\": "../../packages/inovcom/payments/src/",
             "InovCom\\Tickets\\": "../../packages/inovcom/tickets/src/",
             "InovCom\\Returns\\": "../../packages/inovcom/returns/src/",
             "InovCom\\Reservations\\": "../../packages/inovcom/reservations/src/",
-            "InovCom\\Prospects\\": "../../packages/inovcom/prospects/src/"
+            "InovCom\\Prospects\\": "../../packages/inovcom/prospects/src/",
+            "InovCom\\Branding\\": "../../packages/inovcom/settings/src/"
         }
     },
     "autoload-dev": {

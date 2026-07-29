@@ -1,25 +1,23 @@
 ﻿{
-    "name":  "bproo/prescriptions",
-    "description":  "Pharmacy: prescriptions and dispensing",
+    "name":  "bproo/crm",
+    "description":  "Inov-Com Clients module: client management, segments, credit limits, addresses, contacts",
     "type":  "library",
     "license":  "MIT",
     "require":  {
                     "php":  "^8.1",
-                    "inovcom/items":  "@dev",
-                    "inovcom/clients":  "@dev",
                     "laravel/framework":  "^10.0",
                     "livewire/livewire":  "^3.0|^4.0",
                     "bproo/core":  "@dev"
                 },
     "autoload":  {
                      "psr-4":  {
-                                   "InovCom\\Prescriptions\\":  "src/"
+                                   "InovCom\\Clients\\":  "src/"
                                }
                  },
     "extra":  {
                   "laravel":  {
                                   "providers":  [
-                                                    "InovCom\\Prescriptions\\PrescriptionsServiceProvider"
+                                                    "InovCom\\Clients\\ClientsServiceProvider"
                                                 ]
                               }
               },

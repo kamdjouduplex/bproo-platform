@@ -1,25 +1,24 @@
 ﻿{
-    "name":  "bproo/prescriptions",
-    "description":  "Pharmacy: prescriptions and dispensing",
+    "name":  "bproo/hr",
+    "description":  "Inov-Com Payroll module: employee payroll management",
     "type":  "library",
     "license":  "MIT",
     "require":  {
                     "php":  "^8.1",
-                    "inovcom/items":  "@dev",
-                    "inovcom/clients":  "@dev",
+                    "inovcom/users":  "@dev",
                     "laravel/framework":  "^10.0",
                     "livewire/livewire":  "^3.0|^4.0",
                     "bproo/core":  "@dev"
                 },
     "autoload":  {
                      "psr-4":  {
-                                   "InovCom\\Prescriptions\\":  "src/"
+                                   "InovCom\\Payroll\\":  "src/"
                                }
                  },
     "extra":  {
                   "laravel":  {
                                   "providers":  [
-                                                    "InovCom\\Prescriptions\\PrescriptionsServiceProvider"
+                                                    "InovCom\\Payroll\\PayrollServiceProvider"
                                                 ]
                               }
               },

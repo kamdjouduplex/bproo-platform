@@ -1,26 +1,30 @@
-{
-    "name": "inovcom/tickets",
-    "description": "Inov-Com Tickets module: issue tracking and resolution workflow",
-    "type": "library",
-    "license": "MIT",
-    "require": {
-        "php": "^8.1",
-        "inovcom/kernel": "@dev",
-        "inovcom/users": "@dev",
-        "laravel/framework": "^10.0",
-        "livewire/livewire": "^3.0|^4.0"
-    },
-    "autoload": {
-        "psr-4": {
-            "InovCom\\Tickets\\": "src/"
-        }
-    },
-    "extra": {
-        "laravel": {
-            "providers": [
-                "InovCom\\Tickets\\TicketsServiceProvider"
-            ]
-        }
-    },
-    "minimum-stability": "stable"
+﻿{
+    "name":  "bproo/tickets",
+    "description":  "Inov-Com Tickets module: issue tracking and resolution workflow",
+    "type":  "library",
+    "license":  "MIT",
+    "require":  {
+                    "php":  "^8.1",
+                    "inovcom/users":  "@dev",
+                    "laravel/framework":  "^10.0",
+                    "livewire/livewire":  "^3.0|^4.0",
+                    "bproo/core":  "@dev"
+                },
+    "autoload":  {
+                     "psr-4":  {
+                                   "InovCom\\Tickets\\":  "src/"
+                               }
+                 },
+    "extra":  {
+                  "laravel":  {
+                                  "providers":  [
+                                                    "InovCom\\Tickets\\TicketsServiceProvider"
+                                                ]
+                              }
+              },
+    "minimum-stability":  "stable",
+    "replace":  {
+
+                },
+    "version":  "1.0.0"
 }

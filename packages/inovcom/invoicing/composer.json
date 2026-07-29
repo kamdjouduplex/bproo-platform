@@ -1,28 +1,32 @@
-{
-    "name": "inovcom/invoicing",
-    "description": "Inov-Com Invoicing module: factures avec et sans déclaration",
-    "type": "library",
-    "license": "MIT",
-    "require": {
-        "php": "^8.1",
-        "inovcom/clients": "@dev",
-        "inovcom/items": "@dev",
-        "inovcom/kernel": "@dev",
-        "inovcom/quotations": "@dev",
-        "laravel/framework": "^10.0",
-        "livewire/livewire": "^3.0|^4.0"
-    },
-    "autoload": {
-        "psr-4": {
-            "InovCom\\Invoicing\\": "src/"
-        }
-    },
-    "extra": {
-        "laravel": {
-            "providers": [
-                "InovCom\\Invoicing\\InvoicingServiceProvider"
-            ]
-        }
-    },
-    "minimum-stability": "stable"
+﻿{
+    "name":  "bproo/invoicing",
+    "description":  "Inov-Com Invoicing module: factures avec et sans dÃ©claration",
+    "type":  "library",
+    "license":  "MIT",
+    "require":  {
+                    "php":  "^8.1",
+                    "inovcom/clients":  "@dev",
+                    "inovcom/items":  "@dev",
+                    "inovcom/quotations":  "@dev",
+                    "laravel/framework":  "^10.0",
+                    "livewire/livewire":  "^3.0|^4.0",
+                    "bproo/core":  "@dev"
+                },
+    "autoload":  {
+                     "psr-4":  {
+                                   "InovCom\\Invoicing\\":  "src/"
+                               }
+                 },
+    "extra":  {
+                  "laravel":  {
+                                  "providers":  [
+                                                    "InovCom\\Invoicing\\InvoicingServiceProvider"
+                                                ]
+                              }
+              },
+    "minimum-stability":  "stable",
+    "replace":  {
+
+                },
+    "version":  "1.0.0"
 }

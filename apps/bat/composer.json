@@ -8,7 +8,7 @@
     "repositories": [
         {
             "type": "path",
-            "url": "../../packages/inovcom/kernel"
+            "url": "../../packages/inovcom/core"
         },
         {
             "type": "path",
@@ -86,7 +86,7 @@
         "inovcom/dms": "@dev",
         "inovcom/facturation": "@dev",
         "inovcom/items": "@dev",
-        "inovcom/kernel": "@dev",
+        "bproo/core": "@dev",
         "inovcom/maintenance": "@dev",
         "inovcom/offres": "@dev",
         "inovcom/planning": "@dev",
@@ -117,7 +117,7 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/",
-            "InovCom\\Kernel\\": "../../packages/inovcom/kernel/src/",
+            "InovCom\\Kernel\\": "../../packages/inovcom/core/src/",
             "InovCom\\Items\\": "packages/inovcom/items/src/",
             "InovCom\\Branding\\": "packages/inovcom/branding/src/",
             "InovCom\\Users\\": "packages/inovcom/users/src/",
