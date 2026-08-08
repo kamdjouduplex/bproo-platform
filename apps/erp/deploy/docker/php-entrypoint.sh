@@ -3,6 +3,16 @@ set -e
 
 cd /var/www/html
 
+# Empty named volumes need Laravel dirs on first boot
+mkdir -p \
+  storage/app/public \
+  storage/framework/cache/data \
+  storage/framework/sessions \
+  storage/framework/views \
+  storage/framework/testing \
+  storage/logs \
+  bootstrap/cache
+
 if [ -d "storage" ] && [ -d "bootstrap/cache" ]; then
   chown -R www-data:www-data storage bootstrap/cache || true
   chmod -R ug+rwx storage bootstrap/cache || true

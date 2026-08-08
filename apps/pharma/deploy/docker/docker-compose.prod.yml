@@ -13,6 +13,9 @@ services:
     volumes:
       - app-storage:/var/www/html/storage
       - app-cache:/var/www/html/bootstrap/cache
+    networks:
+      - default
+      - bproo-net
     depends_on:
       redis:
         condition: service_healthy
@@ -37,6 +40,9 @@ services:
         condition: service_started
     volumes:
       - app-storage:/var/www/html/storage:ro
+    networks:
+      - default
+      - proxy_net
     healthcheck:
       test: ["CMD-SHELL", "test -s /var/run/nginx.pid && kill -0 $$(cat /var/run/nginx.pid)"]
       interval: 30s
@@ -53,6 +59,9 @@ services:
     volumes:
       - app-storage:/var/www/html/storage
       - app-cache:/var/www/html/bootstrap/cache
+    networks:
+      - default
+      - bproo-net
     depends_on:
       app:
         condition: service_started
@@ -68,6 +77,9 @@ services:
     volumes:
       - app-storage:/var/www/html/storage
       - app-cache:/var/www/html/bootstrap/cache
+    networks:
+      - default
+      - bproo-net
     depends_on:
       app:
         condition: service_started
@@ -90,3 +102,9 @@ volumes:
   app-storage:
   app-cache:
   redis-data:
+
+networks:
+  bproo-net:
+    external: true
+  proxy_net:
+    external: true

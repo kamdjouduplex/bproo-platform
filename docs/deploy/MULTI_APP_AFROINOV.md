@@ -313,9 +313,12 @@ cd /home/kamfo-teuh-01/apps/bproo-platform/apps/erp
 
 bproo_dc myerp erp build --no-cache
 
-APP_KEY=$(bproo_dc myerp erp run --rm app php artisan key:generate --show)
+# Bypass entrypoint noise; keep only the key line
+APP_KEY=$(bproo_dc myerp erp run --rm --entrypoint php app artisan key:generate --show | tr -d '\r' | tail -n1)
 echo "APP_KEY=${APP_KEY}"
-sed -i "s|^APP_KEY=.*|APP_KEY=${APP_KEY}|" deploy/docker/.env.production
+# Use | delimiter — keys contain + / =
+sed -i "s|^APP_KEY=.*$|APP_KEY=${APP_KEY}|" deploy/docker/.env.production
+grep '^APP_KEY=base64:' deploy/docker/.env.production
 
 bproo_dc myerp erp up -d
 bproo_dc myerp erp ps
@@ -326,7 +329,8 @@ docker network connect bproo-net myerp-scheduler-1 2>/dev/null || true
 docker network connect proxy_net myerp-web-1 2>/dev/null || true
 
 curl -sI http://127.0.0.1:8091/ | head -5
-bproo_dc myerp erp exec app php artisan db:show
+# Simple DB check (do NOT use db:show — it may try to install doctrine/dbal interactively)
+bproo_dc myerp erp exec app php artisan migrate:status
 ```
 
 ### 9.3 Migrations + seed
@@ -425,8 +429,10 @@ EOF
 
 bproo_dc admin control-center build --no-cache
 
-APP_KEY=$(bproo_dc admin control-center run --rm app php artisan key:generate --show)
-sed -i "s|^APP_KEY=.*|APP_KEY=${APP_KEY}|" deploy/docker/.env.production
+APP_KEY=$(bproo_dc admin control-center run --rm --entrypoint php app artisan key:generate --show | tr -d '\r' | tail -n1)
+echo "APP_KEY=${APP_KEY}"
+sed -i "s|^APP_KEY=.*$|APP_KEY=${APP_KEY}|" deploy/docker/.env.production
+grep '^APP_KEY=base64:' deploy/docker/.env.production
 
 bproo_dc admin control-center up -d
 bproo_dc admin control-center ps
@@ -450,11 +456,17 @@ Même users landlord que myerp (même DB).
 
 ---
 
-## 11. Étape 5 — Pharma
+## 11. Étape 5 — Pharma (one-shot)
+
+Prérequis : `bproo-net` + Postgres landlord déjà créés (étapes 2–3), Caddy avec le bloc `pharma.afroinov.com`.
 
 ```bash
-cd /home/kamfo-teuh-01/apps/bproo-platform/apps/pharma
+cd /home/kamfo-teuh-01/apps/bproo-platform
+git pull --ff-only
 
+cd apps/pharma
+
+# Même DB_* que myerp / admin (landlord partagé)
 cat > deploy/docker/.env.production <<EOF
 APP_NAME="Bproo Pharma"
 APP_ENV=production
@@ -500,50 +512,21 @@ HTTP_PORT=8092
 EOF
 chmod 600 deploy/docker/.env.production
 
-cat > deploy/docker/docker-compose.override.yml <<'EOF'
-services:
-  app:
-    networks: [default, bproo-net]
-  queue:
-    networks: [default, bproo-net]
-  scheduler:
-    networks: [default, bproo-net]
-  web:
-    ports:
-      - "127.0.0.1:8092:80"
-    networks: [default, proxy_net]
+# Build + APP_KEY + réseaux + migrate + caches (tout-en-un)
+COMPOSE_PROJECT=pharma HTTP_PORT=8092 bash deploy/docker/bootstrap-prod.sh
 
-networks:
-  bproo-net:
-    external: true
-  proxy_net:
-    external: true
-EOF
-
-bproo_dc pharma pharma build --no-cache
-APP_KEY=$(bproo_dc pharma pharma run --rm app php artisan key:generate --show)
-sed -i "s|^APP_KEY=.*|APP_KEY=${APP_KEY}|" deploy/docker/.env.production
-
-bproo_dc pharma pharma up -d
-docker network connect bproo-net pharma-app-1 2>/dev/null || true
-docker network connect bproo-net pharma-queue-1 2>/dev/null || true
-docker network connect bproo-net pharma-scheduler-1 2>/dev/null || true
-docker network connect proxy_net pharma-web-1 2>/dev/null || true
-
-bproo_dc pharma pharma exec app php artisan migrate --force
-bproo_dc pharma pharma exec app php artisan config:cache
-bproo_dc pharma pharma exec app php artisan route:cache
-bproo_dc pharma pharma exec app php artisan view:cache
-
-curl -sI http://127.0.0.1:8092/ | head -5
+curl -sI https://pharma.afroinov.com/ | head -8
 ```
 
 ---
 
-## 12. Étape 6 — Pressing
+## 12. Étape 6 — Pressing (one-shot)
 
 ```bash
-cd /home/kamfo-teuh-01/apps/bproo-platform/apps/pressing
+cd /home/kamfo-teuh-01/apps/bproo-platform
+git pull --ff-only
+
+cd apps/pressing
 
 cat > deploy/docker/.env.production <<EOF
 APP_NAME="Bproo Pressing"
@@ -590,42 +573,9 @@ HTTP_PORT=8093
 EOF
 chmod 600 deploy/docker/.env.production
 
-cat > deploy/docker/docker-compose.override.yml <<'EOF'
-services:
-  app:
-    networks: [default, bproo-net]
-  queue:
-    networks: [default, bproo-net]
-  scheduler:
-    networks: [default, bproo-net]
-  web:
-    ports:
-      - "127.0.0.1:8093:80"
-    networks: [default, proxy_net]
+COMPOSE_PROJECT=pressing HTTP_PORT=8093 bash deploy/docker/bootstrap-prod.sh
 
-networks:
-  bproo-net:
-    external: true
-  proxy_net:
-    external: true
-EOF
-
-bproo_dc pressing pressing build --no-cache
-APP_KEY=$(bproo_dc pressing pressing run --rm app php artisan key:generate --show)
-sed -i "s|^APP_KEY=.*|APP_KEY=${APP_KEY}|" deploy/docker/.env.production
-
-bproo_dc pressing pressing up -d
-docker network connect bproo-net pressing-app-1 2>/dev/null || true
-docker network connect bproo-net pressing-queue-1 2>/dev/null || true
-docker network connect bproo-net pressing-scheduler-1 2>/dev/null || true
-docker network connect proxy_net pressing-web-1 2>/dev/null || true
-
-bproo_dc pressing pressing exec app php artisan migrate --force
-bproo_dc pressing pressing exec app php artisan config:cache
-bproo_dc pressing pressing exec app php artisan route:cache
-bproo_dc pressing pressing exec app php artisan view:cache
-
-curl -sI http://127.0.0.1:8093/ | head -5
+curl -sI https://pressing.afroinov.com/ | head -8
 ```
 
 ---

@@ -76,7 +76,8 @@ RUN mkdir -p database/migrations/tenant_modules \
     && chown -R www-data:www-data storage bootstrap/cache database/migrations/tenant_modules \
     && chmod -R ug+rwx storage bootstrap/cache database/migrations/tenant_modules
 
-COPY ${APP_DIR}/deploy/docker/php-entrypoint.sh /usr/local/bin/php-entrypoint.sh
+# Shared entrypoint (storage dirs, package rediscovery, caches)
+COPY deployment/docker/php-entrypoint.sh /usr/local/bin/php-entrypoint.sh
 RUN chmod +x /usr/local/bin/php-entrypoint.sh
 
 ENTRYPOINT ["php-entrypoint.sh"]
