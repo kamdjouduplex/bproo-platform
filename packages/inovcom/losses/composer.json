@@ -1,4 +1,4 @@
-﻿{
+{
     "name":  "bproo/losses",
     "description":  "Inov-Com Losses module: loss records, reasons, and stock integration",
     "type":  "library",

@@ -122,6 +122,7 @@
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/",
+            "Bproo\\UiCore\\": "../../packages/ui/core/src/",
             "InovCom\\Kernel\\": "../../packages/inovcom/core/src/",
             "InovCom\\Items\\": "packages/inovcom/items/src/",
             "InovCom\\Branding\\": "packages/inovcom/branding/src/",

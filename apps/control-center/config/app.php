@@ -177,6 +177,7 @@ return [
         InovCom\Tickets\TicketsServiceProvider::class,
         InovCom\Returns\ReturnsServiceProvider::class,
         InovCom\Prospects\ProspectsServiceProvider::class,
+        InovCom\Crm\CrmServiceProvider::class,
 
         /*
          * Application Service Providers...

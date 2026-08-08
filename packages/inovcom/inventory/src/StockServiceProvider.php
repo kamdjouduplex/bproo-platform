@@ -9,6 +9,8 @@ use InovCom\Stock\Http\Livewire\StockIndex;
 use InovCom\Stock\Http\Livewire\StockLookup;
 use InovCom\Stock\Http\Livewire\StockMovementsIndex;
 use InovCom\Stock\Http\Livewire\StockTransfer;
+use InovCom\Kernel\Contracts\StockApi;
+use InovCom\Stock\Adapters\InventoryStockApiAdapter;
 use InovCom\Stock\Services\StockMovementService;
 use InovCom\Stock\Services\StorageLocationService;
 use InovCom\Kernel\Traits\LazyModuleBoot;
@@ -29,6 +31,7 @@ class StockServiceProvider extends ServiceProvider
         $this->app->singleton(\InovCom\Stock\Services\StockService::class);
         $this->app->singleton(StorageLocationService::class);
         $this->app->singleton(StockMovementService::class);
+        $this->app->singleton(StockApi::class, InventoryStockApiAdapter::class);
     }
 
     public function boot(): void

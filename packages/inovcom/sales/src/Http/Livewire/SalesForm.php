@@ -9,6 +9,7 @@ use InovCom\Items\Services\ItemSetService;
 use InovCom\Kernel\Contracts\BatchesApi;
 use InovCom\Kernel\Contracts\ClientsApi;
 use InovCom\Kernel\Contracts\ItemsApi;
+use InovCom\Kernel\Contracts\PrescriptionsApi;
 use InovCom\Sales\Models\Payment;
 use InovCom\Sales\Models\Sale;
 use InovCom\Sales\Models\SaleLine;
@@ -17,6 +18,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Schema;
 use InovCom\Stock\Services\StorageLocationService;
 use InovCom\Stock\Services\StockService;
+use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
 class SalesForm extends Component
@@ -29,6 +31,25 @@ class SalesForm extends Component
     public string $discount_amount = '0';
     public string $discount_percent = '';
     public bool $showDiscount = false;
+
+    /** POS ordonnance modal (only when prescriptions module + Rx products in cart). */
+    public bool $showRxModal = false;
+    public string $rxModalTab = 'create'; // create | search
+    public string $rxSearch = '';
+    /** @var list<array<string, mixed>> */
+    public array $rxSearchResults = [];
+    public string $rx_prescriber_name = '';
+    public string $rx_valid_until = '';
+    /** @var list<array{item_id: int|null, item_name: string, quantity: string, instructions: string}> */
+    public array $rx_lines = [];
+    /** @var array{id:int,number:string,status_label:string,client_name:?string,valid_until:?string,lines_summary:string,remaining_total:float}|null */
+    public ?array $rxAttached = null;
+
+    /** Quick client create (ClientsApi) — independent of prescriptions. */
+    public bool $showQuickClientModal = false;
+    public string $quick_client_name = '';
+    public string $quick_client_phone = '';
+    public bool $highlightClientField = false;
 
     // Cart items (each: item_id, item_name, item_sku, unit_id, unit_name, conversion_factor, quantity, unit_price, line_total)
     public array $cart = [];
@@ -172,6 +193,13 @@ class SalesForm extends Component
                 $this->payment_rows = $payload['payment_rows'] ?? [
                     ['method' => 'cash', 'amount' => '0', 'transaction_reference' => ''],
                 ];
+                $this->prescription_id = isset($payload['prescription_id']) ? (int) $payload['prescription_id'] : null;
+                if ($this->prescription_id) {
+                    $this->refreshAttachedPrescription();
+                }
+                foreach (array_keys($this->cart) as $idx) {
+                    $this->refreshCartBatchInfo((int) $idx);
+                }
                 $this->syncDefaultCashPayment();
                 $suspended->delete();
                 session()->flash('success', 'Vente reprise.');
@@ -212,6 +240,7 @@ class SalesForm extends Component
         $stockService = $stockEnabled ? app(StockService::class) : null;
         $locationService = $locationsEnabled ? app(StorageLocationService::class) : null;
         $setService = app(ItemSetService::class);
+        $batchesApi = $this->batchesApiOrNull();
 
         $results = [];
         foreach ($items as $item) {
@@ -222,6 +251,17 @@ class SalesForm extends Component
                 $availableQty = $stockService ? $stockService->getAvailableQuantity($item->id, $storeId) : null;
             }
             $locationLabel = $isSet ? null : ($locationService ? ($locationService->codesForItem($item->id, $storeId) ?: null) : null);
+
+            $batchHint = null;
+            $meta = is_array($item->metadata ?? null) ? $item->metadata : [];
+            if ($batchesApi && ! $isSet && ! empty($meta['batch_tracked'])) {
+                $next = $batchesApi->getBatchesForItem($item->id, true, true)->first();
+                if ($next) {
+                    $batchHint = $next->batch_number.' · exp. '.$next->expiry_date->format('d/m/Y');
+                } else {
+                    $batchHint = 'Aucun lot non périmé';
+                }
+            }
 
             $units = $item->selling_units;
             foreach ($units as $u) {
@@ -237,6 +277,7 @@ class SalesForm extends Component
                     'available_qty' => $availableQty,
                     'location_label' => $locationLabel,
                     'is_set' => $isSet,
+                    'batch_hint' => $batchHint,
                 ];
             }
         }
@@ -247,7 +288,11 @@ class SalesForm extends Component
     {
         $existingIndex = null;
         foreach ($this->cart as $index => $cartItem) {
-            if ((int) $cartItem['item_id'] === (int) $variant['id'] && (int) ($cartItem['unit_id'] ?? 0) === (int) ($variant['unit_id'] ?? 0)) {
+            // Same item+unit without an explicit lot choice can merge; different lots stay separate.
+            $sameItem = (int) $cartItem['item_id'] === (int) $variant['id']
+                && (int) ($cartItem['unit_id'] ?? 0) === (int) ($variant['unit_id'] ?? 0);
+            $sameLot = (int) ($cartItem['batch_id'] ?? 0) === (int) ($variant['batch_id'] ?? 0);
+            if ($sameItem && $sameLot) {
                 $existingIndex = $index;
                 break;
             }
@@ -259,10 +304,15 @@ class SalesForm extends Component
         $unitName = $variant['unit_name'] ?? 'pc';
         $conversionFactor = (string) ($variant['conversion_factor'] ?? 1);
         $price = (string) ($variant['price'] ?? '0');
+        $meta = is_array($item?->metadata ?? null) ? $item->metadata : [];
+        $requiresPrescription = ! empty($meta['requires_prescription']);
 
         if ($existingIndex !== null) {
             $this->cart[$existingIndex]['quantity'] = (string) ((float) $this->cart[$existingIndex]['quantity'] + 1);
             $this->cart[$existingIndex]['line_total'] = (string) ((float) $this->cart[$existingIndex]['quantity'] * (float) $this->cart[$existingIndex]['unit_price']);
+            $this->cart[$existingIndex]['requires_prescription'] = $requiresPrescription
+                || ! empty($this->cart[$existingIndex]['requires_prescription']);
+            $this->refreshCartBatchInfo($existingIndex);
         } else {
             $this->cart[] = [
                 'item_id' => $variant['id'],
@@ -274,13 +324,154 @@ class SalesForm extends Component
                 'quantity' => '1',
                 'unit_price' => $price,
                 'line_total' => $price,
-                'is_set' => !empty($variant['is_set']),
+                'is_set' => ! empty($variant['is_set']),
+                'requires_prescription' => $requiresPrescription,
+                'batch_tracked_flag' => ! empty($meta['batch_tracked']),
+                'batch_tracked' => false,
+                'batch_id' => null,
+                'batch_options' => [],
+                'batch_summary' => null,
             ];
+            $this->refreshCartBatchInfo(count($this->cart) - 1);
         }
 
         $this->itemSearch = '';
         $this->searchResults = [];
         $this->syncDefaultCashPayment();
+    }
+
+    public function setCartBatch(int $index, ?string $batchId): void
+    {
+        if (! isset($this->cart[$index])) {
+            return;
+        }
+        $this->cart[$index]['batch_id'] = ($batchId !== null && $batchId !== '') ? (int) $batchId : null;
+        $this->refreshCartBatchInfo($index);
+    }
+
+    public function updateCartQuantity(int $index, string $quantity): void
+    {
+        if ((float) $quantity <= 0) {
+            $this->removeFromCart($index);
+
+            return;
+        }
+
+        $this->cart[$index]['quantity'] = $quantity;
+        $this->cart[$index]['line_total'] = (string) ((float) $quantity * (float) $this->cart[$index]['unit_price']);
+        $this->refreshCartBatchInfo($index);
+        $this->syncDefaultCashPayment();
+    }
+
+    /**
+     * Attach lot options + FEFO preview when Batches module is on and item is tracked.
+     * No-op for commerce without lots (keeps POS unchanged).
+     */
+    private function refreshCartBatchInfo(int $index): void
+    {
+        if (! isset($this->cart[$index])) {
+            return;
+        }
+
+        $cartItem = &$this->cart[$index];
+        $cartItem['batch_tracked'] = false;
+        $cartItem['batch_options'] = [];
+        $cartItem['batch_summary'] = null;
+
+        if (! empty($cartItem['is_set'])) {
+            return;
+        }
+
+        $batchesApi = $this->batchesApiOrNull();
+        if (! $batchesApi) {
+            $cartItem['batch_id'] = null;
+
+            return;
+        }
+
+        // Prefer cart flag when present (avoids Item::find on every qty change).
+        $tracked = array_key_exists('batch_tracked_flag', $cartItem)
+            ? (bool) $cartItem['batch_tracked_flag']
+            : null;
+        if ($tracked === null) {
+            $item = Item::find((int) $cartItem['item_id']);
+            $tracked = $item && is_array($item->metadata ?? null) && ! empty($item->metadata['batch_tracked']);
+            $cartItem['batch_tracked_flag'] = $tracked;
+            if ($item && is_array($item->metadata ?? null) && array_key_exists('requires_prescription', $item->metadata)) {
+                $cartItem['requires_prescription'] = ! empty($item->metadata['requires_prescription']);
+            }
+        }
+        if (! $tracked) {
+            $cartItem['batch_id'] = null;
+
+            return;
+        }
+
+        $cartItem['batch_tracked'] = true;
+        $batches = $batchesApi->getBatchesForItem((int) $cartItem['item_id'], true, true);
+        $cartItem['batch_options'] = $batches->map(function ($b) {
+            $days = now()->startOfDay()->diffInDays($b->expiry_date->copy()->startOfDay(), false);
+
+            return [
+                'id' => (int) $b->id,
+                'label' => $b->batch_number
+                    .' · exp. '.$b->expiry_date->format('d/m/Y')
+                    .' · stock '.fmt_num_plain((float) $b->quantity)
+                    .($days <= 30 ? ' ⚠' : ''),
+                'batch_number' => (string) $b->batch_number,
+                'expiry_date' => $b->expiry_date->format('Y-m-d'),
+                'quantity' => (float) $b->quantity,
+            ];
+        })->values()->all();
+
+        // Drop invalid selection
+        $selectedId = isset($cartItem['batch_id']) ? (int) $cartItem['batch_id'] : null;
+        if ($selectedId && ! $batches->contains('id', $selectedId)) {
+            $selectedId = null;
+            $cartItem['batch_id'] = null;
+        }
+
+        // Auto-pick when only one sellable lot — clearer for the cashier
+        if ($selectedId === null && count($cartItem['batch_options']) === 1) {
+            $selectedId = (int) $cartItem['batch_options'][0]['id'];
+            $cartItem['batch_id'] = $selectedId;
+        }
+
+        $qtyBase = $this->quantityInBaseUnit($cartItem);
+        $preview = $batchesApi->previewAllocation((int) $cartItem['item_id'], $qtyBase, $selectedId);
+        $cartItem['batch_summary'] = $this->formatBatchPreviewSummary($preview, $selectedId !== null);
+    }
+
+    /**
+     * @param  list<array{batch_id: int, batch_number: string, expiry_date: string, quantity: float}>  $preview
+     */
+    private function formatBatchPreviewSummary(array $preview, bool $forcedLot): ?string
+    {
+        if ($preview === []) {
+            return $forcedLot
+                ? 'Lot sélectionné insuffisant pour cette quantité'
+                : 'Aucun lot non périmé disponible';
+        }
+
+        $parts = [];
+        foreach ($preview as $row) {
+            $exp = \Carbon\Carbon::parse($row['expiry_date'])->format('d/m/Y');
+            $parts[] = $row['batch_number'].' (exp. '.$exp.', ×'.fmt_num_plain((float) $row['quantity']).')';
+        }
+
+        $prefix = $forcedLot ? 'Lot choisi : ' : 'Lot FEFO : ';
+
+        return $prefix.implode(' → ', $parts);
+    }
+
+    private function batchesApiOrNull(): ?BatchesApi
+    {
+        if (! app()->bound(BatchesApi::class)) {
+            return null;
+        }
+        $api = app(BatchesApi::class);
+
+        return $api->isAvailable() ? $api : null;
     }
 
     public function updateCartPrice(int $index, string $unitPrice): void
@@ -302,18 +493,6 @@ class SalesForm extends Component
     {
         unset($this->cart[$index]);
         $this->cart = array_values($this->cart);
-        $this->syncDefaultCashPayment();
-    }
-
-    public function updateCartQuantity(int $index, string $quantity): void
-    {
-        if ((float) $quantity <= 0) {
-            $this->removeFromCart($index);
-            return;
-        }
-
-        $this->cart[$index]['quantity'] = $quantity;
-        $this->cart[$index]['line_total'] = (string) ((float) $quantity * (float) $this->cart[$index]['unit_price']);
         $this->syncDefaultCashPayment();
     }
 
@@ -375,6 +554,7 @@ class SalesForm extends Component
         $payload = [
             'cart' => $this->cart,
             'client_id' => $this->client_id,
+            'prescription_id' => $this->prescription_id,
             'discount_amount' => $this->discount_amount,
             'discount_percent' => $this->discount_percent,
             'showDiscount' => $this->showDiscount,
@@ -410,6 +590,17 @@ class SalesForm extends Component
         $this->clientSearch = '';
         $this->clientResults = [];
         $this->prescription_id = null;
+        $this->rxAttached = null;
+        $this->showRxModal = false;
+        $this->rxSearch = '';
+        $this->rxSearchResults = [];
+        $this->rx_prescriber_name = '';
+        $this->rx_valid_until = '';
+        $this->rx_lines = [];
+        $this->showQuickClientModal = false;
+        $this->quick_client_name = '';
+        $this->quick_client_phone = '';
+        $this->highlightClientField = false;
         $this->discount_amount = '0';
         $this->discount_percent = '';
         $this->showDiscount = false;
@@ -475,6 +666,8 @@ class SalesForm extends Component
         $this->client_id = $client->id;
         $this->clientSearch = $client->name . ' (' . $client->code . ')';
         $this->clientResults = [];
+        $this->highlightClientField = false;
+        $this->showQuickClientModal = false;
     }
 
     public function clearClient(): void
@@ -482,6 +675,49 @@ class SalesForm extends Component
         $this->client_id = null;
         $this->clientSearch = '';
         $this->clientResults = [];
+    }
+
+    public function canQuickCreateClient(): bool
+    {
+        return app()->bound(ClientsApi::class);
+    }
+
+    public function openQuickClientModal(?string $prefillName = null): void
+    {
+        if (! $this->canQuickCreateClient()) {
+            return;
+        }
+        $this->quick_client_name = $prefillName !== null && $prefillName !== ''
+            ? $prefillName
+            : trim($this->clientSearch);
+        $this->quick_client_phone = '';
+        $this->showQuickClientModal = true;
+        $this->showRxModal = false;
+    }
+
+    public function closeQuickClientModal(): void
+    {
+        $this->showQuickClientModal = false;
+    }
+
+    public function createQuickClient(): void
+    {
+        if (! $this->canQuickCreateClient()) {
+            return;
+        }
+
+        try {
+            $client = app(ClientsApi::class)->createQuickClient([
+                'name' => $this->quick_client_name,
+                'phone' => $this->quick_client_phone ?: null,
+            ]);
+            $this->selectClient((int) $client->id);
+            $this->quick_client_name = '';
+            $this->quick_client_phone = '';
+            session()->flash('success', 'Client '.$client->code.' créé et sélectionné.');
+        } catch (\InvalidArgumentException|\RuntimeException|\Throwable $e) {
+            session()->flash('error', $e->getMessage());
+        }
     }
 
     private function quantityInBaseUnit(array $cartItem): float
@@ -532,6 +768,22 @@ class SalesForm extends Component
                         );
                         return false;
                     }
+
+                    $batchesApi = app()->bound(BatchesApi::class) ? app(BatchesApi::class) : null;
+                    if (! empty($component['batch_tracked']) && $batchesApi && $batchesApi->isAvailable()) {
+                        $sellable = $batchesApi->sellableQuantity((int) $component['item_id']);
+                        if ((float) $component['quantity_base'] > $sellable + 0.0001) {
+                            session()->flash(
+                                'error',
+                                'Impossible de vendre « '.$component['item_name'].' » : '
+                                .($sellable <= 0.0001
+                                    ? 'le stock est périmé.'
+                                    : 'seulement '.fmt_num_plain($sellable).' non périmé(s) disponible(s).')
+                            );
+
+                            return false;
+                        }
+                    }
                 }
 
                 continue;
@@ -551,56 +803,538 @@ class SalesForm extends Component
                 );
                 return false;
             }
+
+            // Pharmacy: only non-expired batch qty is sellable
+            $item = Item::find((int) $cartItem['item_id']);
+            $batchTracked = $item && is_array($item->metadata ?? null) && ! empty($item->metadata['batch_tracked']);
+            $batchesApi = app()->bound(BatchesApi::class) ? app(BatchesApi::class) : null;
+            if ($batchTracked && $batchesApi && $batchesApi->isAvailable()) {
+                $sellable = $batchesApi->sellableQuantity((int) $cartItem['item_id']);
+                if ($qtyBase > $sellable + 0.0001) {
+                    session()->flash(
+                        'error',
+                        'Impossible de vendre « '.$name.' » : '
+                        .($sellable <= 0.0001
+                            ? 'le stock est périmé.'
+                            : 'seulement '.fmt_num_plain($sellable).' non périmé(s) disponible(s).')
+                    );
+
+                    return false;
+                }
+            }
         }
 
         return true;
     }
 
-    private function deductStockForCartLine(
-        array $cartItem,
-        int $saleId,
-        StockService $stockService,
+    /**
+     * Enforce Rx only when the Prescriptions bridge is available.
+     * Commerce tenants without Ordonnances: no block, no UI — sales unchanged.
+     */
+    private function prescriptionsApi(): ?PrescriptionsApi
+    {
+        if (! app()->bound(PrescriptionsApi::class)) {
+            return null;
+        }
+
+        $api = app(PrescriptionsApi::class);
+
+        return $api->isAvailable() ? $api : null;
+    }
+
+    private function validatePrescriptionRequired(): bool
+    {
+        $rxApi = $this->prescriptionsApi();
+        if (! $rxApi) {
+            return true;
+        }
+
+        if (! $this->cartRequiresPrescription()) {
+            return true;
+        }
+
+        if ($this->prescription_id) {
+            return true;
+        }
+
+        $names = $this->prescriptionRequiredItemNames();
+        session()->flash(
+            'error',
+            'Ordonnance obligatoire pour : '.implode(', ', $names).'. Utilisez « Ajouter une ordonnance ».'
+        );
+
+        return false;
+    }
+
+    public function cartRequiresPrescription(): bool
+    {
+        if (! $this->prescriptionsApi()) {
+            return false;
+        }
+
+        return $this->prescriptionRequiredItemNames() !== [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function prescriptionRequiredItemNames(): array
+    {
+        $names = [];
+        $missingIds = [];
+
+        foreach ($this->cart as $cartItem) {
+            if (array_key_exists('requires_prescription', $cartItem)) {
+                if (! empty($cartItem['requires_prescription'])) {
+                    $names[] = $cartItem['item_name'] ?? ('Article #'.($cartItem['item_id'] ?? ''));
+                }
+                continue;
+            }
+            $itemId = (int) ($cartItem['item_id'] ?? 0);
+            if ($itemId > 0) {
+                $missingIds[$itemId] = $cartItem;
+            }
+        }
+
+        // Legacy suspended carts without the flag — one query max
+        if ($missingIds !== []) {
+            $items = Item::query()
+                ->whereIn('id', array_keys($missingIds))
+                ->get(['id', 'name', 'metadata'])
+                ->keyBy('id');
+            foreach ($missingIds as $itemId => $cartItem) {
+                $item = $items->get($itemId);
+                $needs = $item && is_array($item->metadata ?? null) && ! empty($item->metadata['requires_prescription']);
+                // hydrate flag for next renders
+                foreach ($this->cart as $idx => $row) {
+                    if ((int) ($row['item_id'] ?? 0) === $itemId && ! array_key_exists('requires_prescription', $row)) {
+                        $this->cart[$idx]['requires_prescription'] = $needs;
+                    }
+                }
+                if ($needs) {
+                    $names[] = $cartItem['item_name'] ?? $item->name;
+                }
+            }
+        }
+
+        return array_values(array_unique($names));
+    }
+
+    public function openRxModal(string $tab = 'create'): void
+    {
+        if (! $this->prescriptionsApi()) {
+            return;
+        }
+
+        $tab = in_array($tab, ['create', 'search'], true) ? $tab : 'create';
+
+        // Création : patient obligatoire avant d’ouvrir le modal (évite crash / UX confuse)
+        if ($tab === 'create' && ! $this->client_id) {
+            $this->highlightClientField = true;
+            session()->flash(
+                'error',
+                'Sélectionnez ou créez d’abord le patient (client), puis cliquez sur « Ajouter une ordonnance ».'
+            );
+
+            return;
+        }
+
+        $this->rxModalTab = $tab;
+        $this->showRxModal = true;
+        $this->rxSearch = '';
+        $this->rxSearchResults = [];
+        $this->highlightClientField = false;
+
+        if ($this->rxModalTab === 'create') {
+            $this->prepareRxLinesFromCart();
+            if ($this->rx_valid_until === '') {
+                $this->rx_valid_until = now()->addDays(30)->format('Y-m-d');
+            }
+        } else {
+            $this->runRxSearch();
+        }
+    }
+
+    public function closeRxModal(): void
+    {
+        $this->showRxModal = false;
+    }
+
+    public function setRxModalTab(string $tab): void
+    {
+        $tab = in_array($tab, ['create', 'search'], true) ? $tab : 'create';
+        if ($tab === 'create' && ! $this->client_id) {
+            session()->flash('error', 'Sélectionnez ou créez d’abord le patient (client) pour créer une ordonnance.');
+            $this->rxModalTab = 'search';
+
+            return;
+        }
+
+        $this->rxModalTab = $tab;
+        if ($this->rxModalTab === 'create') {
+            $this->prepareRxLinesFromCart();
+        } else {
+            $this->runRxSearch();
+        }
+    }
+
+    public function updatedRxSearch(): void
+    {
+        $this->runRxSearch();
+    }
+
+    public function prepareRxLinesFromCart(): void
+    {
+        $lines = [];
+        foreach ($this->cart as $cartItem) {
+            $itemId = (int) ($cartItem['item_id'] ?? 0);
+            if ($itemId <= 0 || ! empty($cartItem['is_set'])) {
+                continue;
+            }
+
+            $needsRx = array_key_exists('requires_prescription', $cartItem)
+                ? ! empty($cartItem['requires_prescription'])
+                : null;
+            if ($needsRx === null) {
+                $item = Item::find($itemId);
+                $needsRx = $item && is_array($item->metadata ?? null) && ! empty($item->metadata['requires_prescription']);
+            }
+            if (! $needsRx) {
+                continue;
+            }
+
+            $qtyBase = $this->quantityInBaseUnit($cartItem);
+            $lines[] = [
+                'item_id' => $itemId,
+                'item_name' => $cartItem['item_name'] ?? ('Article #'.$itemId),
+                'quantity' => (string) max(1, $qtyBase),
+                'instructions' => '',
+            ];
+        }
+
+        if ($lines === []) {
+            $lines[] = ['item_id' => null, 'item_name' => '', 'quantity' => '1', 'instructions' => ''];
+        }
+
+        $this->rx_lines = $lines;
+    }
+
+    public function addRxLine(): void
+    {
+        $this->rx_lines[] = ['item_id' => null, 'item_name' => '', 'quantity' => '1', 'instructions' => ''];
+    }
+
+    public function removeRxLine(int $index): void
+    {
+        if (count($this->rx_lines) <= 1) {
+            return;
+        }
+        unset($this->rx_lines[$index]);
+        $this->rx_lines = array_values($this->rx_lines);
+    }
+
+    public function createAndAttachPrescription(): void
+    {
+        $rxApi = $this->prescriptionsApi();
+        if (! $rxApi) {
+            return;
+        }
+
+        if (! $this->client_id) {
+            session()->flash('error', 'Sélectionnez d’abord le patient (client) pour créer l’ordonnance.');
+            $this->showRxModal = false;
+            $this->highlightClientField = true;
+
+            return;
+        }
+
+        try {
+            $created = $rxApi->createQuickForSale([
+                'client_id' => (int) $this->client_id,
+                'prescriber_name' => $this->rx_prescriber_name ?: null,
+                'valid_until' => $this->rx_valid_until ?: null,
+                'lines' => $this->rx_lines,
+            ]);
+            $this->attachPrescription((int) $created['id']);
+            session()->flash('success', 'Ordonnance '.$created['number'].' créée et rattachée à cette vente.');
+        } catch (\Throwable $e) {
+            session()->flash('error', $e->getMessage() ?: 'Impossible de créer l’ordonnance.');
+        }
+    }
+
+    public function attachPrescription(int $prescriptionId): void
+    {
+        $rxApi = $this->prescriptionsApi();
+        if (! $rxApi || $prescriptionId <= 0) {
+            return;
+        }
+
+        $snap = $rxApi->snapshotForSale($prescriptionId);
+        if (! $snap || empty($snap['attachable'])) {
+            session()->flash('error', 'Ordonnance introuvable ou non délivrable (expirée, clôturée ou déjà complète).');
+
+            return;
+        }
+
+        $this->prescription_id = (int) $snap['id'];
+        $this->rxAttached = $snap;
+        $this->showRxModal = false;
+
+        // Patient de l’ordonnance = client de la vente (évite les rattachements croisés)
+        if (! empty($snap['client_id'])) {
+            $this->selectClient((int) $snap['client_id']);
+        }
+    }
+
+    public function detachPrescription(): void
+    {
+        $this->prescription_id = null;
+        $this->rxAttached = null;
+    }
+
+    public function refreshAttachedPrescription(): void
+    {
+        if (! $this->prescription_id) {
+            $this->rxAttached = null;
+
+            return;
+        }
+        $rxApi = $this->prescriptionsApi();
+        $this->rxAttached = $rxApi?->snapshotForSale((int) $this->prescription_id);
+        if (! $this->rxAttached) {
+            $this->prescription_id = null;
+        }
+    }
+
+    private function runRxSearch(): void
+    {
+        $rxApi = $this->prescriptionsApi();
+        if (! $rxApi) {
+            $this->rxSearchResults = [];
+
+            return;
+        }
+
+        // Recherche texte = globale (réf. RX / nom). Sans texte + client sélectionné = ses restes.
+        $term = trim($this->rxSearch);
+        $clientFilter = ($term === '' && $this->client_id) ? (int) $this->client_id : null;
+
+        $this->rxSearchResults = $rxApi->searchForSale($term, $clientFilter, 12);
+    }
+
+    /**
+     * Persist cart lines and deduct stock in one pass so FEFO allocations
+     * are written to sale_lines.batch_id (split when several lots are used).
+     *
+     * @return array<int, SaleLine>
+     */
+    private function createSaleLinesAndDeductStock(
+        Sale $sale,
+        ?StockService $stockService,
         ItemSetService $setService,
         ?BatchesApi $batchesApi,
         bool $batchesAvailable
-    ): void {
-        $setQty = (float) ($cartItem['quantity'] ?? 0);
-        $factor = (float) ($cartItem['conversion_factor'] ?? 1);
+    ): array {
+        $created = [];
+        $hasStock = $stockService
+            && Schema::connection('tenant')->hasTable('stock_levels');
 
-        if (!empty($cartItem['is_set']) && $setService->isSet((int) $cartItem['item_id'])) {
-            foreach ($setService->expandForStock((int) $cartItem['item_id'], $setQty, $factor) as $component) {
-                $itemId = (int) $component['item_id'];
-                $qtyBase = (float) $component['quantity_base'];
-                if ($qtyBase <= 0) {
-                    continue;
+        foreach ($this->cart as $cartItem) {
+            $isSet = ! empty($cartItem['is_set']) && $setService->isSet((int) $cartItem['item_id']);
+
+            if ($isSet) {
+                $batchAllocations = [];
+                if ($hasStock) {
+                    $setQty = (float) ($cartItem['quantity'] ?? 0);
+                    $factor = (float) ($cartItem['conversion_factor'] ?? 1);
+                    foreach ($setService->expandForStock((int) $cartItem['item_id'], $setQty, $factor) as $component) {
+                        $itemId = (int) $component['item_id'];
+                        $qtyBase = (float) $component['quantity_base'];
+                        if ($qtyBase <= 0) {
+                            continue;
+                        }
+
+                        if ($batchesAvailable && ! empty($component['batch_tracked']) && $batchesApi) {
+                            $batchAllocations[$itemId] = $batchesApi->consumeFromBatches(
+                                $itemId,
+                                $qtyBase,
+                                'sale',
+                                (int) $sale->id
+                            );
+                            continue;
+                        }
+
+                        $stockService->removeStock($itemId, $qtyBase, 'sale', 'sale', (int) $sale->id);
+                    }
                 }
 
-                if ($batchesAvailable && $component['batch_tracked'] && $batchesApi) {
-                    $batchesApi->consumeFromBatches($itemId, $qtyBase, 'sale', $saleId);
-                    continue;
+                $line = $this->makeSaleLine($sale, $cartItem, null);
+                if (Schema::connection('tenant')->hasColumn('sale_lines', 'metadata')) {
+                    $meta = [
+                        'is_set' => true,
+                        'set_components' => $setService->componentSnapshot((int) $cartItem['item_id']),
+                    ];
+                    if ($batchAllocations !== []) {
+                        $meta['batch_allocations'] = $batchAllocations;
+                    }
+                    $line->metadata = $meta;
                 }
+                $line->save();
+                $created[] = $line;
 
-                $stockService->removeStock($itemId, $qtyBase, 'sale', 'sale', $saleId);
+                continue;
             }
 
+            $item = Item::find((int) $cartItem['item_id']);
+            $batchTracked = $item && is_array($item->metadata ?? null) && ! empty($item->metadata['batch_tracked']);
+
+            if ($hasStock && $batchesAvailable && $batchTracked && $batchesApi) {
+                $consumed = $batchesApi->consumeFromBatches(
+                    (int) $cartItem['item_id'],
+                    $this->quantityInBaseUnit($cartItem),
+                    'sale',
+                    (int) $sale->id,
+                    ! empty($cartItem['batch_id']) ? (int) $cartItem['batch_id'] : null
+                );
+
+                foreach ($this->splitCartItemByBatches($cartItem, $consumed) as $split) {
+                    $line = $this->makeSaleLine($sale, $cartItem, (int) $split['batch_id']);
+                    $line->quantity = $split['quantity'];
+                    $line->line_total = $split['line_total'];
+                    $line->save();
+                    $created[] = $line;
+                }
+
+                continue;
+            }
+
+            $line = $this->makeSaleLine($sale, $cartItem, null);
+            $line->save();
+            $created[] = $line;
+
+            if ($hasStock) {
+                $stockService->removeStock(
+                    (int) $cartItem['item_id'],
+                    $this->quantityInBaseUnit($cartItem),
+                    'sale',
+                    'sale',
+                    (int) $sale->id
+                );
+            }
+        }
+
+        return $created;
+    }
+
+    private function makeSaleLine(Sale $sale, array $cartItem, ?int $batchId): SaleLine
+    {
+        $line = new SaleLine();
+        $line->sale_id = $sale->id;
+        $line->item_id = $cartItem['item_id'];
+        $line->batch_id = $batchId;
+        $line->item_name = $cartItem['item_name'];
+        $line->item_sku = $cartItem['item_sku'];
+        $line->unit_id = $cartItem['unit_id'] ?? null;
+        $line->unit_name = $cartItem['unit_name'] ?? null;
+        $line->conversion_factor = (float) ($cartItem['conversion_factor'] ?? 1);
+        $line->quantity = (float) $cartItem['quantity'];
+        $line->unit_price = (float) $cartItem['unit_price'];
+        $line->line_total = (float) $cartItem['line_total'];
+
+        return $line;
+    }
+
+    /**
+     * @param  array<int, float>  $consumed  batch_id => quantity in base unit
+     * @return list<array{batch_id: int, quantity: float, line_total: float}>
+     */
+    private function splitCartItemByBatches(array $cartItem, array $consumed): array
+    {
+        if ($consumed === []) {
+            throw new \RuntimeException('Aucun lot consommé pour '.($cartItem['item_name'] ?? 'article').'.');
+        }
+
+        $factor = max(0.0001, (float) ($cartItem['conversion_factor'] ?? 1));
+        $unitPrice = (float) ($cartItem['unit_price'] ?? 0);
+        $targetQty = (float) ($cartItem['quantity'] ?? 0);
+        $targetTotal = (float) ($cartItem['line_total'] ?? 0);
+        $batchIds = array_keys($consumed);
+        $lastBatchId = (int) end($batchIds);
+
+        $splits = [];
+        $allocatedQty = 0.0;
+        $allocatedTotal = 0.0;
+
+        foreach ($consumed as $batchId => $qtyBase) {
+            $batchId = (int) $batchId;
+            if ($batchId === $lastBatchId) {
+                $qtySell = round($targetQty - $allocatedQty, 3);
+                $lineTotal = round($targetTotal - $allocatedTotal, 2);
+            } else {
+                $qtySell = round(((float) $qtyBase) / $factor, 3);
+                $lineTotal = round($qtySell * $unitPrice, 2);
+                $allocatedQty += $qtySell;
+                $allocatedTotal += $lineTotal;
+            }
+
+            $splits[] = [
+                'batch_id' => $batchId,
+                'quantity' => $qtySell,
+                'line_total' => $lineTotal,
+            ];
+        }
+
+        return $splits;
+    }
+
+    private function applyPrescriptionDispensation(Sale $sale): void
+    {
+        $rxApi = $this->prescriptionsApi();
+        if (! $rxApi || ! $sale->prescription_id) {
             return;
         }
 
-        $item = Item::find((int) $cartItem['item_id']);
-        $batchTracked = $item && is_array($item->metadata ?? null) && !empty($item->metadata['batch_tracked']);
-        if ($batchesAvailable && $batchTracked && $batchesApi) {
-            $batchesApi->consumeFromBatches((int) $cartItem['item_id'], $this->quantityInBaseUnit($cartItem), 'sale', $saleId);
+        $cartForRx = [];
+        foreach ($this->cart as $cartItem) {
+            $cartForRx[] = [
+                'item_id' => (int) ($cartItem['item_id'] ?? 0),
+                'quantity' => $this->quantityInBaseUnit($cartItem),
+                'is_set' => ! empty($cartItem['is_set']),
+            ];
+        }
 
+        $dispensed = $rxApi->applyDispensationFromSale((int) $sale->prescription_id, $cartForRx);
+        if ($dispensed === []) {
             return;
         }
 
-        $stockService->removeStock(
-            (int) $cartItem['item_id'],
-            $this->quantityInBaseUnit($cartItem),
-            'sale',
-            'sale',
-            $saleId
-        );
+        $remainingByItem = [];
+        foreach ($dispensed as $row) {
+            $itemId = (int) ($row['item_id'] ?? 0);
+            if ($itemId <= 0) {
+                continue;
+            }
+            $remainingByItem[$itemId] = ($remainingByItem[$itemId] ?? 0) + (float) ($row['quantity'] ?? 0);
+        }
+
+        $sale->loadMissing('lines');
+        foreach ($sale->lines as $line) {
+            $itemId = (int) $line->item_id;
+            if (empty($remainingByItem[$itemId])) {
+                continue;
+            }
+            $lineBase = (float) $line->quantity * (float) ($line->conversion_factor ?? 1);
+            $take = min($lineBase, $remainingByItem[$itemId]);
+            if ($take <= 0) {
+                continue;
+            }
+            $meta = is_array($line->metadata) ? $line->metadata : [];
+            $meta['prescription_id'] = (int) $sale->prescription_id;
+            $meta['rx_dispensed_qty'] = round($take, 3);
+            $line->metadata = $meta;
+            $line->save();
+            $remainingByItem[$itemId] -= $take;
+        }
     }
 
     public function save(): void
@@ -634,6 +1368,10 @@ class SalesForm extends Component
             }
         }
 
+        if (! $this->validatePrescriptionRequired()) {
+            return;
+        }
+
         if (!$this->validateCartStock()) {
             return;
         }
@@ -656,44 +1394,49 @@ class SalesForm extends Component
 
         $saleNumber = $this->generateSaleNumber();
 
-        $sale = new Sale();
-        $sale->sale_number = $saleNumber;
-        $sale->sale_date = now()->toDateString();
-        $sale->client_id = $data['client_id'];
-        $sale->prescription_id = $this->prescription_id ?: null;
-        $sale->subtotal = $this->subtotal;
-        $sale->discount_amount = $this->discount;
-        $sale->discount_percent = !empty($this->discount_percent) ? (float) $this->discount_percent : null;
-        $sale->total = $this->total;
-        $sale->created_by = auth('tenant')->id();
-        if (Schema::connection('tenant')->hasColumn('sales', 'store_id')) {
-            $sale->store_id = app(StoreContextService::class)->currentStoreId();
-        }
-        $sale->save();
-
         $batchesApi = app()->bound(BatchesApi::class) ? app(BatchesApi::class) : null;
         $batchesAvailable = $batchesApi && $batchesApi->isAvailable();
+        $stockService = Schema::connection('tenant')->hasTable('stock_levels')
+            && \Illuminate\Support\Facades\App::bound(StockService::class)
+            ? app(StockService::class)
+            : null;
+        $setService = app(ItemSetService::class);
 
-        foreach ($this->cart as $cartItem) {
-            $line = new SaleLine();
-            $line->sale_id = $sale->id;
-            $line->item_id = $cartItem['item_id'];
-            $line->item_name = $cartItem['item_name'];
-            $line->item_sku = $cartItem['item_sku'];
-            $line->unit_id = $cartItem['unit_id'] ?? null;
-            $line->unit_name = $cartItem['unit_name'] ?? null;
-            $line->conversion_factor = (float) ($cartItem['conversion_factor'] ?? 1);
-            $line->quantity = (float) $cartItem['quantity'];
-            $line->unit_price = (float) $cartItem['unit_price'];
-            $line->line_total = (float) $cartItem['line_total'];
-            if (Schema::connection('tenant')->hasColumn('sale_lines', 'metadata') && !empty($cartItem['is_set'])) {
-                $setService = app(ItemSetService::class);
-                $line->metadata = [
-                    'is_set' => true,
-                    'set_components' => $setService->componentSnapshot((int) $cartItem['item_id']),
-                ];
-            }
-            $line->save();
+        try {
+            $sale = DB::connection('tenant')->transaction(function () use ($data, $saleNumber, $stockService, $setService, $batchesApi, $batchesAvailable) {
+                $sale = new Sale();
+                $sale->sale_number = $saleNumber;
+                $sale->sale_date = now()->toDateString();
+                $sale->client_id = $data['client_id'];
+                if (Schema::connection('tenant')->hasColumn('sales', 'prescription_id')) {
+                    $sale->prescription_id = $this->prescription_id ?: null;
+                }
+                $sale->subtotal = $this->subtotal;
+                $sale->discount_amount = $this->discount;
+                $sale->discount_percent = !empty($this->discount_percent) ? (float) $this->discount_percent : null;
+                $sale->total = $this->total;
+                $sale->created_by = auth('tenant')->id();
+                if (Schema::connection('tenant')->hasColumn('sales', 'store_id')) {
+                    $sale->store_id = app(StoreContextService::class)->currentStoreId();
+                }
+                $sale->save();
+
+                $this->createSaleLinesAndDeductStock(
+                    $sale,
+                    $stockService,
+                    $setService,
+                    $batchesApi,
+                    $batchesAvailable
+                );
+
+                $this->applyPrescriptionDispensation($sale);
+
+                return $sale;
+            });
+        } catch (\Throwable $e) {
+            session()->flash('error', $e->getMessage());
+
+            return;
         }
 
         $userId = auth('tenant')->id();
@@ -746,21 +1489,6 @@ class SalesForm extends Component
                     $client->current_balance += $amount;
                     $client->save();
                 }
-            }
-        }
-
-        if (Schema::connection('tenant')->hasTable('stock_levels') && \Illuminate\Support\Facades\App::bound(StockService::class)) {
-            $stockService = app(StockService::class);
-            $setService = app(ItemSetService::class);
-            foreach ($this->cart as $cartItem) {
-                $this->deductStockForCartLine(
-                    $cartItem,
-                    $sale->id,
-                    $stockService,
-                    $setService,
-                    $batchesApi,
-                    $batchesAvailable
-                );
             }
         }
 
@@ -821,7 +1549,9 @@ class SalesForm extends Component
             ->with([
                 'paymentMethodLabels' => self::PAYMENT_METHODS,
                 'suspendedSales' => $suspendedSales,
-                'activePrescriptions' => $this->getActivePrescriptions(),
+                'rxRequiredNames' => $rxNames = $this->prescriptionRequiredItemNames(),
+                'cartNeedsPrescription' => $rxNames !== [],
+                'canQuickCreateClient' => $this->canQuickCreateClient(),
             ]);
     }
 
@@ -830,18 +1560,5 @@ class SalesForm extends Component
         return request()->query('tenant')
             ?? session()->get('tenant_code')
             ?? optional(request()->attributes->get('tenant'))->code;
-    }
-
-    /**
-     * Active prescriptions for dropdown (when Prescriptions module is enabled).
-     */
-    private function getActivePrescriptions(): \Illuminate\Support\Collection
-    {
-        if (!Schema::connection('tenant')->hasTable('prescriptions') || !class_exists(\InovCom\Prescriptions\Models\Prescription::class)) {
-            return collect([]);
-        }
-        return \InovCom\Prescriptions\Models\Prescription::where('status', 'active')
-            ->orderBy('number')
-            ->get(['id', 'number', 'client_id']);
     }
 }

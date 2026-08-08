@@ -35,6 +35,7 @@
                         <th>N°</th>
                         <th>Client</th>
                         <th>Prescripteur</th>
+                        <th>Délivrance</th>
                         <th>Valide jusqu'au</th>
                         <th>Statut</th>
                         <th></th>
@@ -42,19 +43,33 @@
                 </thead>
                 <tbody>
                     @forelse($prescriptions as $p)
+                        @php
+                            $prescribed = (float) $p->lines->sum('quantity');
+                            $dispensed = (float) $p->lines->sum('quantity_dispensed');
+                            $remaining = max(0, $prescribed - $dispensed);
+                        @endphp
                         <tr>
                             <td>{{ $p->number }}</td>
                             <td>{{ $p->client?->name ?? '—' }}</td>
                             <td>{{ $p->prescriber_name ?? '—' }}</td>
+                            <td style="white-space: nowrap; font-size: 13px;">
+                                <span style="color:#166534;">{{ fmt_num($dispensed) }}</span>
+                                <span style="color:#94a3b8;"> / </span>
+                                <span>{{ fmt_num($prescribed) }}</span>
+                                @if($remaining > 0.0001 && $dispensed > 0.0001)
+                                    <span style="display:block;font-size:11px;color:#b45309;">Reste {{ fmt_num($remaining) }}</span>
+                                @endif
+                            </td>
                             <td>{{ $p->valid_until?->format('d/m/Y') ?? '—' }}</td>
-                            <td>{{ $p->status }}</td>
-                            <td>
-                                <a class="btn btn-secondary" href="{{ route('tenant.prescriptions.edit', ['prescription' => $p->id, 'tenant' => $tenantCode]) }}">Modifier</a>
+                            <td>{{ $p->dispensationStatusLabel() }}</td>
+                            <td style="white-space: nowrap;">
+                                <a class="btn btn-secondary btn-sm" href="{{ route('tenant.prescriptions.edit', ['prescription' => $p->id, 'tenant' => $tenantCode]) }}">Modifier</a>
+                                <a class="btn btn-secondary btn-sm" href="{{ route('tenant.prescriptions.print', ['prescription' => $p->id, 'tenant' => $tenantCode]) }}" target="_blank">Imprimer</a>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6">Aucune ordonnance.</td>
+                            <td colspan="7">Aucune ordonnance.</td>
                         </tr>
                     @endforelse
                 </tbody>

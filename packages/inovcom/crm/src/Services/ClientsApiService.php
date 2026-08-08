@@ -3,6 +3,7 @@
 namespace InovCom\Clients\Services;
 
 use InovCom\Clients\Models\Client;
+use InovCom\Clients\Services\ClientCodeGenerator;
 use InovCom\Kernel\Contracts\ClientsApi;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -84,5 +85,32 @@ class ClientsApiService implements ClientsApi
         return Client::on('tenant')
             ->where('id', $id)
             ->exists();
+    }
+
+    public function createQuickClient(array $data): object
+    {
+        $name = trim((string) ($data['name'] ?? ''));
+        if ($name === '') {
+            throw new \InvalidArgumentException('Le nom du client est obligatoire.');
+        }
+
+        $phone = trim((string) ($data['phone'] ?? ''));
+        $email = trim((string) ($data['email'] ?? ''));
+
+        $client = new Client();
+        $client->fill([
+            'code' => app(ClientCodeGenerator::class)->next(),
+            'name' => $name,
+            'type' => 'individual',
+            'phone' => $phone !== '' ? $phone : null,
+            'email' => $email !== '' ? $email : null,
+            'is_active' => true,
+            'credit_limit' => 0,
+            'current_balance' => 0,
+            'created_by' => auth('tenant')->id(),
+        ]);
+        $client->save();
+
+        return $client;
     }
 }

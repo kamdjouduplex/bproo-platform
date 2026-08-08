@@ -68,7 +68,7 @@ class MessagesSettings extends Component
         return view('pressing::livewire.settings.messages', [
             'canManage' => $this->can('pressing_settings.manage'),
         ])->layout('layouts.app', [
-            'title' => 'Messages',
+            'title' => 'Modèles de messages',
             'subtitle' => 'Paramétrage',
         ]);
     }

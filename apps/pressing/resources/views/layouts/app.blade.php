@@ -87,10 +87,14 @@
                             @endphp
                             @if($tenantAuthCheck)
                                 @if ($hasAttendanceModule && class_exists(\InovCom\Attendance\Http\Livewire\AttendancePunchWidget::class))
-                                    <livewire:inovcom-attendance.punch-widget />
+                                    <livewire:inovcom-attendance.punch-widget wire:key="header-attendance-punch" />
                                 @endif
                                 <livewire:tenant.notification-bell />
-                                <span class="app-user">{{ auth('tenant')->user()->name }}</span>
+                                <span class="app-user">
+                                    <a href="{{ route('tenant.account.profile', ['tenant' => $tenantCode]) }}" style="color:inherit;text-decoration:none;font-weight:600;">
+                                        {{ auth('tenant')->user()->name }}
+                                    </a>
+                                </span>
                                 <form method="POST" action="{{ route('tenant.logout', ['tenant' => $tenantCode]) }}">
                                     @csrf
                                     <button class="btn btn-secondary" type="submit">{{ __('Déconnexion') }}</button>
@@ -124,7 +128,11 @@
                                     try { $tenantAuthCheck = auth('tenant')->check(); } catch (\Throwable $e) { $tenantAuthCheck = false; }
                                 @endphp
                                 @if($tenantAuthCheck)
-                                    <span class="app-user">{{ auth('tenant')->user()->name }}</span>
+                                    <span class="app-user">
+                                    <a href="{{ route('tenant.account.profile', ['tenant' => $tenantCode]) }}" style="color:inherit;text-decoration:none;font-weight:600;">
+                                        {{ auth('tenant')->user()->name }}
+                                    </a>
+                                </span>
                                     <form method="POST" action="{{ route('tenant.logout', ['tenant' => $tenantCode]) }}">
                                         @csrf
                                     <button class="btn btn-secondary" type="submit">{{ __('Déconnexion') }}</button>
@@ -208,14 +216,49 @@
                                     <div class="app-sidebar-label">{{ __($groupLabels[$groupKey] ?? $groupKey) }}</div>
                                     @foreach ($links as $link)
                                         @php
-                                            $routeBase = str_replace('.index', '.', $link['route']);
-                                            $isActive = $currentRoute === $link['route']
-                                                || ($link['route'] !== 'tenant.subscription' && str_starts_with($currentRoute, $routeBase));
+                                            $children = $link['children'] ?? [];
+                                            $routeBase = str_replace('.index', '.', (string) ($link['route'] ?? ''));
+                                            $childActive = false;
+                                            foreach ($children as $child) {
+                                                $childBase = str_replace('.index', '.', $child['route']);
+                                                if ($currentRoute === $child['route'] || str_starts_with($currentRoute, $childBase)) {
+                                                    $childActive = true;
+                                                    break;
+                                                }
+                                            }
+                                            $isActive = (($link['route'] ?? null) !== null && (
+                                                    $currentRoute === $link['route']
+                                                    || ($link['route'] !== 'tenant.subscription' && $routeBase !== '' && str_starts_with($currentRoute, $routeBase))
+                                                ))
+                                                || $childActive;
                                         @endphp
-                                        <a href="{{ route($link['route'], ['tenant' => $tenant->code]) }}" class="app-sidebar-link {{ $isActive ? 'app-sidebar-link--active' : '' }}" @click="sidebarOpen = false">
-                                            <x-sidebar-icon :icon="$link['icon'] ?? 'cog'" class="app-sidebar-link-icon" />
-                                            <span>{{ __($link['label']) }}</span>
-                                        </a>
+                                        @if (!empty($children))
+                                            <div class="app-sidebar-group" x-data="{ open: {{ $childActive || $isActive ? 'true' : 'false' }} }">
+                                                <button type="button" class="app-sidebar-link app-sidebar-link--parent {{ $isActive ? 'app-sidebar-link--active' : '' }}" @click="open = !open">
+                                                    <x-sidebar-icon :icon="$link['icon'] ?? 'cog'" class="app-sidebar-link-icon" />
+                                                    <span>{{ __($link['label']) }}</span>
+                                                    <svg class="app-sidebar-caret" :class="{ 'app-sidebar-caret--open': open }" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                                                </button>
+                                                <div class="app-sidebar-sub" x-show="open" x-cloak>
+                                                    @foreach ($children as $child)
+                                                        @php
+                                                            $childBase = str_replace('.index', '.', $child['route']);
+                                                            $childIsActive = $currentRoute === $child['route'] || str_starts_with($currentRoute, $childBase);
+                                                        @endphp
+                                                        <a href="{{ route($child['route'], ['tenant' => $tenant->code]) }}" class="app-sidebar-link app-sidebar-link--child {{ $childIsActive ? 'app-sidebar-link--active' : '' }}" @click="sidebarOpen = false">
+                                                            <x-sidebar-icon :icon="$child['icon'] ?? 'cog'" class="app-sidebar-link-icon" />
+                                                            <span>{{ __($child['label']) }}</span>
+                                                        </a>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @else
+                                            @continue(empty($link['route']) || ! Route::has($link['route']))
+                                            <a href="{{ route($link['route'], ['tenant' => $tenant->code]) }}" class="app-sidebar-link {{ $isActive ? 'app-sidebar-link--active' : '' }}" @click="sidebarOpen = false">
+                                                <x-sidebar-icon :icon="$link['icon'] ?? 'cog'" class="app-sidebar-link-icon" />
+                                                <span>{{ __($link['label']) }}</span>
+                                            </a>
+                                        @endif
                                     @endforeach
                                 @endforeach
                             </nav>
@@ -226,8 +269,8 @@
                         <div class="app-main-inner">
                             <div class="page-header">
                                 <div>
-                                    <div class="page-title">{{ __($title ?? 'Tableau de bord') }}</div>
-                                    <div class="page-subtitle">{{ !empty($subtitle) ? __($subtitle) : '' }}</div>
+                                    <div class="page-title">{{ is_string($title ?? null) ? $title : 'Tableau de bord' }}</div>
+                                    <div class="page-subtitle">{{ is_string($subtitle ?? null) ? $subtitle : '' }}</div>
                                 </div>
                                 <div class="page-actions">{{ $actions ?? '' }}</div>
                             </div>
@@ -240,8 +283,8 @@
                     <div class="app-main-inner">
                         <div class="page-header">
                             <div>
-                                <div class="page-title">{{ $title ?? 'Tableau de bord' }}</div>
-                                <div class="page-subtitle">{{ $subtitle ?? '' }}</div>
+                                <div class="page-title">{{ is_string($title ?? null) ? $title : 'Tableau de bord' }}</div>
+                                <div class="page-subtitle">{{ is_string($subtitle ?? null) ? $subtitle : '' }}</div>
                             </div>
                             <div class="page-actions">{{ $actions ?? '' }}</div>
                         </div>
@@ -252,8 +295,8 @@
                 <main class="app-content">
                     <div class="page-header">
                         <div>
-                            <div class="page-title">{{ $title ?? 'Tableau de bord' }}</div>
-                            <div class="page-subtitle">{{ $subtitle ?? '' }}</div>
+                            <div class="page-title">{{ is_string($title ?? null) ? $title : 'Tableau de bord' }}</div>
+                            <div class="page-subtitle">{{ is_string($subtitle ?? null) ? $subtitle : '' }}</div>
                         </div>
                         <div class="page-actions">{{ $actions ?? '' }}</div>
                     </div>

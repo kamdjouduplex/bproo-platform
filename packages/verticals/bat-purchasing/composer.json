@@ -5,7 +5,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.1",
-        "inovcom/kernel": "@dev",
+        "bproo/core": "@dev",
         "inovcom/clients": "@dev",
         "inovcom/projets": "@dev",
         "laravel/framework": "^10.0",

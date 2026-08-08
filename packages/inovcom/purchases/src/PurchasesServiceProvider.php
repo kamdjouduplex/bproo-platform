@@ -18,6 +18,8 @@ use InovCom\Purchases\Services\PurchaseDocumentNumberService;
 use InovCom\Purchases\Services\PurchasePriceHistoryService;
 use InovCom\Purchases\Models\ForeignPurchaseOrder;
 use InovCom\Purchases\Models\PurchaseOrder;
+use InovCom\Purchases\Services\PurchasingApiService;
+use InovCom\Kernel\Contracts\PurchasingApi;
 use InovCom\Kernel\Traits\LazyModuleBoot;
 use Livewire\Livewire;
 
@@ -36,6 +38,7 @@ class PurchasesServiceProvider extends ServiceProvider
         $this->app->singleton(PurchasePriceHistoryService::class);
         $this->app->singleton(\InovCom\Purchases\Services\PurchasesService::class);
         $this->app->singleton(\InovCom\Purchases\Services\ForeignPurchasesService::class);
+        $this->app->singleton(PurchasingApi::class, PurchasingApiService::class);
     }
 
     public function boot(): void

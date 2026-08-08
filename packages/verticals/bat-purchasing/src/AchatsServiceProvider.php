@@ -4,12 +4,14 @@ namespace InovCom\Achats;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use InovCom\Achats\Adapters\BatPurchasingApiAdapter;
 use InovCom\Achats\Http\Livewire\PurchaseOrderForm;
 use InovCom\Achats\Http\Livewire\PurchaseOrdersIndex;
 use InovCom\Achats\Http\Livewire\SupplierForm;
 use InovCom\Achats\Http\Livewire\SuppliersIndex;
 use InovCom\Achats\Models\PurchaseOrder;
 use InovCom\Achats\Models\Supplier;
+use InovCom\Kernel\Contracts\PurchasingApi;
 use InovCom\Kernel\Traits\LazyModuleBoot;
 use Livewire\Livewire;
 
@@ -18,6 +20,11 @@ class AchatsServiceProvider extends ServiceProvider
     use LazyModuleBoot;
 
     protected string $moduleKey = 'achats';
+
+    public function register(): void
+    {
+        $this->app->singleton(PurchasingApi::class, BatPurchasingApiAdapter::class);
+    }
 
     public function boot(): void
     {

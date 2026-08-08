@@ -9,6 +9,8 @@ Platform ops host (`apps/control-center`). MVP parity with product `/admin`:
 
 Uses shared `packages/platform/*` and the **same landlord DB** as ERP/Pressing Admin (expand/contract — do not migrate company business data here).
 
+**Production (afroinov.com):** un seul guide — [`docs/deploy/MULTI_APP_AFROINOV.md`](../../docs/deploy/MULTI_APP_AFROINOV.md) (`admin.afroinov.com`).
+
 ## Local
 
 ```bash

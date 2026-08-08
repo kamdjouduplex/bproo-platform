@@ -424,6 +424,8 @@ Stable Interfaces: `ClientsApi`, `ItemsApi`, `StockApi`, `InvoicingApi`, `Purcha
 ### Expected result
 True DIP across verticals. **M8 complete.**
 
+> Status: see `docs/PHASE_8_STATUS.md` (COMPLETE — ready for testing, 2026-07-29).
+
 ---
 
 ## Phase 9 — Optional Schema Convergence

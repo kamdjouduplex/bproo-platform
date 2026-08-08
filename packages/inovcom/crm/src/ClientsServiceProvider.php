@@ -24,6 +24,9 @@ class ClientsServiceProvider extends ServiceProvider
      */
     protected string $moduleKey = 'clients';
 
+    /** Also boot when the CRM suite module is enabled. */
+    protected array $alsoBootWhenModules = ['crm'];
+
     public function register(): void
     {
         // Register ClientsApi interface implementation

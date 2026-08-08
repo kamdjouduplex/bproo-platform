@@ -1,0 +1,290 @@
+{
+    "name": "bproo/pharma-app",
+    "type": "project",
+    "description": "Bproo Pharma — ERP pharmacie multi-tenant (POS, lots, ordonnances).",
+    "version": "0.1.0",
+    "keywords": ["laravel", "multi-tenant", "bproo", "pharmacy", "pharma"],
+    "license": "MIT",
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/core"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/items"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/users"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/crm"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/providers"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/sales"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/inventory"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/purchases"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/inventory-count"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/expenses"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/losses"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/debts"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/reporting"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/hr"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/attendance"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/configuration"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/batches"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/prescriptions"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/cash-register"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/quotations"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/invoicing"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/payments"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/tickets"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/returns"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/reservations"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/prospects"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/crm-suite"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/inovcom/settings"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/platform/tenancy"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/platform/modules"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/platform/billing"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/platform/auth"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/platform/printing"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/ui/core"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/verticals/pharma"
+        }
+    ],
+    "require": {
+        "php": "^8.1",
+        "bproo/platform-tenancy": "@dev",
+        "bproo/platform-modules": "@dev",
+        "bproo/platform-billing": "@dev",
+        "bproo/platform-auth": "@dev",
+        "bproo/platform-printing": "@dev",
+        "bproo/ui-core": "@dev",
+        "bproo/pharma": "@dev",
+        "barryvdh/laravel-dompdf": "^3.1",
+        "guzzlehttp/guzzle": "^7.2",
+        "bproo/attendance": "@dev",
+        "bproo/batches": "@dev",
+        "bproo/cash-register": "@dev",
+        "bproo/configuration": "@dev",
+        "bproo/core": "@dev",
+        "bproo/crm": "@dev",
+        "bproo/debts": "@dev",
+        "bproo/expenses": "@dev",
+        "bproo/hr": "@dev",
+        "bproo/inventory": "@dev",
+        "bproo/inventory-count": "@dev",
+        "bproo/invoicing": "@dev",
+        "bproo/items": "@dev",
+        "bproo/losses": "@dev",
+        "bproo/payments": "@dev",
+        "bproo/prescriptions": "@dev",
+        "bproo/prospects": "@dev",
+        "bproo/crm-suite": "@dev",
+        "bproo/providers": "@dev",
+        "bproo/purchases": "@dev",
+        "bproo/quotations": "@dev",
+        "bproo/reporting": "@dev",
+        "bproo/reservations": "@dev",
+        "bproo/returns": "@dev",
+        "bproo/sales": "@dev",
+        "bproo/settings": "@dev",
+        "bproo/tickets": "@dev",
+        "bproo/users": "@dev",
+        "laravel/framework": "^10.10",
+        "laravel/sanctum": "^3.3",
+        "laravel/tinker": "^2.8",
+        "livewire/livewire": "4.0",
+        "mckenziearts/laravel-notify": "^2.7",
+        "spatie/laravel-ignition": "2.4"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.9.1",
+        "laravel/pint": "^1.0",
+        "laravel/sail": "^1.18",
+        "mockery/mockery": "^1.4.4",
+        "nunomaduro/collision": "^7.0",
+        "phpunit/phpunit": "^10.1"
+    },
+    "autoload": {
+        "files": [
+            "app/helpers.php"
+        ],
+        "psr-4": {
+            "App\\": "app/",
+            "App\\Models\\": "app/Models/",
+            "App\\Services\\": "app/Services/",
+            "App\\Http\\Middleware\\": "app/Http/Middleware/",
+            "App\\Http\\Controllers\\": "app/Http/Controllers/",
+            "App\\Jobs\\": "app/Jobs/",
+            "App\\Livewire\\": "app/Livewire/",
+            "App\\Support\\": "app/Support/",
+            "App\\Events\\": "app/Events/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/",
+            "Bproo\\UiCore\\": "../../packages/ui/core/src/",
+            "InovCom\\Kernel\\": "../../packages/inovcom/core/src/",
+            "InovCom\\Items\\": "../../packages/inovcom/items/src/",
+            "InovCom\\Users\\": "../../packages/inovcom/users/src/",
+            "InovCom\\Clients\\": "../../packages/inovcom/crm/src/",
+            "InovCom\\Providers\\": "../../packages/inovcom/providers/src/",
+            "InovCom\\Expenses\\": "../../packages/inovcom/expenses/src/",
+            "InovCom\\Inventory\\": "../../packages/inovcom/inventory-count/src/",
+            "InovCom\\Debts\\": "../../packages/inovcom/debts/src/",
+            "InovCom\\Losses\\": "../../packages/inovcom/losses/src/",
+            "InovCom\\Purchases\\": "../../packages/inovcom/purchases/src/",
+            "InovCom\\Sales\\": "../../packages/inovcom/sales/src/",
+            "InovCom\\Stock\\": "../../packages/inovcom/inventory/src/",
+            "InovCom\\Reporting\\": "../../packages/inovcom/reporting/src/",
+            "InovCom\\Payroll\\": "../../packages/inovcom/hr/src/",
+            "InovCom\\Attendance\\": "../../packages/inovcom/attendance/src/",
+            "InovCom\\Configuration\\": "../../packages/inovcom/configuration/src/",
+            "InovCom\\Batches\\": "../../packages/inovcom/batches/src/",
+            "InovCom\\Prescriptions\\": "../../packages/inovcom/prescriptions/src/",
+            "InovCom\\Caisse\\": "../../packages/inovcom/cash-register/src/",
+            "InovCom\\Quotations\\": "../../packages/inovcom/quotations/src/",
+            "InovCom\\Invoicing\\": "../../packages/inovcom/invoicing/src/",
+            "InovCom\\InvoicePayments\\": "../../packages/inovcom/payments/src/",
+            "InovCom\\Tickets\\": "../../packages/inovcom/tickets/src/",
+            "InovCom\\Returns\\": "../../packages/inovcom/returns/src/",
+            "InovCom\\Reservations\\": "../../packages/inovcom/reservations/src/",
+            "InovCom\\Prospects\\": "../../packages/inovcom/prospects/src/",
+            "InovCom\\Crm\\": "../../packages/inovcom/crm-suite/src/",
+            "InovCom\\Branding\\": "../../packages/inovcom/settings/src/",
+            "Pharma\\": "../../packages/verticals/pharma/src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi"
+        ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": [
+                "bproo/platform-admin"
+            ]
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

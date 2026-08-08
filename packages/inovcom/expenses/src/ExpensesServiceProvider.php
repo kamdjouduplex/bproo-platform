@@ -21,7 +21,7 @@ class ExpensesServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        // Register services if needed
+        $this->app->singleton(\InovCom\Kernel\Contracts\ExpensesApi::class, \InovCom\Expenses\Services\ExpensesApiService::class);
     }
 
     public function boot(): void

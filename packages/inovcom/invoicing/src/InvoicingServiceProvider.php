@@ -18,6 +18,8 @@ use InovCom\Invoicing\Services\CollectionReminderService;
 use InovCom\Invoicing\Services\DeliveryNotesService;
 use InovCom\Invoicing\Http\Livewire\InvoicesIndex;
 use InovCom\Invoicing\Models\Invoice;
+use InovCom\Invoicing\Services\InvoicingApiService;
+use InovCom\Kernel\Contracts\InvoicingApi;
 use InovCom\Kernel\Traits\LazyModuleBoot;
 use Livewire\Livewire;
 
@@ -32,6 +34,7 @@ class InvoicingServiceProvider extends ServiceProvider
         $this->app->singleton(DeliveryNotesService::class);
         $this->app->singleton(CollectionReminderService::class);
         $this->app->singleton(\InovCom\Invoicing\Services\InvoiceScheduleService::class);
+        $this->app->singleton(InvoicingApi::class, InvoicingApiService::class);
     }
 
     public function boot(): void

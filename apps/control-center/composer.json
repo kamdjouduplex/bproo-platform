@@ -112,6 +112,10 @@
         },
         {
             "type": "path",
+            "url": "../../packages/inovcom/crm-suite"
+        },
+        {
+            "type": "path",
             "url": "../../packages/inovcom/settings"
         },
         {
@@ -171,6 +175,7 @@
         "bproo/payments": "@dev",
         "bproo/prescriptions": "@dev",
         "bproo/prospects": "@dev",
+        "bproo/crm-suite": "@dev",
         "bproo/providers": "@dev",
         "bproo/purchases": "@dev",
         "bproo/quotations": "@dev",
@@ -238,7 +243,9 @@
             "InovCom\\Returns\\": "../../packages/inovcom/returns/src/",
             "InovCom\\Reservations\\": "../../packages/inovcom/reservations/src/",
             "InovCom\\Prospects\\": "../../packages/inovcom/prospects/src/",
-            "InovCom\\Branding\\": "../../packages/inovcom/settings/src/"
+            "InovCom\\Crm\\": "../../packages/inovcom/crm-suite/src/",
+            "InovCom\\Branding\\": "../../packages/inovcom/settings/src/",
+            "Pressing\\": "../../packages/verticals/pressing/src/"
         }
     },
     "autoload-dev": {

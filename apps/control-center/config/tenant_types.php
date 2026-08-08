@@ -3,35 +3,67 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | Tenant types (business profiles)
+    | Product apps (tenant "type")
     |--------------------------------------------------------------------------
-    | Each tenant has one type. Type influences which modules are suggested
-    | and which default modules are enabled at provisioning. Module variants
-    | (e.g. sales vs sales-restaurant) are chosen per tenant; at most one
-    | module per "module_family" can be enabled per tenant.
+    | Each company belongs to one product app. That choice controls which
+    | application users log into, which modules are suggested/enabled, and
+    | whether multi-store setup applies.
+    |
+    | Add a new vertical here when you ship a new host app — then create
+    | tenants with that type from Control Center.
     */
     'types' => [
-        'retail' => [
-            'label' => 'Boutique / Commerce',
-            'description' => 'Vente au détail, POS classique',
+        'erp' => [
+            'label' => 'ERP / POS',
+            'description' => 'Boutique, stock, ventes, facturation — application ERP.',
+            'app_key' => 'erp',
+            'login_path' => '/app/login',
+            'base_url' => env('PRODUCT_ERP_URL', 'http://127.0.0.1:8000'),
+            'supports_multi_store' => true,
+            'db_prefix' => 'erp',
         ],
-        'pharmacy' => [
-            'label' => 'Pharmacie',
-            'description' => 'Vente de médicaments, lots, prescriptions',
+        'pharma' => [
+            'label' => 'Bproo Pharma',
+            'description' => 'Pharmacie — POS, lots, ordonnances — application Pharma.',
+            'app_key' => 'pharma',
+            'login_path' => '/app/login',
+            'base_url' => env('PRODUCT_PHARMA_URL', 'http://127.0.0.1:8003'),
+            'supports_multi_store' => true,
+            'db_prefix' => 'pharma',
         ],
-        'bakery' => [
-            'label' => 'Boulangerie',
-            'description' => 'Vente pain et pâtisserie',
+        'pressing' => [
+            'label' => 'Pressing',
+            'description' => 'Réception, production, livraisons — application Pressing.',
+            'app_key' => 'pressing',
+            'login_path' => '/app/login',
+            'base_url' => env('PRODUCT_PRESSING_URL', 'http://127.0.0.1:8001'),
+            'supports_multi_store' => false,
+            'db_prefix' => 'pressing',
         ],
-        'restaurant' => [
-            'label' => 'Restaurant',
-            'description' => 'Tables, commandes, cuisine',
-        ],
-        'other' => [
-            'label' => 'Autre',
-            'description' => 'Autre type d\'activité',
+        'bat' => [
+            'label' => 'BAT / BTP',
+            'description' => 'Chantiers, devis, maintenance — application BAT.',
+            'app_key' => 'bat',
+            'login_path' => '/app/login',
+            'base_url' => env('PRODUCT_BAT_URL', 'http://127.0.0.1:8002'),
+            'supports_multi_store' => false,
+            'db_prefix' => 'bat',
         ],
     ],
 
-    'default' => 'retail',
+    'default' => 'erp',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Legacy activity labels → product app
+    |--------------------------------------------------------------------------
+    | Older installs used retail/pharmacy/… as "type". Map them to apps.
+    */
+    'legacy_aliases' => [
+        'retail' => 'erp',
+        'pharmacy' => 'pharma',
+        'bakery' => 'erp',
+        'restaurant' => 'erp',
+        'other' => 'erp',
+    ],
 ];

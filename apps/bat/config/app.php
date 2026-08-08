@@ -159,6 +159,7 @@ return [
         /*
          * Package Service Providers...
          */
+        Bproo\UiCore\UiCoreServiceProvider::class,
         InovCom\Items\ItemsServiceProvider::class,
         InovCom\Branding\BrandingServiceProvider::class,
         InovCom\Users\UsersServiceProvider::class,

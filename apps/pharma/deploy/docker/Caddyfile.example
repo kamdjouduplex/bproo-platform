@@ -1,0 +1,4 @@
+pharma.afroinov.com {
+    encode gzip zstd
+    reverse_proxy pharma-web-1:80
+}

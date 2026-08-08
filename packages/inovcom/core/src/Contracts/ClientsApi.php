@@ -46,4 +46,13 @@ interface ClientsApi
      * Check if client exists
      */
     public function clientExists(int $id): bool;
+
+    /**
+     * Quick-create a minimal active client (POS / sale form).
+     * Implementations may throw InvalidArgumentException on validation errors.
+     *
+     * @param  array{name: string, phone?: ?string, email?: ?string}  $data
+     * @return object{id: int, code: string, name: string, phone: ?string}
+     */
+    public function createQuickClient(array $data): object;
 }

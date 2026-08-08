@@ -88,6 +88,11 @@
                         @if ($clientNiu)NIU: {{ $clientNiu }}<br>@endif
                         @if ($clientRc)RCCM: {{ $clientRc }}<br>@endif
                         @if ($clientLocation){{ $clientLocation }}@endif
+                        @if (!empty($rxSummary))
+                            <br><br>
+                            <span class="client-label">Ordonnance :</span>
+                            <strong>{{ $rxSummary['number'] }}</strong> — {{ $rxSummary['status_label'] }}
+                        @endif
                     </div>
                 </div>
 
@@ -150,6 +155,34 @@
                                         <td class="left">{{ $p->method_label }}</td>
                                         <td class="left">{{ $p->transaction_reference ?: '—' }}</td>
                                         <td class="num">{{ fmt_money((float) $p->amount) }} {{ $currencyLabel }}</td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+
+                @if (!empty($rxSummary) && !empty($rxSummary['lines']))
+                    <div class="payments-block" style="margin-top: 14px;">
+                        <h3>Délivrance ordonnance {{ $rxSummary['number'] }}</h3>
+                        <table class="lines-table">
+                            <thead>
+                                <tr>
+                                    <th>Médicament</th>
+                                    <th style="width:14%">Prescrit</th>
+                                    <th style="width:14%">Ce ticket</th>
+                                    <th style="width:14%">Total délivré</th>
+                                    <th style="width:14%">Reste</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($rxSummary['lines'] as $rxLine)
+                                    <tr>
+                                        <td class="left">{{ $rxLine['item_name'] }}</td>
+                                        <td class="qty">{{ fmt_num($rxLine['prescribed']) }}</td>
+                                        <td class="qty">{{ fmt_num($rxLine['this_sale']) }}</td>
+                                        <td class="qty">{{ fmt_num($rxLine['dispensed']) }}</td>
+                                        <td class="qty"><strong>{{ fmt_num($rxLine['remaining']) }}</strong></td>
                                     </tr>
                                 @endforeach
                             </tbody>

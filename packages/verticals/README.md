@@ -5,6 +5,7 @@ Product-specific domains. Hosts assemble shared + vertical packages.
 | Folder | Composer name (until M7) | Host |
 |---|---|---|
 | `pressing` | `kamfo/pressing` | Pressing |
+| `pharma` | `bproo/pharma` | Pharma |
 | `bat-offers` | `inovcom/offres` | BAT |
 | `bat-quotes` | `inovcom/devis` | BAT |
 | `bat-projects` | `inovcom/projets` | BAT |

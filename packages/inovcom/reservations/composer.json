@@ -1,4 +1,4 @@
-﻿{
+{
     "name":  "bproo/reservations",
     "description":  "Inov-Com Reservations module: client product holds with stock reservation",
     "type":  "library",

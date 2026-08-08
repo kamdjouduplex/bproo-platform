@@ -25,8 +25,24 @@
         {{-- View mode for existing sale --}}
         @php
             $sale = \InovCom\Sales\Models\Sale::with(['lines', 'payments', 'client', 'confirmedReturns'])->find($saleId);
-            if ($sale && $sale->prescription_id && \Illuminate\Support\Facades\Schema::connection('tenant')->hasTable('prescriptions')) {
-                $sale->load('prescription');
+            if ($sale && $sale->prescription_id
+                && \Illuminate\Support\Facades\Schema::connection('tenant')->hasTable('prescriptions')
+                && class_exists(\InovCom\Prescriptions\Models\Prescription::class)) {
+                $sale->load(['prescription.lines.item']);
+            }
+            $rxSummary = null;
+            if ($sale && $sale->prescription_id
+                && app()->bound(\InovCom\Kernel\Contracts\PrescriptionsApi::class)) {
+                $rxApi = app(\InovCom\Kernel\Contracts\PrescriptionsApi::class);
+                if ($rxApi->isAvailable()) {
+                    $rxSummary = $rxApi->saleDispensationSummary((int) $sale->prescription_id, $sale->lines->map(fn ($line) => [
+                        'item_id' => $line->item_id,
+                        'quantity' => $line->quantity,
+                        'conversion_factor' => $line->conversion_factor ?? 1,
+                        'item_name' => $line->item_name,
+                        'metadata' => $line->metadata,
+                    ])->all());
+                }
             }
             $canReturn = false;
             $user = auth('tenant')->user();
@@ -52,7 +68,12 @@
                     <p><strong>Date:</strong> {{ $sale->sale_date->format('d/m/Y H:i') }}</p>
                     <p><strong>Client:</strong> {{ $sale->client?->name ?? 'Client occasionnel' }}</p>
                     @if ($sale->prescription_id && $sale->relationLoaded('prescription') && $sale->prescription)
-                        <p><strong>Ordonnance:</strong> {{ $sale->prescription->number }}</p>
+                        <p><strong>Ordonnance:</strong> {{ $sale->prescription->number }}
+                            <span style="color:#64748b;">({{ $sale->prescription->dispensationStatusLabel() }})</span>
+                            @if (\Illuminate\Support\Facades\Route::has('tenant.prescriptions.print'))
+                                <a href="{{ route('tenant.prescriptions.print', ['prescription' => $sale->prescription_id, 'tenant' => $tenantCode]) }}" target="_blank" style="margin-left:8px;font-size:12px;">Imprimer l’ordonnance</a>
+                            @endif
+                        </p>
                     @endif
                 </div>
                 <div>
@@ -92,6 +113,34 @@
                     </tbody>
                 </table>
             </div>
+
+            @if (!empty($rxSummary) && !empty($rxSummary['lines']))
+                <h3 style="margin: 24px 0 12px;">Délivrance ordonnance {{ $rxSummary['number'] }}</h3>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Médicament</th>
+                                <th>Prescrit</th>
+                                <th>Ce ticket</th>
+                                <th>Total délivré</th>
+                                <th>Reste</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($rxSummary['lines'] as $rxLine)
+                                <tr>
+                                    <td>{{ $rxLine['item_name'] }}</td>
+                                    <td>{{ fmt_num($rxLine['prescribed']) }}</td>
+                                    <td>{{ fmt_num($rxLine['this_sale']) }}</td>
+                                    <td>{{ fmt_num($rxLine['dispensed']) }}</td>
+                                    <td><strong>{{ fmt_num($rxLine['remaining']) }}</strong></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
 
             @if ($sale->payments->count() > 0)
                 <h3 style="margin-top: 24px; margin-bottom: 12px;">Paiements</h3>
@@ -226,6 +275,11 @@
                                                         @endif
                                                     </div>
                                                 @endif
+                                                @if (!empty($variant['batch_hint']))
+                                                    <div style="font-size: 11px; margin-top: 4px; color: {{ str_contains($variant['batch_hint'], 'Aucun') ? '#b91c1c' : '#0f766e' }};">
+                                                        Lot : {{ $variant['batch_hint'] }}
+                                                    </div>
+                                                @endif
                                             </div>
                                             <div style="text-align: right; margin-left: 16px;">
                                                 <div style="font-weight: 600; color: #2563eb;">
@@ -272,6 +326,32 @@
                                                     @endif
                                                     @if (!empty($item['unit_name']))
                                                         <span style="font-size: 12px; color: #666;">({{ $item['unit_name'] }})</span>
+                                                    @endif
+                                                    @if (!empty($item['batch_tracked']))
+                                                        <div style="margin-top:6px; max-width:280px;">
+                                                            @if (count($item['batch_options'] ?? []) > 1)
+                                                                <label style="display:block;font-size:11px;color:#64748b;margin-bottom:2px;">Lot à vendre</label>
+                                                                <select
+                                                                    class="input input-sm"
+                                                                    style="width:100%;font-size:12px;"
+                                                                    wire:change="setCartBatch({{ $index }}, $event.target.value)"
+                                                                >
+                                                                    <option value="" @selected(empty($item['batch_id']))>FEFO (péremption la plus proche)</option>
+                                                                    @foreach ($item['batch_options'] as $opt)
+                                                                        <option value="{{ $opt['id'] }}" @selected((int) ($item['batch_id'] ?? 0) === (int) $opt['id'])>
+                                                                            {{ $opt['label'] }}
+                                                                        </option>
+                                                                    @endforeach
+                                                                </select>
+                                                            @endif
+                                                            @if (!empty($item['batch_summary']))
+                                                                <div style="margin-top:4px;font-size:11px;line-height:1.35;color:{{ str_contains($item['batch_summary'], 'insuffisant') || str_contains($item['batch_summary'], 'Aucun lot') ? '#b91c1c' : '#166534' }};">
+                                                                    {{ $item['batch_summary'] }}
+                                                                </div>
+                                                            @elseif (empty($item['batch_options']))
+                                                                <div style="margin-top:4px;font-size:11px;color:#b91c1c;">Aucun lot non périmé</div>
+                                                            @endif
+                                                        </div>
                                                     @endif
                                                 </td>
                                                 <td>
@@ -332,19 +412,31 @@
                     <section class="card">
                         <h2 class="card-title">Détails de la vente</h2>
                         <div class="form-grid">
-                            <div class="field" style="position: relative;">
-                                <label class="field-label">Client (optionnel)</label>
+                            <div class="field" style="position: relative;{{ !empty($highlightClientField) ? ' outline:2px solid #f59e0b; outline-offset:4px; border-radius:8px; padding:8px;' : '' }}">
+                                <label class="field-label">
+                                    @if (!empty($cartNeedsPrescription))
+                                        Client / patient
+                                    @else
+                                        Client (optionnel)
+                                    @endif
+                                </label>
                                 @if ($client_id)
                                     <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
                                         <span class="badge badge-info" style="font-size:13px; padding:8px 12px;">{{ $clientSearch }}</span>
                                         <button type="button" class="btn btn-secondary btn-sm" wire:click="clearClient">Changer</button>
                                     </div>
                                 @else
-                                    <input class="input"
-                                           type="search"
-                                           wire:model.live.debounce.250ms="clientSearch"
-                                           placeholder="Rechercher un client (nom, code, tél)…"
-                                           autocomplete="off">
+                                    <div style="display:flex; gap:8px; align-items:stretch;">
+                                        <input class="input"
+                                               type="search"
+                                               wire:model.live.debounce.250ms="clientSearch"
+                                               placeholder="Rechercher un client (nom, code, tél)…"
+                                               autocomplete="off"
+                                               style="flex:1;">
+                                        @if (!empty($canQuickCreateClient))
+                                            <button type="button" class="btn btn-secondary btn-sm" wire:click="openQuickClientModal" title="Créer un client rapidement">+ Nouveau</button>
+                                        @endif
+                                    </div>
                                     @if (trim($clientSearch) !== '' && count($clientResults) > 0)
                                         <div style="position:absolute; z-index:40; left:0; right:0; margin-top:4px; max-height:240px; overflow:auto; border:1px solid #ddd; border-radius:6px; background:#fff; box-shadow:0 8px 20px rgba(0,0,0,.1);">
                                             @foreach ($clientResults as $client)
@@ -362,19 +454,47 @@
                                             @endforeach
                                         </div>
                                     @elseif (strlen(trim($clientSearch)) >= 2 && count($clientResults) === 0)
-                                        <p class="field-hint" style="margin-top:6px;">Aucun client trouvé.</p>
+                                        <p class="field-hint" style="margin-top:6px;">
+                                            Aucun client trouvé.
+                                            @if (!empty($canQuickCreateClient))
+                                                <button type="button" class="btn btn-secondary btn-sm" style="margin-left:6px;" wire:click="openQuickClientModal">Créer « {{ \Illuminate\Support\Str::limit(trim($clientSearch), 24) }} »</button>
+                                            @endif
+                                        </p>
                                     @endif
                                 @endif
                             </div>
-                            @if (isset($activePrescriptions) && $activePrescriptions->isNotEmpty())
-                                <div class="field">
-                                    <label class="field-label">Ordonnance (optionnel)</label>
-                                    <select class="input" wire:model="prescription_id">
-                                        <option value="">Aucune</option>
-                                        @foreach ($activePrescriptions as $rx)
-                                            <option value="{{ $rx->id }}">{{ $rx->number }}</option>
-                                        @endforeach
-                                    </select>
+                            @if (!empty($cartNeedsPrescription))
+                                <div class="field" style="grid-column: 1 / -1;">
+                                    <label class="field-label">Ordonnance</label>
+                                    @if ($rxAttached)
+                                        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:flex-start; padding:12px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px;">
+                                            <div style="flex:1; min-width:200px;">
+                                                <div style="font-weight:600;">{{ $rxAttached['number'] }}
+                                                    <span style="font-weight:400; color:#166534; font-size:13px;"> · {{ $rxAttached['status_label'] }}</span>
+                                                </div>
+                                                @if (!empty($rxAttached['client_name']))
+                                                    <div style="font-size:13px; color:#374151; margin-top:2px;">Patient : {{ $rxAttached['client_name'] }}</div>
+                                                @endif
+                                                <div style="font-size:12px; color:#64748b; margin-top:4px;">{{ $rxAttached['lines_summary'] }}</div>
+                                                @if (!empty($rxAttached['valid_until']))
+                                                    <div style="font-size:12px; color:#64748b;">Valide jusqu’au {{ $rxAttached['valid_until'] }}</div>
+                                                @endif
+                                            </div>
+                                            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                                                <button type="button" class="btn btn-secondary btn-sm" wire:click="openRxModal('search')">Changer</button>
+                                                <button type="button" class="btn btn-secondary btn-sm" wire:click="detachPrescription">Retirer</button>
+                                            </div>
+                                        </div>
+                                    @else
+                                        <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; padding:12px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px;">
+                                            <div style="flex:1; min-width:180px; font-size:13px; color:#92400e;">
+                                                Ordonnance requise pour :
+                                                <strong>{{ implode(', ', $rxRequiredNames ?? []) }}</strong>
+                                            </div>
+                                            <button type="button" class="btn btn-primary btn-sm" wire:click="openRxModal('create')">Ajouter une ordonnance</button>
+                                            <button type="button" class="btn btn-secondary btn-sm" wire:click="openRxModal('search')">Continuer une ordonnance</button>
+                                        </div>
+                                    @endif
                                 </div>
                             @endif
                             <label class="field-toggle" style="grid-column: 1 / -1;">
@@ -413,7 +533,7 @@
 
                     <section class="card" style="margin-top: 16px;">
                         <h2 class="card-title">Paiement</h2>
-                        <p style="margin-bottom: 12px; color: #555; font-size: 12px;">Par défaut, le total est en <strong>espèces</strong>. Si le client paie en Orange Money, MTN Money ou à crédit, ajoutez une ligne et ajustez les montants.</p>
+
                         <div style="margin-bottom: 12px; padding: 10px 12px; background: #f0f9ff; border-radius: 4px; font-size: 12px;">
                             <strong>Total à payer:</strong> {{ fmt_money($this->total) }} FCFA
                             @if ($this->total > 0)
@@ -488,5 +608,153 @@
                 </div>
             </div>
         </form>
+    @endif
+
+    @if ($showRxModal)
+        <div class="modal-backdrop"
+             style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:80;display:flex;align-items:center;justify-content:center;padding:16px;"
+             wire:click.self="closeRxModal">
+            <div style="width:min(640px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.2);padding:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px;">
+                    <div>
+                        <h2 style="margin:0;font-size:1.15rem;">Ordonnance pour cette vente</h2>
+                        <p style="margin:6px 0 0;font-size:13px;color:#64748b;">Créer rapidement ou rattacher une ordonnance déjà partielle.</p>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" wire:click="closeRxModal">Fermer</button>
+                </div>
+
+                <div style="display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid #e5e7eb;padding-bottom:10px;">
+                    <button type="button"
+                            class="btn btn-sm {{ $rxModalTab === 'create' ? 'btn-primary' : 'btn-secondary' }}"
+                            wire:click="setRxModalTab('create')">Nouvelle</button>
+                    <button type="button"
+                            class="btn btn-sm {{ $rxModalTab === 'search' ? 'btn-primary' : 'btn-secondary' }}"
+                            wire:click="setRxModalTab('search')">Rechercher / continuer</button>
+                </div>
+
+                @if ($rxModalTab === 'create')
+                    <div class="form-grid" style="margin-bottom:12px;">
+                        <div class="field">
+                            <label class="field-label">Prescripteur</label>
+                            <input class="input" wire:model="rx_prescriber_name" placeholder="Dr. … (optionnel)">
+                        </div>
+                        <div class="field">
+                            <label class="field-label">Valide jusqu’au</label>
+                            <input class="input" type="date" wire:model="rx_valid_until">
+                        </div>
+                    </div>
+                    <p class="field-hint" style="margin-bottom:8px;">
+                        Quantité <strong>prescrite</strong> (ex. 10) — la vente peut n’en délivrer qu’une partie (ex. 5). Les lignes viennent des articles « sur ordonnance » du panier.
+                    </p>
+                    <div style="overflow-x:auto;margin-bottom:12px;">
+                        <table style="min-width:100%;font-size:13px;">
+                            <thead>
+                                <tr>
+                                    <th>Médicament</th>
+                                    <th style="width:90px;">Prescrit</th>
+                                    <th>Posologie</th>
+                                    <th style="width:40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($rx_lines as $i => $line)
+                                    <tr wire:key="rx-line-{{ $i }}-{{ $line['item_id'] ?? 0 }}">
+                                        <td style="padding:6px 4px;">{{ $line['item_name'] ?: '—' }}</td>
+                                        <td style="padding:6px 4px;">
+                                            <input class="input input-sm" type="number" min="0.001" step="any" wire:model="rx_lines.{{ $i }}.quantity" style="width:80px;">
+                                        </td>
+                                        <td style="padding:6px 4px;">
+                                            <input class="input input-sm" wire:model="rx_lines.{{ $i }}.instructions" placeholder="1 cp x 2/j">
+                                        </td>
+                                        <td style="padding:6px 4px;">
+                                            @if (count($rx_lines) > 1)
+                                                <button type="button" class="btn btn-secondary btn-sm" wire:click="removeRxLine({{ $i }})">×</button>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;">
+                        <button type="button" class="btn btn-secondary" wire:click="closeRxModal">Annuler</button>
+                        <button type="button" class="btn btn-primary" wire:click="createAndAttachPrescription">
+                            Créer et rattacher
+                        </button>
+                    </div>
+                @else
+                    <div class="field" style="margin-bottom:12px;">
+                        <label class="field-label">Recherche</label>
+                        <input class="input"
+                               type="search"
+                               wire:model.live.debounce.250ms="rxSearch"
+                               placeholder="N° ordonnance, nom patient, téléphone…"
+                               autocomplete="off">
+                        <p class="field-hint" style="margin-top:4px;">
+                            @if ($client_id && trim($rxSearch) === '')
+                                Ordonnances ouvertes du client sélectionné. Tapez pour chercher aussi par référence.
+                            @else
+                                Continuité : rattachez une ordonnance partiellement délivrée à cette vente.
+                            @endif
+                        </p>
+                    </div>
+                    @if (count($rxSearchResults) === 0)
+                        <p style="font-size:13px;color:#64748b;padding:12px 0;">Aucune ordonnance délivrable trouvée.</p>
+                    @else
+                        <div style="display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto;">
+                            @foreach ($rxSearchResults as $rx)
+                                <button type="button"
+                                        wire:click="attachPrescription({{ $rx['id'] }})"
+                                        style="text-align:left;padding:12px;border:1px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;"
+                                        onmouseover="this.style.borderColor='#93c5fd';this.style.background='#f8fafc'"
+                                        onmouseout="this.style.borderColor='#e5e7eb';this.style.background='#fff'">
+                                    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+                                        <strong>{{ $rx['number'] }}</strong>
+                                        <span style="font-size:12px;color:#166534;">{{ $rx['status_label'] }}</span>
+                                    </div>
+                                    @if (!empty($rx['client_name']))
+                                        <div style="font-size:13px;margin-top:2px;">{{ $rx['client_name'] }}</div>
+                                    @endif
+                                    <div style="font-size:12px;color:#64748b;margin-top:4px;">{{ $rx['lines_summary'] }}</div>
+                                    @if (!empty($rx['valid_until']))
+                                        <div style="font-size:11px;color:#94a3b8;margin-top:2px;">Valide jusqu’au {{ $rx['valid_until'] }}</div>
+                                    @endif
+                                </button>
+                            @endforeach
+                        </div>
+                    @endif
+                @endif
+            </div>
+        </div>
+    @endif
+
+    @if ($showQuickClientModal && !empty($canQuickCreateClient))
+        <div class="modal-backdrop"
+             style="position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:85;display:flex;align-items:center;justify-content:center;padding:16px;"
+             wire:click.self="closeQuickClientModal">
+            <div style="width:min(420px,100%);background:#fff;border-radius:12px;box-shadow:0 20px 50px rgba(0,0,0,.2);padding:20px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:14px;">
+                    <div>
+                        <h2 style="margin:0;font-size:1.1rem;">Nouveau client</h2>
+                        <p style="margin:6px 0 0;font-size:13px;color:#64748b;">Création rapide — le code est généré automatiquement.</p>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" wire:click="closeQuickClientModal">Fermer</button>
+                </div>
+                <div class="form-grid" style="grid-template-columns:1fr;">
+                    <div class="field">
+                        <label class="field-label">Nom *</label>
+                        <input class="input" wire:model="quick_client_name" placeholder="Nom du patient / client" autofocus>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Téléphone</label>
+                        <input class="input" wire:model="quick_client_phone" placeholder="Optionnel">
+                    </div>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;margin-top:16px;">
+                    <button type="button" class="btn btn-secondary" wire:click="closeQuickClientModal">Annuler</button>
+                    <button type="button" class="btn btn-primary" wire:click="createQuickClient">Créer et sélectionner</button>
+                </div>
+            </div>
+        </div>
     @endif
 </div>

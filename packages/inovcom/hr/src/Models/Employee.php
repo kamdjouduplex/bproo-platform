@@ -13,6 +13,7 @@ class Employee extends TenantModel
         'last_name',
         'email',
         'phone',
+        'punch_pin',
         'position',
         'department',
         'contract_type',

@@ -10,6 +10,8 @@ class ReceiptForm extends Component
 {
     public PurchaseOrder $purchase;
     public array $receivedQuantities = [];
+    public array $batchNumbers = [];
+    public array $expiryDates = [];
     public string $receipt_date = '';
     public ?string $notes = null;
 
@@ -30,6 +32,8 @@ class ReceiptForm extends Component
         foreach ($this->purchase->lines as $line) {
             if ($line->remaining_quantity > 0) {
                 $this->receivedQuantities[$line->id] = (string) $line->remaining_quantity;
+                $this->batchNumbers[$line->id] = '';
+                $this->expiryDates[$line->id] = '';
             }
         }
     }
@@ -40,6 +44,8 @@ class ReceiptForm extends Component
             'receipt_date' => 'required|date',
             'notes' => 'nullable|string|max:500',
             'receivedQuantities.*' => 'nullable|numeric|min:0',
+            'batchNumbers.*' => 'nullable|string|max:100',
+            'expiryDates.*' => 'nullable|date',
         ]);
 
         // Filter out zero quantities
@@ -52,6 +58,14 @@ class ReceiptForm extends Component
             return;
         }
 
+        $lotInfo = [];
+        foreach ($quantities as $lineId => $qty) {
+            $lotInfo[$lineId] = [
+                'batch_number' => $this->batchNumbers[$lineId] ?? '',
+                'expiry_date' => $this->expiryDates[$lineId] ?? '',
+            ];
+        }
+
         $purchasesService = app(PurchasesService::class);
         try {
             $receipt = $purchasesService->receiveGoods(
@@ -59,7 +73,8 @@ class ReceiptForm extends Component
                 $quantities,
                 $data['notes'],
                 null,
-                $data['receipt_date']
+                $data['receipt_date'],
+                $lotInfo
             );
         } catch (\Throwable $e) {
             session()->flash('error', $e->getMessage());
@@ -75,11 +90,33 @@ class ReceiptForm extends Component
 
     public function render()
     {
-        return view('inovcom-purchases::livewire.purchases.receipt')
+        return view('inovcom-purchases::livewire.purchases.receipt', [
+            'lineRequiresLot' => $this->lineRequiresLotMap(),
+        ])
             ->layout('layouts.app', [
                 'title' => 'Réception commande',
                 'subtitle' => $this->purchase->order_number,
             ]);
+    }
+
+    /**
+     * @return array<int, bool>
+     */
+    private function lineRequiresLotMap(): array
+    {
+        $batchesApi = app()->bound(\InovCom\Kernel\Contracts\BatchesApi::class)
+            ? app(\InovCom\Kernel\Contracts\BatchesApi::class)
+            : null;
+        $batchesAvailable = $batchesApi && $batchesApi->isAvailable();
+        $map = [];
+
+        foreach ($this->purchase->lines as $line) {
+            $item = $line->item;
+            $batchTracked = $item && is_array($item->metadata ?? null) && ! empty($item->metadata['batch_tracked']);
+            $map[$line->id] = $batchesAvailable && $batchTracked;
+        }
+
+        return $map;
     }
 
     private function tenantCode(): ?string

@@ -216,17 +216,21 @@
                         @csrf
                         
                         <div class="form-group">
-                            <label class="form-label" for="email">Adresse email</label>
+                            <label class="form-label" for="login">Email ou téléphone</label>
                             <input 
                                 class="form-input" 
-                                id="email"
-                                name="email" 
-                                type="email" 
-                                placeholder="votre@email.com"
-                                value="{{ old('email') }}"
+                                id="login"
+                                name="login" 
+                                type="text" 
+                                placeholder="votre@email.com ou 670274538"
+                                value="{{ old('login', old('email')) }}"
                                 required
                                 autofocus
+                                autocomplete="username"
                             >
+                            @error('login')
+                                <div class="error-message">{{ $message }}</div>
+                            @enderror
                             @error('email')
                                 <div class="error-message">{{ $message }}</div>
                             @enderror

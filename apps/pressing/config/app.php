@@ -159,6 +159,7 @@ return [
         /*
          * Package Service Providers...
          */
+        Bproo\UiCore\UiCoreServiceProvider::class,
         InovCom\Items\ItemsServiceProvider::class,
         InovCom\Users\UsersServiceProvider::class,
         InovCom\Clients\ClientsServiceProvider::class,
@@ -177,6 +178,7 @@ return [
         InovCom\Tickets\TicketsServiceProvider::class,
         InovCom\Returns\ReturnsServiceProvider::class,
         InovCom\Prospects\ProspectsServiceProvider::class,
+        InovCom\Crm\CrmServiceProvider::class,
         Pressing\PressingServiceProvider::class,
 
         /*

@@ -5,31 +5,43 @@ namespace InovCom\Clients;
 use InovCom\Clients\Models\Segment;
 use InovCom\Kernel\Contracts\ModuleLifecycle;
 use InovCom\Users\Models\Permission;
+use InovCom\Users\Models\Role;
 
 class ClientsModule implements ModuleLifecycle
 {
     public static function defaultPermissions(): array
     {
         return [
-            ['key' => 'clients.view', 'name' => 'Voir les clients', 'description' => 'Accès liste et détail clients'],
-            ['key' => 'clients.create', 'name' => 'Créer des clients', 'description' => 'Créer de nouveaux clients'],
-            ['key' => 'clients.update', 'name' => 'Modifier les clients', 'description' => 'Modifier les clients existants'],
-            ['key' => 'clients.delete', 'name' => 'Supprimer des clients', 'description' => 'Supprimer des clients'],
-            ['key' => 'segments.manage', 'name' => 'Gérer les segments', 'description' => 'Créer, modifier, supprimer segments'],
+            ['key' => 'clients.view', 'name' => 'Clients — voir', 'description' => 'Accès liste, fiche et vue 360° clients'],
+            ['key' => 'clients.create', 'name' => 'Clients — créer', 'description' => 'Créer de nouveaux clients'],
+            ['key' => 'clients.update', 'name' => 'Clients — modifier', 'description' => 'Modifier fiche, contacts, adresses, notes'],
+            ['key' => 'clients.delete', 'name' => 'Clients — supprimer', 'description' => 'Supprimer ou désactiver des clients'],
+            ['key' => 'clients.credit', 'name' => 'Clients — crédit', 'description' => 'Gérer les limites de crédit'],
+            ['key' => 'clients.export', 'name' => 'Clients — exporter', 'description' => 'Exporter la liste clients'],
+            ['key' => 'segments.manage', 'name' => 'Clients — segments', 'description' => 'Créer, modifier, supprimer les segments'],
         ];
     }
 
     public function install(object $tenant): void
     {
-        // Register permissions
+        $ids = [];
         foreach (self::defaultPermissions() as $p) {
-            Permission::on('tenant')->firstOrCreate(
+            $perm = Permission::on('tenant')->firstOrCreate(
                 ['key' => $p['key']],
                 ['name' => $p['name'], 'description' => $p['description'] ?? null]
             );
+            $perm->fill([
+                'name' => $p['name'],
+                'description' => $p['description'] ?? null,
+            ])->save();
+            $ids[] = $perm->id;
         }
 
-        // Create default segment
+        $admin = Role::on('tenant')->where('name', 'admin')->first();
+        if ($admin && $ids !== []) {
+            $admin->permissions()->syncWithoutDetaching($ids);
+        }
+
         Segment::firstOrCreate(
             ['code' => 'default'],
             [
@@ -42,6 +54,6 @@ class ClientsModule implements ModuleLifecycle
 
     public function uninstall(object $tenant): void
     {
-        // Optional: soft cleanup. We keep clients data for now.
+        // Keep clients data.
     }
 }

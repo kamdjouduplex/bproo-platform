@@ -4,6 +4,7 @@ namespace InovCom\Users;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use InovCom\Users\Http\Livewire\AccountProfile;
 use InovCom\Users\Http\Livewire\PermissionsMatrix;
 use InovCom\Users\Http\Livewire\RoleForm;
 use InovCom\Users\Http\Livewire\RolesIndex;
@@ -48,6 +49,7 @@ class UsersServiceProvider extends ServiceProvider
         Livewire::component('inovcom-users.roles-index', RolesIndex::class);
         Livewire::component('inovcom-users.role-form', RoleForm::class);
         Livewire::component('inovcom-users.permissions-matrix', PermissionsMatrix::class);
+        Livewire::component('inovcom-users.account-profile', AccountProfile::class);
 
         Route::bind('user', fn ($value) => User::on('tenant')->findOrFail($value));
         Route::bind('role', fn ($value) => Role::on('tenant')->findOrFail($value));
@@ -83,6 +85,9 @@ class UsersServiceProvider extends ServiceProvider
                 Route::get('/permissions', PermissionsMatrix::class)
                     ->middleware(['module:users'])
                     ->name('tenant.permissions.index');
+
+                Route::get('/account', AccountProfile::class)
+                    ->name('tenant.account.profile');
             });
     }
 }

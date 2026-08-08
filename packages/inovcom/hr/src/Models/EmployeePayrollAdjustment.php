@@ -58,11 +58,12 @@ class EmployeePayrollAdjustment extends TenantModel
 
     public function isLocked(): bool
     {
-        if (!$this->payroll_run_id) {
+        if (! $this->payroll_run_id) {
             return false;
         }
 
         $run = $this->payrollRun;
-        return $run && !$run->isDraft();
+        // Dès que la fiche n’est plus brouillon (traitée ou payée), l’ajustement est figé.
+        return $run && ! $run->isDraft();
     }
 }

@@ -19,7 +19,7 @@ class DebtsServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        //
+        $this->app->singleton(\InovCom\Kernel\Contracts\DebtsApi::class, \InovCom\Debts\Services\DebtsApiService::class);
     }
 
     public function boot(): void

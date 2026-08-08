@@ -55,17 +55,24 @@
 
         <h3 style="margin: 24px 0 12px; font-size: 1rem;">Lignes (médicaments)</h3>
         <div style="overflow-x: auto;">
-            <table style="min-width: 600px;">
+            <table style="min-width: 720px;">
                 <thead>
                     <tr>
                         <th>Article</th>
-                        <th>Quantité</th>
+                        <th>Prescrit</th>
+                        <th>Délivré</th>
+                        <th>Reste</th>
                         <th>Posologie / instructions</th>
                         <th></th>
                     </tr>
                 </thead>
                 <tbody>
                     @foreach($lines as $index => $line)
+                        @php
+                            $prescribed = (float) ($line['quantity'] ?? 0);
+                            $dispensed = (float) ($line['quantity_dispensed'] ?? 0);
+                            $remaining = max(0, $prescribed - $dispensed);
+                        @endphp
                         <tr>
                             <td>
                                 <select class="input input-sm" wire:model.live="lines.{{ $index }}.item_id" style="min-width: 200px;">
@@ -78,21 +85,44 @@
                             <td>
                                 <input class="input input-sm" type="number" step="any" min="0.001" wire:model="lines.{{ $index }}.quantity" style="width: 80px;">
                             </td>
+                            <td style="white-space: nowrap; font-size: 13px; color: {{ $dispensed > 0 ? '#166534' : '#64748b' }};">
+                                {{ fmt_num($dispensed) }}
+                            </td>
+                            <td style="white-space: nowrap; font-size: 13px; font-weight: 600; color: {{ $remaining > 0.0001 ? '#b45309' : '#166534' }};">
+                                {{ fmt_num($remaining) }}
+                            </td>
                             <td>
                                 <input class="input input-sm" wire:model="lines.{{ $index }}.instructions" placeholder="1 cp x 2/j">
                             </td>
                             <td>
-                                <button type="button" class="btn btn-secondary btn-sm" wire:click="removeLine({{ $index }})">Suppr.</button>
+                                <button type="button" class="btn btn-secondary btn-sm" wire:click="removeLine({{ $index }})" @disabled($dispensed > 0.0001 && count($lines) <= 1)>Suppr.</button>
                             </td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
+        <p class="field-hint" style="margin-top: 8px;">Les quantités déjà délivrées sont conservées à l’enregistrement (délivrance partielle).</p>
         <button type="button" class="btn btn-secondary mt-2" wire:click="addLine">Ajouter une ligne</button>
 
-        <div class="page-actions" style="margin-top: 24px;">
+        <div class="page-actions" style="margin-top: 24px; display: flex; flex-wrap: wrap; gap: 8px;">
             <a class="btn btn-secondary" href="{{ route('tenant.prescriptions.index', ['tenant' => $tenantCode]) }}">Retour</a>
+            @if($prescriptionId)
+                <a class="btn btn-secondary" href="{{ route('tenant.prescriptions.print', ['prescription' => $prescriptionId, 'tenant' => $tenantCode]) }}" target="_blank">Imprimer</a>
+                @php
+                    $hasRemaining = collect($lines)->contains(function ($line) {
+                        return max(0, (float) ($line['quantity'] ?? 0) - (float) ($line['quantity_dispensed'] ?? 0)) > 0.0001;
+                    });
+                @endphp
+                @if($hasRemaining && in_array($status, ['active', 'draft'], true))
+                    <button type="button"
+                            class="btn btn-secondary"
+                            wire:click="closeRemaining"
+                            wire:confirm="Clôturer le reste ? Le patient ne pourra plus retirer la quantité restante. Les quantités déjà délivrées restent en historique.">
+                        Clôturer le reste
+                    </button>
+                @endif
+            @endif
             <button class="btn btn-primary" wire:click="save">Enregistrer</button>
         </div>
     </section>

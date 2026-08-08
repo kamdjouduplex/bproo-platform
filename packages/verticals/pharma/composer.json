@@ -1,0 +1,25 @@
+{
+    "name": "bproo/pharma",
+    "description": "Bproo Pharma vertical: pharmacy roles pack, drug catalogue extensions, future insurance/loyalty",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "php": "^8.1",
+        "laravel/framework": "^10.0",
+        "livewire/livewire": "^3.0|^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Pharma\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Pharma\\PharmaServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

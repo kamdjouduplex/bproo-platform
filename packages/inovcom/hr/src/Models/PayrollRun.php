@@ -66,6 +66,14 @@ class PayrollRun extends TenantModel
         return $this->status === self::STATUS_PAID;
     }
 
+    /**
+     * Fiche définitive : plus aucune modification ni annulation.
+     */
+    public function isLocked(): bool
+    {
+        return $this->isPaid();
+    }
+
     public function getStatusLabelAttribute(): string
     {
         return self::STATUS_LABELS[$this->status] ?? $this->status;

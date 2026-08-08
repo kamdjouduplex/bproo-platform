@@ -10,6 +10,154 @@ use Illuminate\Support\Facades\Log;
 class ModuleVersionService
 {
     /**
+     * Resolve composer package name candidates for a module key.
+     *
+     * @return list<string>
+     */
+    public function resolvePackageNames(string $moduleKey, ?string $storedPackageName = null): array
+    {
+        $names = [];
+        if ($storedPackageName) {
+            $names[] = $storedPackageName;
+        }
+
+        $cfgPackage = config("modules.{$moduleKey}.package_name");
+        if (is_string($cfgPackage) && $cfgPackage !== '') {
+            $names[] = $cfgPackage;
+        }
+
+        $names[] = "bproo/{$moduleKey}";
+        $names[] = "inovcom/{$moduleKey}";
+
+        // Shared packages (e.g. foreign_purchases → purchases)
+        $handler = config("modules.{$moduleKey}.lifecycle_handler");
+        if (is_string($handler) && preg_match('/\\\\([A-Za-z0-9]+)\\\\/', $handler, $m)) {
+            $segment = strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $m[1]) ?? $m[1]);
+            $names[] = "bproo/{$segment}";
+            $names[] = "inovcom/{$segment}";
+        }
+
+        return array_values(array_unique(array_filter($names)));
+    }
+
+    /**
+     * Read version from a local package composer.json (path repo / @dev).
+     */
+    public function getLocalComposerVersion(string $packageName): ?string
+    {
+        $composer = $this->readPackageComposer($packageName);
+        if (! is_array($composer)) {
+            return null;
+        }
+
+        if (! empty($composer['version'])) {
+            return (string) $composer['version'];
+        }
+
+        $pretty = $composer['extra']['branch-alias']['dev-main']
+            ?? $composer['extra']['branch-alias']['dev-master']
+            ?? null;
+
+        return is_string($pretty) && $pretty !== '' ? rtrim($pretty, '-dev') : null;
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function readPackageComposer(string $packageName): ?array
+    {
+        foreach ($this->composerJsonPaths($packageName) as $path) {
+            if (! is_file($path)) {
+                continue;
+            }
+            $composer = json_decode((string) file_get_contents($path), true);
+            if (is_array($composer)) {
+                return $composer;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function composerJsonPaths(string $packageName): array
+    {
+        $key = $this->getModuleKeyFromPackage($packageName);
+        $paths = [];
+
+        if (InstalledVersions::isInstalled($packageName)) {
+            try {
+                $installPath = InstalledVersions::getInstallPath($packageName);
+                if (is_string($installPath) && $installPath !== '') {
+                    $paths[] = rtrim($installPath, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'composer.json';
+                }
+            } catch (\Throwable) {
+                // ignore
+            }
+        }
+
+        $repoRoot = dirname(base_path(), 2);
+        $paths = array_merge($paths, [
+            base_path("vendor/{$packageName}/composer.json"),
+            base_path("vendor/inovcom/{$key}/composer.json"),
+            base_path("vendor/bproo/{$key}/composer.json"),
+            base_path("packages/inovcom/{$key}/composer.json"),
+            base_path("packages/bproo/{$key}/composer.json"),
+            "{$repoRoot}/packages/inovcom/{$key}/composer.json",
+            "{$repoRoot}/packages/bproo/{$key}/composer.json",
+            "{$repoRoot}/packages/verticals/{$key}/composer.json",
+        ]);
+
+        return array_values(array_unique($paths));
+    }
+
+    /**
+     * Best-effort package version for UI / catalog.
+     *
+     * @return array{package_name: ?string, version: ?string, compatibility: ?array}
+     */
+    public function resolveModuleRelease(string $moduleKey, ?Module $module = null): array
+    {
+        $module ??= Module::where('key', $moduleKey)->first();
+        $packageNames = $this->resolvePackageNames($moduleKey, $module?->package_name);
+
+        foreach ($packageNames as $packageName) {
+            $local = $this->getLocalComposerVersion($packageName);
+            $installed = $this->getPackageVersion($packageName);
+            $version = $local ?: $installed;
+            if (! $version) {
+                continue;
+            }
+
+            // Prefer explicit composer.json version over path-repo "dev-main".
+            if ($local && $installed && str_starts_with($installed, 'dev-')) {
+                $version = $local;
+            }
+
+            return [
+                'package_name' => $this->canonicalPackageName($packageName) ?? $packageName,
+                'version' => $version,
+                'compatibility' => $this->getCompatibility($packageName) ?? $module?->compatibility,
+            ];
+        }
+
+        return [
+            'package_name' => $module?->package_name,
+            'version' => $module?->version,
+            'compatibility' => $module?->compatibility,
+        ];
+    }
+
+    private function canonicalPackageName(string $packageName): ?string
+    {
+        $composer = $this->readPackageComposer($packageName);
+
+        return is_string($composer['name'] ?? null) ? $composer['name'] : $packageName;
+    }
+
+    /**
      * Get version from composer.json
      */
     public function getPackageVersion(string $packageName): ?string
@@ -18,7 +166,8 @@ class ModuleVersionService
             return null;
         }
 
-        return InstalledVersions::getVersion($packageName);
+        return InstalledVersions::getPrettyVersion($packageName)
+            ?: InstalledVersions::getVersion($packageName);
     }
 
     /**
@@ -26,19 +175,14 @@ class ModuleVersionService
      */
     public function getCompatibility(string $packageName): ?array
     {
-        if (!InstalledVersions::isInstalled($packageName)) {
+        $composer = $this->readPackageComposer($packageName);
+        if (! is_array($composer)) {
             return null;
         }
 
-        $packagePath = base_path("packages/inovcom/{$this->getModuleKeyFromPackage($packageName)}/composer.json");
-        
-        if (!file_exists($packagePath)) {
-            return null;
-        }
-
-        $composer = json_decode(file_get_contents($packagePath), true);
-        
-        return $composer['extra']['inovcom']['compatibility'] ?? null;
+        return $composer['extra']['inovcom']['compatibility']
+            ?? $composer['extra']['bproo']['compatibility']
+            ?? null;
     }
 
     /**
@@ -46,7 +190,7 @@ class ModuleVersionService
      */
     private function getModuleKeyFromPackage(string $packageName): string
     {
-        return str_replace('inovcom/', '', $packageName);
+        return str_replace(['inovcom/', 'bproo/'], '', $packageName);
     }
 
     /**
@@ -59,17 +203,16 @@ class ModuleVersionService
             return;
         }
 
-        $packageName = $module->package_name ?? "inovcom/{$moduleKey}";
-        $version = $this->getPackageVersion($packageName);
-        $compatibility = $this->getCompatibility($packageName);
-
-        if ($version) {
-            $module->update([
-                'version' => $version,
-                'compatibility' => $compatibility,
-                'package_name' => $packageName,
-            ]);
+        $release = $this->resolveModuleRelease($moduleKey, $module);
+        if (! $release['version'] && ! $release['package_name']) {
+            return;
         }
+
+        $module->update(array_filter([
+            'version' => $release['version'],
+            'compatibility' => $release['compatibility'],
+            'package_name' => $release['package_name'],
+        ], fn ($v) => $v !== null));
     }
 
     /**

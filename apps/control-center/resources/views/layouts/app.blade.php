@@ -3,13 +3,16 @@
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
-        <title>{{ config('app.name') }}</title>
+        <title>{{ $title ?? config('app.name') }} · Bproo Control Center</title>
         @include('partials.favicon')
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
-        @notifyCss
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+        @vite(['resources/css/app.css', 'resources/css/control-center.css', 'resources/js/app.js'])
         @livewireStyles
+        <style>[x-cloak]{display:none!important}</style>
     </head>
-    <body>
+    <body class="{{ request()->is('admin*') ? 'cc-body' : '' }}">
         @php
             $tenant = app(App\Services\TenantManager::class)->tenant();
             $storeContext = app(App\Services\StoreContextService::class);
@@ -24,8 +27,6 @@
             $hasSales = $tenant && collect($moduleLinks)->contains('key', 'sales');
             $canCreateSale = $tenantUser && method_exists($tenantUser, 'hasPermission') && $tenantUser->hasPermission('sales.create');
             $tenantCode = $tenant?->code ?? request()->query('tenant') ?? session('tenant_code');
-            // Cashier view: no sidebar, only navbar with permitted links (roles eager-loaded on User).
-            // Only when user has cashier role and is not admin, so admins always get full UI.
             $isCashierView = $tenantUser
                 && $tenantUser->roles->contains('name', 'cashier')
                 && !$tenantUser->roles->contains('name', 'admin');
@@ -34,10 +35,12 @@
             $canViewAllStores = $tenantUser && method_exists($tenantUser, 'canViewAllStores') && $tenantUser->canViewAllStores();
             $hasAttendanceModule = $tenant && app(\App\Services\ModuleRegistry::class)->isEnabled('attendance', $tenant);
         @endphp
-        <div class="app-shell {{ $isTenantApp ? ($isCashierView ? 'app-shell--cashier' : 'app-shell--sidebar') : '' }}" @if($isTenantApp && !$isCashierView) x-data="{ sidebarOpen: false }" @endif>
+
+        @if ($isTenantApp)
+        <div class="app-shell {{ $isCashierView ? 'app-shell--cashier' : 'app-shell--sidebar' }}" x-data="{ sidebarOpen: false }">
             <header class="app-header">
-                <div class="app-header-inner {{ $isTenantApp && $tenant ? 'app-header-inner--tenant' : '' }}">
-                    @if ($isTenantApp && $tenant)
+                <div class="app-header-inner {{ $tenant ? 'app-header-inner--tenant' : '' }}">
+                    @if ($tenant)
                         <div class="app-header-left">
                             @if (!$isCashierView)
                                 <button type="button" class="app-sidebar-toggle" aria-label="Menu" @click="sidebarOpen = !sidebarOpen">
@@ -46,46 +49,13 @@
                             @endif
                             <a href="{{ route('tenant.dashboard', ['tenant' => $tenantCode]) }}" class="app-logo-link">
                                 @if ($tenantLogoUrl)
-                                    <img src="{{ $tenantLogoUrl }}" alt="{{ $shopName }}" class="tenant-logo-img app-logo-img" @configuration-updated.window="location.reload()">
+                                    <img src="{{ $tenantLogoUrl }}" alt="{{ $shopName }}" class="tenant-logo-img app-logo-img">
                                 @else
-                                    <div class="app-logo" x-data="{ logoText: '{{ $shopName }}' }" x-text="logoText" @configuration-updated.window="logoText = $event.detail.shopName"></div>
+                                    <div class="app-logo">{{ $shopName }}</div>
                                 @endif
                             </a>
-                            @if ($isCashierView)
-                                <nav class="app-header-nav" aria-label="Menu principal">
-                                    <a href="{{ route('tenant.dashboard', ['tenant' => $tenantCode]) }}" class="app-header-nav-link {{ (request()->route()?->getName() ?? '') === 'tenant.dashboard' ? 'app-header-nav-link--active' : '' }}">Tableau de bord</a>
-                                    @foreach ($moduleLinks as $link)
-                                        @php
-                                            $routeBase = str_replace('.index', '.', $link['route']);
-                                            $currentRoute = request()->route()?->getName() ?? '';
-                                            $isActive = $currentRoute === $link['route'] || str_starts_with($currentRoute, $routeBase);
-                                        @endphp
-                                        <a href="{{ route($link['route'], ['tenant' => $tenantCode]) }}" class="app-header-nav-link {{ $isActive ? 'app-header-nav-link--active' : '' }}">{{ $link['label'] }}</a>
-                                    @endforeach
-                                </nav>
-                            @endif
                         </div>
                         <div class="app-header-right">
-                            @if ($tenant && $tenant->multi_store_enabled && $activeStores->count() > 0)
-                                <form method="GET" action="{{ url()->current() }}">
-                                    @if ($tenantCode)
-                                        <input type="hidden" name="tenant" value="{{ $tenantCode }}">
-                                    @endif
-                                    <select class="app-select" name="store" onchange="this.form.submit()">
-                                        @if ($canViewAllStores)
-                                            <option value="all" {{ $currentStoreId === null ? 'selected' : '' }}>Toutes les boutiques</option>
-                                        @endif
-                                        @foreach ($activeStores as $store)
-                                            <option value="{{ $store->id }}" {{ (int) $currentStoreId === (int) $store->id ? 'selected' : '' }}>
-                                                {{ $store->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                </form>
-                            @endif
-                            @if ($isCashierView && $hasSales && $canCreateSale && Route::has('tenant.sales.create'))
-                                <a href="{{ route('tenant.sales.create', ['tenant' => $tenantCode]) }}" class="btn btn-primary app-nav-new-sale">Nouvelle vente</a>
-                            @endif
                             <select class="app-select">
                                 <option value="fr">FR</option>
                                 <option value="en">EN</option>
@@ -94,10 +64,6 @@
                                 try { $tenantAuthCheck = auth('tenant')->check(); } catch (\Throwable $e) { $tenantAuthCheck = false; }
                             @endphp
                             @if($tenantAuthCheck)
-                                @if ($hasAttendanceModule && class_exists(\InovCom\Attendance\Http\Livewire\AttendancePunchWidget::class))
-                                    <livewire:inovcom-attendance.punch-widget />
-                                @endif
-                                <livewire:tenant.notification-bell />
                                 <span class="app-user">{{ auth('tenant')->user()->name }}</span>
                                 <form method="POST" action="{{ route('tenant.logout', ['tenant' => $tenantCode]) }}">
                                     @csrf
@@ -105,68 +71,10 @@
                                 </form>
                             @endif
                         </div>
-                    @else
-                        <div class="app-brand">
-                            <a href="{{ route('system.dashboard') }}" class="app-logo-link">
-                                <div class="app-logo">Bproo Control Center</div>
-                            </a>
-                            <nav class="app-nav">
-                                <a href="{{ route('system.dashboard') }}">Dashboard</a>
-                                <a href="{{ route('system.tenants') }}">Companies</a>
-                                <a href="{{ route('system.plans') }}">Plans</a>
-                                <a href="{{ route('system.packages') }}">Modules</a>
-                                <a href="{{ route('system.tenant.modules') }}">Enable</a>
-                                <a href="{{ route('system.tenants.health') }}">Health</a>
-                                <a href="{{ route('system.module.events') }}">Events</a>
-                            </nav>
-                        </div>
-                        <div class="app-actions">
-                            <select class="app-select">
-                                <option value="fr">FR</option>
-                                <option value="en">EN</option>
-                            </select>
-                            @if ($tenant)
-                                @php
-                                    try { $tenantAuthCheck = auth('tenant')->check(); } catch (\Throwable $e) { $tenantAuthCheck = false; }
-                                @endphp
-                                @if($tenantAuthCheck)
-                                    <span class="app-user">{{ auth('tenant')->user()->name }}</span>
-                                    <form method="POST" action="{{ route('tenant.logout', ['tenant' => $tenantCode]) }}">
-                                        @csrf
-                                        <button class="btn btn-secondary" type="submit">Déconnexion</button>
-                                    </form>
-                                @endif
-                            @else
-                                @if(auth()->check())
-                                    <span class="app-user">{{ auth()->user()->name }}</span>
-                                    <form method="POST" action="{{ route('system.logout') }}">
-                                        @csrf
-                                        <button class="btn btn-secondary" type="submit">Déconnexion</button>
-                                    </form>
-                                @else
-                                    <span class="app-user">Super Admin</span>
-                                @endif
-                            @endif
-                        </div>
                     @endif
                 </div>
             </header>
-
-            @if ($isTenantApp && $tenant)
-                @if ($isCashierView)
-                    <main class="app-main app-main--full">
-                        <div class="app-main-inner">
-                            <div class="page-header">
-                                <div>
-                                    <div class="page-title">{{ $title ?? 'Tableau de bord' }}</div>
-                                    <div class="page-subtitle">{{ $subtitle ?? '' }}</div>
-                                </div>
-                                <div class="page-actions">{{ $actions ?? '' }}</div>
-                            </div>
-                            <div class="page-body">{{ $slot }}</div>
-                        </div>
-                    </main>
-                @else
+            @if ($tenant && !$isCashierView)
                 @php
                     $currentRoute = request()->route()?->getName() ?? '';
                     $groupOrder = array_keys(config('modules.sidebar_groups', []));
@@ -181,34 +89,15 @@
                     foreach ($groupOrder as $gk) {
                         if (!empty($grouped[$gk])) {
                             $items = $grouped[$gk];
-                            usort($items, function ($a, $b) {
-                                $order = ($a['sidebar_order'] ?? 100) <=> ($b['sidebar_order'] ?? 100);
-                                return $order !== 0 ? $order : strcmp($a['label'], $b['label']);
-                            });
+                            usort($items, fn ($a, $b) => (($a['sidebar_order'] ?? 100) <=> ($b['sidebar_order'] ?? 100)) ?: strcmp($a['label'], $b['label']));
                             $orderedGroups[$gk] = $items;
                         }
                     }
                     foreach ($grouped as $gk => $items) {
                         if (!isset($orderedGroups[$gk])) {
-                            usort($items, function ($a, $b) {
-                                $order = ($a['sidebar_order'] ?? 100) <=> ($b['sidebar_order'] ?? 100);
-                                return $order !== 0 ? $order : strcmp($a['label'], $b['label']);
-                            });
+                            usort($items, fn ($a, $b) => (($a['sidebar_order'] ?? 100) <=> ($b['sidebar_order'] ?? 100)) ?: strcmp($a['label'], $b['label']));
                             $orderedGroups[$gk] = $items;
                         }
-                    }
-
-                    // Abonnement : regroupé sous « Système »
-                    if (\Illuminate\Support\Facades\Route::has('tenant.subscription')) {
-                        if (!isset($orderedGroups['system'])) {
-                            $orderedGroups['system'] = [];
-                        }
-                        array_unshift($orderedGroups['system'], [
-                            'key' => 'subscription',
-                            'label' => 'Abonnement',
-                            'route' => 'tenant.subscription',
-                            'icon' => 'wallet',
-                        ]);
                     }
                 @endphp
                 <div class="app-body">
@@ -216,26 +105,16 @@
                         <div class="app-sidebar-inner">
                             <nav class="app-sidebar-nav">
                                 <a href="{{ route('tenant.dashboard', ['tenant' => $tenant->code]) }}" class="app-sidebar-link {{ $currentRoute === 'tenant.dashboard' ? 'app-sidebar-link--active' : '' }}" @click="sidebarOpen = false">
-                                    <x-sidebar-icon icon="dashboard" class="app-sidebar-link-icon" />
                                     <span>Tableau de bord</span>
                                 </a>
                                 @foreach ($orderedGroups as $groupKey => $links)
                                     <div class="app-sidebar-label">{{ $groupLabels[$groupKey] ?? $groupKey }}</div>
                                     @foreach ($links as $link)
-                                        @php
-                                            $routeBase = str_replace('.index', '.', $link['route']);
-                                            $isActive = $currentRoute === $link['route']
-                                                || ($link['route'] !== 'tenant.subscription' && str_starts_with($currentRoute, $routeBase));
-                                        @endphp
-                                        <a href="{{ route($link['route'], ['tenant' => $tenant->code]) }}" class="app-sidebar-link {{ $isActive ? 'app-sidebar-link--active' : '' }}" @click="sidebarOpen = false">
-                                            <x-sidebar-icon :icon="$link['icon'] ?? 'cog'" class="app-sidebar-link-icon" />
-                                            <span>{{ $link['label'] }}</span>
-                                        </a>
+                                        <a href="{{ route($link['route'], ['tenant' => $tenant->code]) }}" class="app-sidebar-link" @click="sidebarOpen = false">{{ $link['label'] }}</a>
                                     @endforeach
                                 @endforeach
                             </nav>
                         </div>
-                        <div class="app-sidebar-backdrop" @click="sidebarOpen = false" aria-hidden="true"></div>
                     </aside>
                     <main class="app-main">
                         <div class="app-main-inner">
@@ -250,9 +129,8 @@
                         </div>
                     </main>
                 </div>
-                @endif
-            @elseif ($isTenantApp)
-                <main class="app-main">
+            @else
+                <main class="app-main app-main--full">
                     <div class="app-main-inner">
                         <div class="page-header">
                             <div>
@@ -264,22 +142,16 @@
                         <div class="page-body">{{ $slot }}</div>
                     </div>
                 </main>
-            @else
-                <main class="app-content">
-                    <div class="page-header">
-                        <div>
-                            <div class="page-title">{{ $title ?? 'Tableau de bord' }}</div>
-                            <div class="page-subtitle">{{ $subtitle ?? '' }}</div>
-                        </div>
-                        <div class="page-actions">{{ $actions ?? '' }}</div>
-                    </div>
-                    <div class="page-body">{{ $slot }}</div>
-                </main>
             @endif
         </div>
+        @else
+        {{-- Bproo Control Center — landlord ops brain only --}}
+        <div class="cc-shell" x-data="{ sidebarOpen: false }">
+            @include('layouts.partials.cc-shell')
+        </div>
+        @endif
+
         @include('notify::components.notify')
-        @notifyJs
         @livewireScripts
     </body>
 </html>
-

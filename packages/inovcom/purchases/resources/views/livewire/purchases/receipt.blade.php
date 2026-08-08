@@ -57,6 +57,8 @@
                             <th>Déjà reçue</th>
                             <th>Reste à recevoir</th>
                             <th>Quantité reçue</th>
+                            <th>N° lot</th>
+                            <th>Péremption</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -64,6 +66,7 @@
                             @if ($line->remaining_quantity <= 0)
                                 @continue
                             @endif
+                            @php $needsLot = !empty($lineRequiresLot[$line->id]); @endphp
                             <tr>
                                 <td><x-item-label :reference="$line->item?->sku" :name="$line->item_name ?? $line->item?->name" /></td>
                                 <td>{{ fmt_num($line->active_quantity) }}</td>
@@ -78,6 +81,28 @@
                                            max="{{ $line->remaining_quantity }}"
                                            step="0.001"
                                            style="width: 100px;">
+                                </td>
+                                <td>
+                                    @if ($needsLot)
+                                        <input type="text"
+                                               class="input input-sm"
+                                               wire:model="batchNumbers.{{ $line->id }}"
+                                               placeholder="Lot"
+                                               maxlength="100"
+                                               style="width: 110px;">
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if ($needsLot)
+                                        <input type="date"
+                                               class="input input-sm"
+                                               wire:model="expiryDates.{{ $line->id }}"
+                                               style="width: 140px;">
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach

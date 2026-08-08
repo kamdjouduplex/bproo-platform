@@ -47,4 +47,29 @@ class Prescription extends TenantModel
     {
         return $this->status === self::STATUS_ACTIVE;
     }
+
+    public function isPartiallyDispensed(): bool
+    {
+        $this->loadMissing('lines');
+        if ($this->lines->isEmpty()) {
+            return false;
+        }
+
+        $anyDispensed = $this->lines->contains(fn ($l) => (float) $l->quantity_dispensed > 0.0001);
+        $anyRemaining = $this->lines->contains(fn ($l) => $l->remaining_quantity > 0.0001);
+
+        return $anyDispensed && $anyRemaining && $this->status !== self::STATUS_DISPENSED;
+    }
+
+    public function dispensationStatusLabel(): string
+    {
+        return match (true) {
+            $this->status === self::STATUS_DISPENSED => 'Dispensée',
+            $this->status === self::STATUS_CANCELLED => 'Annulée',
+            $this->status === self::STATUS_EXPIRED => 'Expirée',
+            $this->status === self::STATUS_DRAFT => 'Brouillon',
+            $this->isPartiallyDispensed() => 'Partiellement délivrée',
+            default => 'Active',
+        };
+    }
 }

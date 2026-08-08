@@ -2,8 +2,8 @@
 
 namespace InovCom\Users\Http\Livewire;
 
-use InovCom\Users\Models\User;
 use Illuminate\Support\Facades\Schema;
+use InovCom\Users\Models\User;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -12,6 +12,7 @@ class UsersIndex extends Component
     use WithPagination;
 
     public string $search = '';
+
     public int $perPage = 10;
 
     public function applySearch(): void
@@ -21,12 +22,17 @@ class UsersIndex extends Component
 
     public function render()
     {
+        $payrollOn = $this->payrollEnabled();
+
         $usersQuery = User::query()
             ->with('roles')
             ->when($this->search !== '', function ($q) {
                 $q->where(function ($q2) {
-                    $q2->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('email', 'like', '%' . $this->search . '%');
+                    $q2->where('name', 'like', '%'.$this->search.'%')
+                        ->orWhere('email', 'like', '%'.$this->search.'%');
+                    if (Schema::connection('tenant')->hasColumn('users', 'phone')) {
+                        $q2->orWhere('phone', 'like', '%'.$this->search.'%');
+                    }
                 });
             })
             ->orderBy('name');
@@ -38,11 +44,35 @@ class UsersIndex extends Component
 
         $users = $usersQuery->paginate($this->perPage);
 
+        $matricules = collect();
+        if ($payrollOn && $users->count() > 0) {
+            $matricules = \InovCom\Payroll\Models\Employee::query()
+                ->whereIn('user_id', $users->pluck('id'))
+                ->get(['user_id', 'employee_number', 'position'])
+                ->keyBy('user_id');
+        }
+
         return view('inovcom-users::livewire.users.index')
             ->layout('layouts.app', [
                 'title' => 'Utilisateurs',
-                'subtitle' => 'Gestion des utilisateurs du tenant',
+                'subtitle' => $payrollOn ? 'Comptes, rôles et fiches employés' : 'Gestion des utilisateurs du tenant',
             ])
-            ->with(['users' => $users]);
+            ->with([
+                'users' => $users,
+                'payrollEnabled' => $payrollOn,
+                'matricules' => $matricules,
+                'hasPhoneColumn' => Schema::connection('tenant')->hasColumn('users', 'phone'),
+            ]);
+    }
+
+    private function payrollEnabled(): bool
+    {
+        $tenant = app()->bound('tenant') ? app('tenant') : null;
+        if (! $tenant || ! class_exists(\App\Services\ModuleRegistry::class)) {
+            return false;
+        }
+
+        return app(\App\Services\ModuleRegistry::class)->isEnabled('payroll', $tenant)
+            && Schema::connection('tenant')->hasTable('employees');
     }
 }

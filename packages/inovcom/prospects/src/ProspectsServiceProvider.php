@@ -18,6 +18,9 @@ class ProspectsServiceProvider extends ServiceProvider
 
     protected string $moduleKey = 'prospects';
 
+    /** Also boot routes/UI when the CRM suite module is enabled. */
+    protected array $alsoBootWhenModules = ['crm'];
+
     public function register(): void
     {
         $this->app->singleton(ProspectsService::class);
@@ -39,7 +42,15 @@ class ProspectsServiceProvider extends ServiceProvider
         Livewire::component('inovcom-prospects.prospect-form', ProspectForm::class);
         Livewire::component('inovcom-prospects.prospect-show', ProspectShow::class);
 
-        Route::bind('prospect', fn ($value) => Prospect::on('tenant')->findOrFail($value));
+        // Only bind when resolving tenant CRM routes. A global bind steals
+        // {prospect} from landlord Control Center CRM (platform_prospects).
+        Route::bind('prospect', function ($value, $route) {
+            if (! str_starts_with((string) $route->getName(), 'tenant.prospects.')) {
+                return $value;
+            }
+
+            return Prospect::on('tenant')->findOrFail($value);
+        });
 
         $this->registerTenantRoutes();
     }

@@ -5,7 +5,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.1",
-        "inovcom/kernel": "@dev",
+        "bproo/core": "@dev",
         "inovcom/clients": "@dev",
         "inovcom/devis": "@dev",
         "inovcom/projets": "@dev",

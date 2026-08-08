@@ -19,7 +19,7 @@ class QuotationsServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        //
+        $this->app->singleton(\InovCom\Kernel\Contracts\QuotationsApi::class, \InovCom\Quotations\Services\QuotationsApiService::class);
     }
 
     public function boot(): void

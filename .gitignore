@@ -1,39 +1,96 @@
-# Bproo Platform monorepo
+# =============================================================================
+# Bproo Platform monorepo — do not commit secrets, deps, or local build artifacts
+# =============================================================================
+
+# --- IDE / OS ---
 /.idea/
 /.vscode/
-*.log
+/.fleet/
+/.phpactor.cache/
+*.swp
+*.swo
+*~
 .DS_Store
 Thumbs.db
+Desktop.ini
 
-# Env / secrets (never commit)
+# --- Env / secrets (never commit real env files) ---
 .env
 .env.*
 !.env.example
+!.env.*.example
 **/.env
+**/.env.*
 !**/.env.example
+!**/.env.*.example
 
-# Dependencies & build (per app)
+# Laravel / Composer auth & credentials
+auth.json
+**/auth.json
+credentials.json
+**/credentials.json
+*.pem
+*.p12
+*.pfx
+id_rsa
+id_rsa.*
+!*.pem.example
+
+# --- Deploy (server-local only) ---
+**/deploy/docker/.env.production
+**/deploy/docker/docker-compose.override.yml
+# Keep examples + prod compose templates:
+#   .env.production.example
+#   docker-compose.override.example.yml
+#   docker-compose.prod.yml
+
+# --- Dependencies ---
 **/node_modules/
 **/vendor/
+
+# --- Frontend build ---
 **/public/build/
 **/public/hot
 **/public/storage
+
+# --- Laravel runtime ---
 **/storage/*.key
 **/storage/logs/*
+!**/storage/logs/.gitignore
 **/storage/framework/cache/*
+!**/storage/framework/cache/.gitignore
 **/storage/framework/sessions/*
+!**/storage/framework/sessions/.gitignore
 **/storage/framework/views/*
+!**/storage/framework/views/.gitignore
+**/storage/framework/testing/*
+!**/storage/framework/testing/.gitignore
 **/bootstrap/cache/*.php
+!**/bootstrap/cache/.gitignore
 
-# PHP / testing
+# --- PHP / testing ---
 .phpunit.result.cache
 .phpunit.cache/
+**/phpunit.xml.bak
 coverage/
+.html-coverage/
+.nyc_output/
 
-# OS / tooling
-*.swp
-*.swo
+# --- Homestead / Sail leftovers ---
+Homestead.json
+Homestead.yaml
+docker-compose.override.yml
 
-# Local backups already under backups/ — keep bundles, ignore huge dumps if added
+# --- Logs & dumps ---
+*.log
+npm-debug.log*
+yarn-error.log*
+npm-debug.log
 backups/*.sql
 backups/*.dump
+*.sql.gz
+*.dump
+
+# --- Cursor / local agent noise (optional local only) ---
+.cursor/plans/
+.cursor/*.local.*

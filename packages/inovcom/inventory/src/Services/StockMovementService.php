@@ -163,9 +163,10 @@ class StockMovementService
         }
 
         $refs = $this->loadReferenceLabels($movements);
+        $batchLabels = $this->loadBatchLabelsForMovements($movements);
         $tenantCode = $this->tenantCode();
 
-        return $movements->map(function (StockMovement $m) use ($refs, $tenantCode) {
+        return $movements->map(function (StockMovement $m) use ($refs, $batchLabels, $tenantCode) {
             $refKey = strtolower((string) $m->reference_type) . ':' . (int) $m->reference_id;
             $ref = $refs[$refKey] ?? null;
 
@@ -174,7 +175,8 @@ class StockMovementService
             $qty = $this->resolveMovementQuantity($m);
             $before = (float) $m->quantity_before;
             $after = (float) $m->quantity_after;
-            $typeLabel = $this->movementTypeLabel($m);
+            $lotLabel = $batchLabels[$m->id] ?? $this->batchLabelFromReason($m->reason);
+            $motif = $this->movementMotif($m);
             $refLabel = $ref['label'] ?? $this->fallbackReferenceLabel($m);
 
             if ($type === 'reserve') {
@@ -195,20 +197,23 @@ class StockMovementService
                 'item_name' => $m->item?->name ?? '—',
                 'item_sku' => $m->item?->sku,
                 'type' => $m->type,
-                'type_label' => $typeLabel,
+                'type_label' => $motif,
+                'motif' => $motif,
                 'direction' => $direction,
                 'direction_label' => $directionLabel,
                 'is_reserve_flow' => $isReserveFlow,
                 'quantity' => $qty,
                 'quantity_before' => $before,
                 'quantity_after' => $after,
-                'reason' => $m->reason,
+                'reason' => null,
+                'batch_label' => $lotLabel,
                 'user_name' => $m->creator?->name,
                 'reference_type' => $m->reference_type,
                 'reference_id' => $m->reference_id,
                 'reference_label' => $refLabel,
                 'reference_url' => $ref['url'] ?? null,
-                'story' => $this->buildStory($typeLabel, $qty, $before, $after, $refLabel, $type),
+                // One clean line: lot only (qty / stock / document live in their own columns).
+                'story' => $lotLabel ?: $this->buildStoryFallback($motif, $type),
                 'item_movements_url' => $tenantCode
                     ? route('tenant.stock.movements.item', ['itemId' => $m->item_id, 'tenant' => $tenantCode])
                     : null,
@@ -252,7 +257,62 @@ class StockMovementService
     }
 
     /**
-     * Phrase lisible selon le type de mouvement.
+     * Motif métier court (sous le badge Entrée/Sortie) — jamais le n° de lot ici.
+     */
+    public function movementMotif(StockMovement $m): string
+    {
+        $ref = strtolower((string) $m->reference_type);
+        $type = strtolower((string) $m->type);
+        $reason = strtolower(trim((string) ($m->reason ?? '')));
+
+        if ($ref === 'expiry_write_off' || str_contains($reason, 'destruction péremption') || str_contains($reason, 'destruction peremption')) {
+            return 'Péremption';
+        }
+
+        return match (true) {
+            $ref === 'sale' => 'Vente',
+            $ref === 'sale_return' => 'Retour vente',
+            $ref === 'purchase_receipt', $ref === 'purchase', $ref === 'receipt' => 'Réception',
+            $ref === 'manual' => 'Saisie lot',
+            $ref === 'purchasecancel' => 'Annulation achat',
+            $ref === 'foreignpurchase' => 'Achat import',
+            $ref === 'loss' => 'Perte',
+            $ref === 'store_transfer' => 'Transfert',
+            $ref === 'adjustment' && $type === 'adjustment' => 'Inventaire',
+            $ref === 'invoice_cancellation' => 'Annulation facture',
+            $ref === 'invoice_replacement' => 'Remplacement',
+            $ref === 'invoice_return', $type === 'return' => 'Retour',
+            $ref === 'delivery_note', $type === 'delivery' => 'Livraison',
+            $ref === 'reservation' => 'Réservation',
+            $ref === 'quotation' && $type === 'reserve' => 'Réservation devis',
+            $type === 'reserve' => 'Réservation',
+            $type === 'release' => 'Libération',
+            $type === 'adjustment' => 'Ajustement',
+            $type === 'transfer' => 'Transfert',
+            $reason === 'batch_consume' => 'Vente',
+            $reason === 'batch_receipt' || str_starts_with($reason, 'lot ') => ((float) $m->quantity >= 0 ? 'Réception' : 'Vente'),
+            (float) $m->quantity >= 0 => 'Entrée',
+            default => 'Sortie',
+        };
+    }
+
+    /** @deprecated Prefer movementMotif(); kept for callers. */
+    public function movementTypeLabel(StockMovement $m, ?string $batchLabel = null): string
+    {
+        return $this->movementMotif($m);
+    }
+
+    private function buildStoryFallback(string $motif, string $type): ?string
+    {
+        if (in_array($type, ['reserve', 'release'], true)) {
+            return $motif;
+        }
+
+        return null;
+    }
+
+    /**
+     * Phrase lisible pour réservations uniquement (colonnes qté/stock restent la référence).
      */
     public function buildStory(
         string $typeLabel,
@@ -260,100 +320,162 @@ class StockMovementService
         float $before,
         float $after,
         ?string $refLabel = null,
-        string $type = ''
+        string $type = '',
+        ?string $batchLabel = null
     ): string {
+        if ($batchLabel) {
+            return $batchLabel;
+        }
+
         $type = strtolower($type);
-
         if ($type === 'reserve') {
-            if (abs($before - $after) < 1e-9) {
-                $story = sprintf(
-                    '%s — %s unité(s) bloquée(s) · stock physique inchangé (%s)',
-                    $typeLabel,
-                    fmt_num(abs($qty)),
-                    fmt_num($before)
-                );
-            } else {
-                $story = sprintf(
-                    '%s — %s unité(s) bloquée(s) · dispo %s → %s',
-                    $typeLabel,
-                    fmt_num(abs($qty)),
-                    fmt_num($before),
-                    fmt_num($after)
-                );
-            }
-        } elseif ($type === 'release') {
-            if (abs($before - $after) < 1e-9) {
-                $story = sprintf(
-                    '%s — %s unité(s) libérée(s) · stock physique inchangé (%s)',
-                    $typeLabel,
-                    fmt_num(abs($qty)),
-                    fmt_num($before)
-                );
-            } else {
-                $story = sprintf(
-                    '%s — %s unité(s) libérée(s) · dispo %s → %s',
-                    $typeLabel,
-                    fmt_num(abs($qty)),
-                    fmt_num($before),
-                    fmt_num($after)
-                );
-            }
-        } else {
-            $in = $qty >= 0;
-            $story = sprintf(
-                '%s — %s %s · stock %s → %s',
-                $typeLabel,
-                $in ? 'entrée de' : 'sortie de',
-                fmt_num(abs($qty)),
-                fmt_num($before),
-                fmt_num($after)
-            );
+            return sprintf('%s — %s unité(s) bloquée(s)', $typeLabel, fmt_num(abs($qty)));
+        }
+        if ($type === 'release') {
+            return sprintf('%s — %s unité(s) libérée(s)', $typeLabel, fmt_num(abs($qty)));
         }
 
-        if ($refLabel) {
-            $story .= ' (' . $refLabel . ')';
-        }
-
-        return $story;
+        return $typeLabel;
     }
 
-    public function movementTypeLabel(StockMovement $m): string
+    private function batchLabelFromReason(?string $reason): ?string
     {
-        $ref = strtolower((string) $m->reference_type);
-        $type = strtolower((string) $m->type);
-        $reason = strtolower((string) ($m->reason ?? ''));
-
-        if ($reason === 'batch_consume') {
-            return 'Sortie (lot)';
-        }
-        if ($reason === 'batch_receipt') {
-            return 'Entrée (lot)';
+        $reason = trim((string) $reason);
+        if ($reason === '') {
+            return null;
         }
 
-        return match (true) {
-            $ref === 'sale' => 'Vente',
-            $ref === 'sale_return' => 'Retour vente',
-            $ref === 'purchase' => 'Réception achat',
-            $ref === 'purchasecancel' => 'Annulation achat',
-            $ref === 'foreignpurchase' => 'Achat import',
-            $ref === 'loss' => 'Perte',
-            $ref === 'store_transfer' => 'Transfert magasin',
-            $ref === 'adjustment' && $type === 'adjustment' => 'Inventaire',
-            $ref === 'invoice_cancellation' => 'Annulation facture (retour)',
-            $ref === 'invoice_replacement' => 'Facture remplacement',
-            $ref === 'invoice_return', $type === 'return' => 'Retour article',
-            $ref === 'invoice_return' => 'Retour article',
-            $ref === 'delivery_note' => 'Livraison',
-            $type === 'delivery' => 'Livraison',
-            $ref === 'reservation' => 'Réservation',
-            $ref === 'quotation' && $type === 'reserve' => 'Réservation devis',
-            $type === 'reserve' => 'Réservation',
-            $type === 'release' => 'Libération réservation',
-            $type === 'adjustment' => 'Ajustement manuel',
-            $type === 'transfer' => 'Transfert magasin',
-            (float) $m->quantity >= 0 => 'Entrée',
-            default => 'Sortie',
-        };
+        // New format: "Lot LOT-XXX · exp. dd/mm/yyyy"
+        if (preg_match('/Lot\s+([^\s·]+)(?:\s*·\s*exp\.\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4}))?/ui', $reason, $m)) {
+            return ! empty($m[2])
+                ? 'Lot '.$m[1].' · exp. '.$m[2]
+                : 'Lot '.$m[1];
+        }
+
+        // Write-off text: "Destruction péremption — lot XXX"
+        $lower = strtolower($reason);
+        if ((str_contains($lower, 'péremption') || str_contains($lower, 'peremption') || str_contains($lower, 'destruction'))
+            && preg_match('/lot\s+([A-Z0-9\-_.]+)/ui', $reason, $m2)) {
+            return 'Lot '.$m2[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * Compact lot labels for the “Ce qui s’est passé” column.
+     *
+     * @param  Collection<int, StockMovement>  $movements
+     * @return array<int, string>
+     */
+    private function loadBatchLabelsForMovements(Collection $movements): array
+    {
+        $out = [];
+        foreach ($movements as $m) {
+            $fromReason = $this->batchLabelFromReason($m->reason);
+            if ($fromReason) {
+                $out[$m->id] = $fromReason;
+            }
+        }
+
+        if (! Schema::connection('tenant')->hasTable('batch_movements')
+            || ! Schema::connection('tenant')->hasTable('batches')) {
+            return $out;
+        }
+
+        $needLookup = $movements->filter(fn (StockMovement $m) => ! isset($out[$m->id]));
+        if ($needLookup->isEmpty()) {
+            return $out;
+        }
+
+        foreach ($needLookup as $m) {
+            $rows = $this->findRelatedBatchMovements($m);
+            if ($rows->isEmpty()) {
+                continue;
+            }
+
+            $movementQty = abs((float) $m->quantity);
+            $matched = $rows->first(function ($row) use ($m, $movementQty) {
+                $sameSign = ((float) $row->quantity >= 0) === ((float) $m->quantity >= 0);
+                $qtyClose = abs(abs((float) $row->quantity) - $movementQty) < 0.011;
+
+                return $sameSign && $qtyClose;
+            });
+
+            if ($matched) {
+                $out[$m->id] = $this->formatLotLabel($matched->batch_number, $matched->expiry_date);
+                continue;
+            }
+
+            // Legacy aggregated line: several lots in one stock movement
+            $parts = $rows->map(fn ($row) => (string) $row->batch_number)->unique()->values();
+            if ($parts->count() === 1) {
+                $row = $rows->first();
+                $out[$m->id] = $this->formatLotLabel($row->batch_number, $row->expiry_date);
+            } elseif ($parts->isNotEmpty()) {
+                $out[$m->id] = 'Lots '.$parts->take(3)->implode(', ')
+                    .($parts->count() > 3 ? '…' : '');
+            }
+        }
+
+        return $out;
+    }
+
+    private function formatLotLabel(string $batchNumber, mixed $expiryDate): string
+    {
+        $exp = $expiryDate
+            ? \Carbon\Carbon::parse($expiryDate)->format('d/m/Y')
+            : null;
+
+        return $exp ? 'Lot '.$batchNumber.' · exp. '.$exp : 'Lot '.$batchNumber;
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, object>
+     */
+    private function findRelatedBatchMovements(StockMovement $m)
+    {
+        $q = \Illuminate\Support\Facades\DB::connection('tenant')
+            ->table('batch_movements')
+            ->join('batches', 'batches.id', '=', 'batch_movements.batch_id')
+            ->where('batches.item_id', $m->item_id)
+            ->orderBy('batch_movements.id')
+            ->select([
+                'batches.batch_number',
+                'batches.expiry_date',
+                'batch_movements.quantity',
+                'batch_movements.created_at',
+                'batch_movements.reference_type',
+                'batch_movements.reference_id',
+            ]);
+
+        $refType = strtolower((string) $m->reference_type);
+        $refId = (int) ($m->reference_id ?? 0);
+
+        if ($refType !== '' && $refId > 0) {
+            $byRef = (clone $q)
+                ->where('batch_movements.reference_type', $m->reference_type)
+                ->where('batch_movements.reference_id', $refId)
+                ->get();
+            if ($byRef->isNotEmpty()) {
+                return $byRef;
+            }
+        }
+
+        // Fallback: same item, same qty sign, within ±2 minutes (covers manual / legacy)
+        if (! $m->created_at) {
+            return collect();
+        }
+
+        $from = $m->created_at->copy()->subSeconds(120);
+        $to = $m->created_at->copy()->addSeconds(120);
+        $wantIn = (float) $m->quantity >= 0;
+
+        return $q
+            ->whereBetween('batch_movements.created_at', [$from, $to])
+            ->when($wantIn, fn ($qq) => $qq->where('batch_movements.quantity', '>', 0))
+            ->when(! $wantIn, fn ($qq) => $qq->where('batch_movements.quantity', '<', 0))
+            ->get();
     }
 
     /**
@@ -420,6 +542,7 @@ class StockMovementService
                 break;
 
             case 'purchase':
+            case 'purchase_receipt':
                 if (Schema::connection('tenant')->hasTable('receipt_notes')) {
                     foreach (ReceiptNote::query()->whereIn('id', $ids)->with('purchaseOrder:id,order_number')->get() as $receipt) {
                         $orderNum = $receipt->purchaseOrder?->order_number ?? $receipt->receipt_number;
@@ -551,15 +674,29 @@ class StockMovementService
 
     private function fallbackReferenceLabel(StockMovement $m): ?string
     {
-        if (!$m->reference_type && !$m->reason) {
+        $ref = strtolower((string) $m->reference_type);
+        $refId = (int) ($m->reference_id ?? 0);
+        $reason = trim((string) ($m->reason ?? ''));
+        $reasonLower = strtolower($reason);
+
+        if ($ref === 'manual' || ($ref !== '' && $refId <= 0 && in_array($ref, ['manual', 'batch'], true))) {
+            return 'Saisie manuelle';
+        }
+
+        if ($ref !== '' && $refId > 0) {
+            return match ($ref) {
+                'purchase_receipt' => 'Réception #'.$refId,
+                'expiry_write_off' => 'Sortie péremption',
+                default => ucfirst($m->reference_type).' #'.$refId,
+            };
+        }
+
+        // Never surface technical reason codes as the document label.
+        if (in_array($reasonLower, ['batch_consume', 'batch_receipt'], true) || str_starts_with($reasonLower, 'lot ')) {
             return null;
         }
 
-        if ($m->reference_type && $m->reference_id) {
-            return ucfirst($m->reference_type) . ' #' . $m->reference_id;
-        }
-
-        return $m->reason;
+        return $reason !== '' ? $reason : null;
     }
 
     private function resolveStoreId(): ?int
@@ -584,6 +721,9 @@ class StockMovementService
     {
         return [
             '' => 'Toutes origines',
+            'purchase_receipt' => 'Réception',
+            'manual' => 'Saisie lot',
+            'expiry_write_off' => 'Péremption',
             'sale' => 'Vente',
             'sale_return' => 'Retour vente',
             'Purchase' => 'Réception achat',

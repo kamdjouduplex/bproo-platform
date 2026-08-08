@@ -7,7 +7,8 @@
     <style>
         @include('partials.print.page-setup', ['printPageSize' => $printPageSize ?? '80mm auto'])
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: sans-serif; font-size: 12px; line-height: 1.35; color: #000; background: #fff; padding: 8px; max-width: 80mm; margin: 0 auto; }
+        body { font-family: sans-serif; font-size: 12px; line-height: 1.35; color: #000; background: #fff; max-width: 80mm; margin: 0 auto; }
+        .ticket-inner { padding: 12px 10px; }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
         .bold { font-weight: 700; }
@@ -22,10 +23,11 @@
         .qty { width: 24px; text-align: right; }
         .price, .total { text-align: right; }
         @include('partials.item-label-css')
-        @media print { body { padding: 0; } .no-print { display: none !important; } }
+        @media print { .no-print { display: none !important; } }
     </style>
 </head>
 <body>
+    <div class="ticket-inner">
     @if(!empty($settings['logo_url']))
         <div class="text-center mb-1"><img src="{{ $settings['logo_url'] }}" alt="{{ $settings['shop_name'] }}" style="max-height:48px; max-width:100%; object-fit:contain;"></div>
     @else
@@ -42,6 +44,9 @@
     <div class="text-center mt-1">Reçu / Ticket</div>
     <div class="mt-1"><strong>{{ $sale->sale_number }}</strong> — {{ $sale->sale_date->format('d/m/Y H:i') }}</div>
     <div class="mt-1">Client: {{ $sale->client?->name ?? 'Client occasionnel' }}</div>
+    @if (!empty($rxSummary))
+        <div class="mt-1">Ordonnance: <strong>{{ $rxSummary['number'] }}</strong> ({{ $rxSummary['status_label'] }})</div>
+    @endif
     <div class="line mt-1"></div>
 
     <table class="mt-1">
@@ -77,12 +82,27 @@
     @endforeach
     @endif
 
+    @if (!empty($rxSummary) && !empty($rxSummary['lines']))
+    <div class="line mt-1"></div>
+    <div class="bold mb-1">Délivrance ordonnance</div>
+    @foreach ($rxSummary['lines'] as $rxLine)
+    <div style="font-size: 10px; margin-bottom: 4px;">
+        {{ $rxLine['item_name'] }}<br>
+        Prescrit {{ fmt_num($rxLine['prescribed']) }}
+        · Ce ticket {{ fmt_num($rxLine['this_sale']) }}
+        · Total délivré {{ fmt_num($rxLine['dispensed']) }}
+        · Reste {{ fmt_num($rxLine['remaining']) }}
+    </div>
+    @endforeach
+    @endif
+
     @if(!empty($settings['invoice_footer']))
     <div class="line mt-2"></div>
     <div class="text-center" style="font-size: 10px;">{{ $settings['invoice_footer'] }}</div>
     @endif
 
     <div class="text-center mt-2" style="font-size: 10px;">Merci pour votre achat</div>
+    </div>
 
     @include('partials.print.auto-print', ['returnUrl' => $returnUrl ?? null])
 </body>

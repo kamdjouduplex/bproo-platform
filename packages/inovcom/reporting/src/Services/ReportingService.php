@@ -2,33 +2,69 @@
 
 namespace InovCom\Reporting\Services;
 
-use App\Services\StoreContextService;
 use Carbon\Carbon;
-use Illuminate\Database\Query\Builder;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\App;
 use Illuminate\Support\Facades\Schema;
+use InovCom\Kernel\Contracts\DebtsApi;
+use InovCom\Kernel\Contracts\ExpensesApi;
+use InovCom\Kernel\Contracts\InvoicingApi;
+use InovCom\Kernel\Contracts\LossesApi;
+use InovCom\Kernel\Contracts\PayrollApi;
+use InovCom\Kernel\Contracts\PurchasingApi;
+use InovCom\Kernel\Contracts\QuotationsApi;
+use InovCom\Kernel\Contracts\SalesApi;
+use InovCom\Kernel\Contracts\StockApi;
 
 class ReportingService
 {
-    private function applyStoreFilter(Builder $query, string $table): Builder
+    private function invoicingApi(): ?InvoicingApi
     {
-        $storeId = app(StoreContextService::class)->currentStoreId();
-        if (
-            $storeId
-            && Schema::connection('tenant')->hasTable($table)
-            && Schema::connection('tenant')->hasColumn($table, 'store_id')
-        ) {
-            $query->where("{$table}.store_id", $storeId);
-        }
+        return App::bound(InvoicingApi::class) ? app(InvoicingApi::class) : null;
+    }
 
-        return $query;
+    private function purchasingApi(): ?PurchasingApi
+    {
+        return App::bound(PurchasingApi::class) ? app(PurchasingApi::class) : null;
+    }
+
+    private function stockApi(): ?StockApi
+    {
+        return App::bound(StockApi::class) ? app(StockApi::class) : null;
+    }
+
+    private function salesApi(): ?SalesApi
+    {
+        return App::bound(SalesApi::class) ? app(SalesApi::class) : null;
+    }
+
+    private function quotationsApi(): ?QuotationsApi
+    {
+        return App::bound(QuotationsApi::class) ? app(QuotationsApi::class) : null;
+    }
+
+    private function expensesApi(): ?ExpensesApi
+    {
+        return App::bound(ExpensesApi::class) ? app(ExpensesApi::class) : null;
+    }
+
+    private function lossesApi(): ?LossesApi
+    {
+        return App::bound(LossesApi::class) ? app(LossesApi::class) : null;
+    }
+
+    private function debtsApi(): ?DebtsApi
+    {
+        return App::bound(DebtsApi::class) ? app(DebtsApi::class) : null;
+    }
+
+    private function payrollApi(): ?PayrollApi
+    {
+        return App::bound(PayrollApi::class) ? app(PayrollApi::class) : null;
     }
 
     public function hasStoreDimension(): bool
     {
-        return Schema::connection('tenant')->hasTable('stores')
-            && Schema::connection('tenant')->hasTable('sales')
-            && Schema::connection('tenant')->hasColumn('sales', 'store_id');
+        return $this->salesApi()?->hasStoreDimension() ?? false;
     }
 
     /**
@@ -92,37 +128,12 @@ class ReportingService
 
     public function getSalesTotal(Carbon $start, Carbon $end): float
     {
-        if (! Schema::connection('tenant')->hasTable('sales')) {
-            return 0;
-        }
-
-        $gross = (float) DB::connection('tenant')
-            ->table('sales')
-            ->whereBetween('sale_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'sales'))
-            ->sum('total');
-
-        if (class_exists(\InovCom\Sales\Services\SaleReturnsService::class)) {
-            return max(0, $gross - \InovCom\Sales\Services\SaleReturnsService::totalRefundsBetween(
-                $start->format('Y-m-d'),
-                $end->format('Y-m-d')
-            ));
-        }
-
-        return $gross;
+        return $this->salesApi()?->getPeriodTotal($start->format('Y-m-d'), $end->format('Y-m-d')) ?? 0.0;
     }
 
     public function getSalesCount(Carbon $start, Carbon $end): int
     {
-        if (! Schema::connection('tenant')->hasTable('sales')) {
-            return 0;
-        }
-
-        return (int) DB::connection('tenant')
-            ->table('sales')
-            ->whereBetween('sale_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'sales'))
-            ->count();
+        return $this->salesApi()?->getPeriodCount($start->format('Y-m-d'), $end->format('Y-m-d')) ?? 0;
     }
 
     public function getAverageSaleAmount(Carbon $start, Carbon $end): float
@@ -134,81 +145,24 @@ class ReportingService
 
     public function getExpensesTotal(Carbon $start, Carbon $end): float
     {
-        if (! Schema::connection('tenant')->hasTable('expenses')) {
-            return 0;
-        }
-
-        return (float) DB::connection('tenant')
-            ->table('expenses')
-            ->whereBetween('expense_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->whereIn('status', ['approved', 'paid'])
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'expenses'))
-            ->sum('amount');
+        return $this->expensesApi()?->getPeriodTotal($start->format('Y-m-d'), $end->format('Y-m-d')) ?? 0.0;
     }
 
     public function getLossesTotal(Carbon $start, Carbon $end): float
     {
-        if (! Schema::connection('tenant')->hasTable('loss_records')) {
-            return 0;
-        }
-
-        return (float) DB::connection('tenant')
-            ->table('loss_records')
-            ->whereBetween('loss_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->where('status', 'confirmed')
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'loss_records'))
-            ->sum('value');
+        return $this->lossesApi()?->getPeriodTotal($start->format('Y-m-d'), $end->format('Y-m-d')) ?? 0.0;
     }
 
     /**
      * Cost of goods sold for the date range.
-     * Uses item_unit_prices.cost when unit_id matches, else quantity (in base units) * items.cost.
      */
     public function getCostOfGoodsSold(Carbon $start, Carbon $end): float
     {
-        if (! Schema::connection('tenant')->hasTable('sale_lines')
-            || ! Schema::connection('tenant')->hasTable('sales')
-            || ! Schema::connection('tenant')->hasTable('items')) {
-            return 0;
-        }
-
-        $hasUnitPrices = Schema::connection('tenant')->hasTable('item_unit_prices');
-
-        if ($hasUnitPrices) {
-            $sum = DB::connection('tenant')
-                ->table('sale_lines')
-                ->join('sales', 'sale_lines.sale_id', '=', 'sales.id')
-                ->join('items', 'sale_lines.item_id', '=', 'items.id')
-                ->leftJoin('item_unit_prices', function ($join) {
-                    $join->on('sale_lines.item_id', '=', 'item_unit_prices.item_id')
-                        ->on('sale_lines.unit_id', '=', 'item_unit_prices.unit_id');
-                })
-                ->whereBetween('sales.sale_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-                ->selectRaw('COALESCE(SUM(
-                    CASE
-                        WHEN item_unit_prices.id IS NOT NULL THEN sale_lines.quantity * item_unit_prices.cost
-                        ELSE sale_lines.quantity * COALESCE(sale_lines.conversion_factor, 1) * items.cost
-                    END
-                ), 0) as total')
-                ->value('total');
-        } else {
-            $sum = DB::connection('tenant')
-                ->table('sale_lines')
-                ->join('sales', 'sale_lines.sale_id', '=', 'sales.id')
-                ->join('items', 'sale_lines.item_id', '=', 'items.id')
-                ->whereBetween('sales.sale_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-                ->selectRaw('COALESCE(SUM(
-                    sale_lines.quantity * COALESCE(sale_lines.conversion_factor, 1) * items.cost
-                ), 0) as total')
-                ->value('total');
-        }
-
-        return (float) $sum;
+        return $this->salesApi()?->getCostOfGoodsSold($start->format('Y-m-d'), $end->format('Y-m-d')) ?? 0.0;
     }
 
     /**
      * Benefit (profit) for the date range: sales margin minus confirmed losses.
-     * Expenses and debts are not included in benefit.
      */
     public function getBenefit(Carbon $start, Carbon $end): float
     {
@@ -222,34 +176,11 @@ class ReportingService
      */
     public function getTopSellingProducts(Carbon $start, Carbon $end, int $limit = 10): array
     {
-        if (! Schema::connection('tenant')->hasTable('sale_lines') || ! Schema::connection('tenant')->hasTable('sales')) {
-            return [];
-        }
-
-        $rows = DB::connection('tenant')
-            ->table('sale_lines')
-            ->join('sales', 'sale_lines.sale_id', '=', 'sales.id')
-            ->whereBetween('sales.sale_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'sales'))
-            ->select([
-                'sale_lines.item_id',
-                DB::raw('MAX(sale_lines.item_name) as item_name'),
-                DB::raw('MAX(sale_lines.item_sku) as item_sku'),
-                DB::raw('SUM(sale_lines.quantity) as quantity'),
-                DB::raw('SUM(sale_lines.line_total) as revenue'),
-            ])
-            ->groupBy('sale_lines.item_id')
-            ->orderByDesc('revenue')
-            ->limit($limit)
-            ->get();
-
-        return $rows->map(fn ($r) => [
-            'item_id' => (int) $r->item_id,
-            'item_name' => $r->item_name ?? '-',
-            'item_sku' => $r->item_sku,
-            'quantity' => (float) $r->quantity,
-            'revenue' => (float) $r->revenue,
-        ])->all();
+        return $this->salesApi()?->getTopProductsByRevenue(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d'),
+            $limit
+        ) ?? [];
     }
 
     /**
@@ -257,34 +188,11 @@ class ReportingService
      */
     public function getTopSellingByQuantity(Carbon $start, Carbon $end, int $limit = 10): array
     {
-        if (! Schema::connection('tenant')->hasTable('sale_lines') || ! Schema::connection('tenant')->hasTable('sales')) {
-            return [];
-        }
-
-        $rows = DB::connection('tenant')
-            ->table('sale_lines')
-            ->join('sales', 'sale_lines.sale_id', '=', 'sales.id')
-            ->whereBetween('sales.sale_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'sales'))
-            ->select([
-                'sale_lines.item_id',
-                DB::raw('MAX(sale_lines.item_name) as item_name'),
-                DB::raw('MAX(sale_lines.item_sku) as item_sku'),
-                DB::raw('SUM(sale_lines.quantity) as quantity'),
-                DB::raw('SUM(sale_lines.line_total) as revenue'),
-            ])
-            ->groupBy('sale_lines.item_id')
-            ->orderByDesc('quantity')
-            ->limit($limit)
-            ->get();
-
-        return $rows->map(fn ($r) => [
-            'item_id' => (int) $r->item_id,
-            'item_name' => $r->item_name ?? '-',
-            'item_sku' => $r->item_sku,
-            'quantity' => (float) $r->quantity,
-            'revenue' => (float) $r->revenue,
-        ])->all();
+        return $this->salesApi()?->getTopProductsByQuantity(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d'),
+            $limit
+        ) ?? [];
     }
 
     /**
@@ -297,126 +205,36 @@ class ReportingService
     }
 
     /**
-     * @return array<string, float> [ 'Y-m-d' => total, ... ] — all days in range, 0 when no sales.
+     * @return array<string, float> [ 'Y-m-d' => total, ... ]
      */
     public function getDailySalesTrend(Carbon $start, Carbon $end): array
     {
-        if (! Schema::connection('tenant')->hasTable('sales')) {
-            return [];
-        }
-
-        $rows = DB::connection('tenant')
-            ->table('sales')
-            ->whereBetween('sale_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'sales'))
-            ->select('sale_date')
-            ->selectRaw('SUM(total) as total')
-            ->groupBy('sale_date')
-            ->orderBy('sale_date')
-            ->get();
-
-        $out = [];
-        foreach ($rows as $r) {
-            $out[$r->sale_date] = (float) $r->total;
-        }
-
-        $curr = $start->copy();
-        while ($curr->lte($end)) {
-            $d = $curr->format('Y-m-d');
-            if (! isset($out[$d])) {
-                $out[$d] = 0.0;
-            }
-            $curr->addDay();
-        }
-        ksort($out);
-
-        return $out;
+        return $this->salesApi()?->getDailySalesTrend(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        ) ?? [];
     }
 
     /**
-     * Daily COGS by date for chart (sales - cogs - expenses/days - losses = benefit per day).
-     *
      * @return array<string, float> [ 'Y-m-d' => cogs, ... ]
      */
     public function getDailyCogsTrend(Carbon $start, Carbon $end): array
     {
-        if (! Schema::connection('tenant')->hasTable('sale_lines')
-            || ! Schema::connection('tenant')->hasTable('sales')
-            || ! Schema::connection('tenant')->hasTable('items')) {
-            return $this->fillDailyRange($start, $end, 0.0);
-        }
-
-        $hasUnitPrices = Schema::connection('tenant')->hasTable('item_unit_prices');
-        $dateCol = 'sales.sale_date';
-
-        $query = DB::connection('tenant')
-            ->table('sale_lines')
-            ->join('sales', 'sale_lines.sale_id', '=', 'sales.id')
-            ->join('items', 'sale_lines.item_id', '=', 'items.id')
-            ->whereBetween($dateCol, [$start->format('Y-m-d'), $end->format('Y-m-d')]);
-        $this->applyStoreFilter($query, 'sales');
-
-        if ($hasUnitPrices) {
-            $query->leftJoin('item_unit_prices', function ($join) {
-                $join->on('sale_lines.item_id', '=', 'item_unit_prices.item_id')
-                    ->on('sale_lines.unit_id', '=', 'item_unit_prices.unit_id');
-            });
-            $rows = $query->select($dateCol)
-                ->selectRaw('COALESCE(SUM(
-                    CASE
-                        WHEN item_unit_prices.id IS NOT NULL THEN sale_lines.quantity * item_unit_prices.cost
-                        ELSE sale_lines.quantity * COALESCE(sale_lines.conversion_factor, 1) * items.cost
-                    END
-                ), 0) as total')
-                ->groupBy($dateCol)
-                ->orderBy($dateCol)
-                ->get();
-        } else {
-            $rows = $query->select($dateCol)
-                ->selectRaw('COALESCE(SUM(
-                    sale_lines.quantity * COALESCE(sale_lines.conversion_factor, 1) * items.cost
-                ), 0) as total')
-                ->groupBy($dateCol)
-                ->orderBy($dateCol)
-                ->get();
-        }
-
-        $out = [];
-        foreach ($rows as $r) {
-            $out[$r->sale_date] = (float) $r->total;
-        }
-
-        return $this->fillDailyRange($start, $end, 0.0, $out);
+        return $this->salesApi()?->getDailyCogsTrend(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        ) ?? $this->fillDailyRange($start, $end, 0.0);
     }
 
     /**
-     * Daily losses by date.
-     *
      * @return array<string, float> [ 'Y-m-d' => value, ... ]
      */
     public function getDailyLossesTrend(Carbon $start, Carbon $end): array
     {
-        if (! Schema::connection('tenant')->hasTable('loss_records')) {
-            return $this->fillDailyRange($start, $end, 0.0);
-        }
-
-        $rows = DB::connection('tenant')
-            ->table('loss_records')
-            ->whereBetween('loss_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->where('status', 'confirmed')
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'loss_records'))
-            ->select('loss_date')
-            ->selectRaw('SUM(value) as total')
-            ->groupBy('loss_date')
-            ->orderBy('loss_date')
-            ->get();
-
-        $out = [];
-        foreach ($rows as $r) {
-            $out[$r->loss_date] = (float) $r->total;
-        }
-
-        return $this->fillDailyRange($start, $end, 0.0, $out);
+        return $this->lossesApi()?->getDailyTrend(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        ) ?? $this->fillDailyRange($start, $end, 0.0);
     }
 
     /**
@@ -443,25 +261,10 @@ class ReportingService
      */
     public function getExpensesByCategory(Carbon $start, Carbon $end): array
     {
-        if (! Schema::connection('tenant')->hasTable('expenses') || ! Schema::connection('tenant')->hasTable('expense_categories')) {
-            return [];
-        }
-
-        $rows = DB::connection('tenant')
-            ->table('expenses')
-            ->join('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')
-            ->whereBetween('expenses.expense_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->whereIn('expenses.status', ['approved', 'paid'])
-            ->select('expense_categories.name as category_name')
-            ->selectRaw('SUM(expenses.amount) as total')
-            ->groupBy('expense_categories.id', 'expense_categories.name')
-            ->orderByDesc('total')
-            ->get();
-
-        return $rows->map(fn ($r) => [
-            'category_name' => $r->category_name,
-            'total' => (float) $r->total,
-        ])->all();
+        return $this->expensesApi()?->getByCategory(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        ) ?? [];
     }
 
     /**
@@ -469,27 +272,10 @@ class ReportingService
      */
     public function getLossesByReason(Carbon $start, Carbon $end): array
     {
-        if (! Schema::connection('tenant')->hasTable('loss_records') || ! Schema::connection('tenant')->hasTable('loss_reasons')) {
-            return [];
-        }
-
-        $rows = DB::connection('tenant')
-            ->table('loss_records')
-            ->join('loss_reasons', 'loss_records.loss_reason_id', '=', 'loss_reasons.id')
-            ->whereBetween('loss_records.loss_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->where('loss_records.status', 'confirmed')
-            ->select('loss_reasons.name as reason_name')
-            ->selectRaw('SUM(loss_records.value) as total_value')
-            ->selectRaw('SUM(loss_records.quantity) as total_qty')
-            ->groupBy('loss_reasons.id', 'loss_reasons.name')
-            ->orderByDesc('total_value')
-            ->get();
-
-        return $rows->map(fn ($r) => [
-            'reason_name' => $r->reason_name,
-            'total_value' => (float) $r->total_value,
-            'total_qty' => (float) $r->total_qty,
-        ])->all();
+        return $this->lossesApi()?->getByReason(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        ) ?? [];
     }
 
     /**
@@ -497,70 +283,31 @@ class ReportingService
      */
     public function getDebtsSummary(Carbon $start, Carbon $end): array
     {
-        if (! Schema::connection('tenant')->hasTable('debts')) {
-            return ['receivables_total' => 0, 'collected_in_period' => 0, 'overdue_count' => 0, 'overdue_total' => 0];
-        }
-
-        $receivables = (float) DB::connection('tenant')
-            ->table('debts')
-            ->whereIn('status', ['open', 'partial', 'overdue'])
-            ->sum('balance');
-
-        $collected = 0;
-        if (Schema::connection('tenant')->hasTable('debt_payments')) {
-            $collected = (float) DB::connection('tenant')
-                ->table('debt_payments')
-                ->whereBetween('payment_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-                ->sum('amount');
-        }
-
-        $overdueRows = DB::connection('tenant')
-            ->table('debts')
-            ->where(function ($q) use ($end) {
-                $q->where('status', 'overdue')
-                    ->orWhere(function ($q2) use ($end) {
-                        $q2->whereIn('status', ['open', 'partial'])
-                            ->whereNotNull('due_date')
-                            ->where('due_date', '<', $end->format('Y-m-d'));
-                    });
-            })
-            ->get(['balance']);
-        $overdueCount = $overdueRows->count();
-        $overdueTotal = (float) $overdueRows->sum('balance');
-
-        return [
-            'receivables_total' => $receivables,
-            'collected_in_period' => $collected,
-            'overdue_count' => $overdueCount,
-            'overdue_total' => $overdueTotal,
-        ];
+        return $this->debtsApi()?->getSummary(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        ) ?? ['receivables_total' => 0, 'collected_in_period' => 0, 'overdue_count' => 0, 'overdue_total' => 0];
     }
 
     public function getPayrollTotal(Carbon $start, Carbon $end): float
     {
-        if (! Schema::connection('tenant')->hasTable('payroll_runs')) {
-            return 0;
-        }
-
-        return (float) DB::connection('tenant')
-            ->table('payroll_runs')
-            ->whereIn('status', ['processed', 'paid'])
-            ->where('period_start', '<=', $end->format('Y-m-d'))
-            ->where('period_end', '>=', $start->format('Y-m-d'))
-            ->sum('total_gross');
+        return $this->payrollApi()?->getPeriodTotal(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        ) ?? 0.0;
     }
 
     public function getPurchasesTotal(Carbon $start, Carbon $end): float
     {
-        if (! Schema::connection('tenant')->hasTable('purchase_orders')) {
-            return 0;
+        $api = $this->purchasingApi();
+        if (! $api) {
+            return 0.0;
         }
 
-        return (float) DB::connection('tenant')
-            ->table('purchase_orders')
-            ->whereBetween('order_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->where('status', 'received')
-            ->sum('total');
+        return $api->getPeriodReceivedTotal(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        );
     }
 
     /**
@@ -568,27 +315,9 @@ class ReportingService
      */
     public function getLowStockItems(): array
     {
-        if (! Schema::connection('tenant')->hasTable('stock_levels') || ! Schema::connection('tenant')->hasTable('items')) {
-            return [];
-        }
+        $api = $this->stockApi();
 
-        $rows = DB::connection('tenant')
-            ->table('stock_levels')
-            ->join('items', 'stock_levels.item_id', '=', 'items.id')
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'stock_levels'))
-            ->whereNotNull('stock_levels.reorder_point')
-            ->whereRaw('stock_levels.available_quantity <= stock_levels.reorder_point')
-            ->select('items.name as item_name', 'items.sku as item_sku', 'stock_levels.available_quantity as available', 'stock_levels.reorder_point')
-            ->orderBy('stock_levels.available_quantity')
-            ->limit(50)
-            ->get();
-
-        return $rows->map(fn ($r) => [
-            'item_name' => $r->item_name ?? '-',
-            'item_sku' => $r->item_sku,
-            'available' => (float) $r->available,
-            'reorder_point' => $r->reorder_point !== null ? (float) $r->reorder_point : null,
-        ])->all();
+        return $api ? $api->getLowStockItems(50) : [];
     }
 
     /**
@@ -596,25 +325,9 @@ class ReportingService
      */
     public function getOutOfStockItems(): array
     {
-        if (! Schema::connection('tenant')->hasTable('stock_levels') || ! Schema::connection('tenant')->hasTable('items')) {
-            return [];
-        }
+        $api = $this->stockApi();
 
-        $rows = DB::connection('tenant')
-            ->table('stock_levels')
-            ->join('items', 'stock_levels.item_id', '=', 'items.id')
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'stock_levels'))
-            ->where('stock_levels.available_quantity', '<=', 0)
-            ->select('items.name as item_name', 'items.sku as item_sku', 'stock_levels.available_quantity as available')
-            ->orderBy('items.name')
-            ->limit(50)
-            ->get();
-
-        return $rows->map(fn ($r) => [
-            'item_name' => $r->item_name ?? '-',
-            'item_sku' => $r->item_sku,
-            'available' => (float) $r->available,
-        ])->all();
+        return $api ? $api->getOutOfStockItems(50) : [];
     }
 
     /**
@@ -647,7 +360,8 @@ class ReportingService
      */
     public function getClientPerformanceReport(Carbon $start, Carbon $end, ?int $limit = null): array
     {
-        if (! Schema::connection('tenant')->hasTable('clients')) {
+        if (! App::bound(\InovCom\Kernel\Contracts\ClientsApi::class)
+            && ! Schema::connection('tenant')->hasTable('clients')) {
             return [];
         }
 
@@ -671,66 +385,30 @@ class ReportingService
             }
         };
 
-        if ($this->hasInvoicingModule()) {
-            $invoiceRows = DB::connection('tenant')
-                ->table('invoices')
-                ->join('clients', 'invoices.client_id', '=', 'clients.id')
-                ->whereBetween('invoices.invoice_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-                ->whereNotIn('invoices.status', ['draft', 'cancelled'])
-                ->when(true, fn ($q) => $this->applyStoreFilter($q, 'invoices'))
-                ->select('clients.id as client_id', 'clients.name as client_name')
-                ->selectRaw('COALESCE(SUM(invoices.total), 0) as invoice_revenue')
-                ->selectRaw('COUNT(*) as invoice_count')
-                ->groupBy('clients.id', 'clients.name')
-                ->get();
-
-            foreach ($invoiceRows as $row) {
-                $id = (int) $row->client_id;
-                $ensure($id, (string) $row->client_name);
-                $byClient[$id]['invoice_revenue'] = (float) $row->invoice_revenue;
-                $byClient[$id]['invoice_count'] = (int) $row->invoice_count;
+        if ($api = $this->invoicingApi()) {
+            foreach ($api->getClientRevenueInPeriod($start->format('Y-m-d'), $end->format('Y-m-d')) as $row) {
+                $id = (int) $row['client_id'];
+                $ensure($id, (string) $row['client_name']);
+                $byClient[$id]['invoice_revenue'] = (float) $row['invoice_revenue'];
+                $byClient[$id]['invoice_count'] = (int) $row['invoice_count'];
             }
         }
 
-        if (Schema::connection('tenant')->hasTable('sales')) {
-            $salesRows = DB::connection('tenant')
-                ->table('sales')
-                ->join('clients', 'sales.client_id', '=', 'clients.id')
-                ->whereBetween('sales.sale_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-                ->whereNotNull('sales.client_id')
-                ->when(true, fn ($q) => $this->applyStoreFilter($q, 'sales'))
-                ->select('clients.id as client_id', 'clients.name as client_name')
-                ->selectRaw('COALESCE(SUM(sales.total), 0) as pos_revenue')
-                ->selectRaw('COUNT(*) as pos_sale_count')
-                ->groupBy('clients.id', 'clients.name')
-                ->get();
-
-            foreach ($salesRows as $row) {
-                $id = (int) $row->client_id;
-                $ensure($id, (string) $row->client_name);
-                $byClient[$id]['pos_revenue'] = (float) $row->pos_revenue;
-                $byClient[$id]['pos_sale_count'] = (int) $row->pos_sale_count;
+        if ($salesApi = $this->salesApi()) {
+            foreach ($salesApi->getClientRevenueInPeriod($start->format('Y-m-d'), $end->format('Y-m-d')) as $row) {
+                $id = (int) $row['client_id'];
+                $ensure($id, (string) $row['client_name']);
+                $byClient[$id]['pos_revenue'] = (float) $row['pos_revenue'];
+                $byClient[$id]['pos_sale_count'] = (int) $row['pos_sale_count'];
             }
         }
 
-        if ($this->hasQuotationsModule()) {
-            $quotationRows = DB::connection('tenant')
-                ->table('quotations')
-                ->join('clients', 'quotations.client_id', '=', 'clients.id')
-                ->whereBetween('quotations.quote_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-                ->where('quotations.status', '!=', 'cancelled')
-                ->when(true, fn ($q) => $this->applyStoreFilter($q, 'quotations'))
-                ->select('clients.id as client_id', 'clients.name as client_name')
-                ->selectRaw('COALESCE(SUM(quotations.total), 0) as quotation_total')
-                ->selectRaw('COUNT(*) as quotation_count')
-                ->groupBy('clients.id', 'clients.name')
-                ->get();
-
-            foreach ($quotationRows as $row) {
-                $id = (int) $row->client_id;
-                $ensure($id, (string) $row->client_name);
-                $byClient[$id]['quotation_total'] = (float) $row->quotation_total;
-                $byClient[$id]['quotation_count'] = (int) $row->quotation_count;
+        if ($quotesApi = $this->quotationsApi()) {
+            foreach ($quotesApi->getClientTotalsInPeriod($start->format('Y-m-d'), $end->format('Y-m-d')) as $row) {
+                $id = (int) $row['client_id'];
+                $ensure($id, (string) $row['client_name']);
+                $byClient[$id]['quotation_total'] = (float) $row['quotation_total'];
+                $byClient[$id]['quotation_count'] = (int) $row['quotation_count'];
             }
         }
 
@@ -772,16 +450,10 @@ class ReportingService
 
     public function getDistinctClientsCount(Carbon $start, Carbon $end): int
     {
-        if (! Schema::connection('tenant')->hasTable('sales')) {
-            return 0;
-        }
-
-        return (int) DB::connection('tenant')
-            ->table('sales')
-            ->whereBetween('sale_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->whereNotNull('client_id')
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'sales'))
-            ->count(DB::raw('DISTINCT client_id'));
+        return $this->salesApi()?->getDistinctClientsCount(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        ) ?? 0;
     }
 
     /**
@@ -789,93 +461,38 @@ class ReportingService
      */
     public function getStorePerformance(Carbon $start, Carbon $end): array
     {
-        if (! Schema::connection('tenant')->hasTable('stores')) {
-            return [];
-        }
-
-        if (! $this->hasStoreDimension()) {
-            $stores = DB::connection('tenant')->table('stores')->orderBy('name')->get(['id', 'name']);
-
-            return $stores->map(fn ($s) => [
-                'store_id' => (int) $s->id,
-                'store_name' => (string) $s->name,
-                'sales_count' => 0,
-                'sales_total' => 0.0,
-            ])->all();
-        }
-
-        $rows = DB::connection('tenant')
-            ->table('stores')
-            ->leftJoin('sales', function ($join) use ($start, $end) {
-                $join->on('stores.id', '=', 'sales.store_id')
-                    ->whereBetween('sales.sale_date', [$start->format('Y-m-d'), $end->format('Y-m-d')]);
-            })
-            ->select(
-                'stores.id',
-                'stores.name',
-                DB::raw('COUNT(sales.id) as sales_count'),
-                DB::raw('COALESCE(SUM(sales.total), 0) as sales_total')
-            )
-            ->groupBy('stores.id', 'stores.name')
-            ->orderByDesc('sales_total')
-            ->get();
-
-        return $rows->map(fn ($r) => [
-            'store_id' => (int) $r->id,
-            'store_name' => (string) $r->name,
-            'sales_count' => (int) $r->sales_count,
-            'sales_total' => (float) $r->sales_total,
-        ])->all();
+        return $this->salesApi()?->getStorePerformance(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        ) ?? [];
     }
 
     /**
-     * Top N sales by total amount in the period (biggest tickets).
-     *
      * @return array<int, array{sale_date: string, total: float, client_name: string|null}>
      */
     public function getTopSalesByTotal(Carbon $start, Carbon $end, int $limit = 10): array
     {
-        if (! Schema::connection('tenant')->hasTable('sales')) {
-            return [];
-        }
-
-        $query = DB::connection('tenant')
-            ->table('sales')
-            ->whereBetween('sale_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->select('sales.sale_date', 'sales.total');
-        $this->applyStoreFilter($query, 'sales');
-
-        if (Schema::connection('tenant')->hasTable('clients')) {
-            $query->leftJoin('clients', 'sales.client_id', '=', 'clients.id')
-                ->addSelect('clients.name as client_name');
-        } else {
-            $query->selectRaw('NULL as client_name');
-        }
-
-        $rows = $query->orderByDesc('sales.total')
-            ->limit($limit)
-            ->get();
-
-        return $rows->map(fn ($r) => [
-            'sale_date' => $r->sale_date,
-            'total' => (float) $r->total,
-            'client_name' => $r->client_name ?? null,
-        ])->all();
+        return $this->salesApi()?->getTopSalesByTotal(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d'),
+            $limit
+        ) ?? [];
     }
 
     public function hasQuotationsModule(): bool
     {
-        return Schema::connection('tenant')->hasTable('quotations');
+        return $this->quotationsApi() !== null;
     }
 
     public function hasInvoicingModule(): bool
     {
-        return Schema::connection('tenant')->hasTable('invoices');
+        return $this->invoicingApi() !== null;
     }
 
     public function hasInvoicePaymentsModule(): bool
     {
-        return Schema::connection('tenant')->hasTable('invoice_payments');
+        // Payments are exposed via InvoicingApi; adapters return 0/[] when table missing.
+        return $this->invoicingApi() !== null;
     }
 
     /**
@@ -890,62 +507,34 @@ class ReportingService
      */
     public function getQuotationsSummary(Carbon $start, Carbon $end): array
     {
-        if (! $this->hasQuotationsModule()) {
-            return [
-                'count' => 0,
-                'total' => 0.0,
-                'by_status' => [],
-                'accepted_count' => 0,
-                'accepted_total' => 0.0,
-                'converted_to_invoice' => 0,
-            ];
+        $empty = [
+            'count' => 0,
+            'total' => 0.0,
+            'by_status' => [],
+            'accepted_count' => 0,
+            'accepted_total' => 0.0,
+            'converted_to_invoice' => 0,
+        ];
+
+        $quotesApi = $this->quotationsApi();
+        if (! $quotesApi) {
+            return $empty;
         }
 
-        $rows = DB::connection('tenant')
-            ->table('quotations')
-            ->whereBetween('quote_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'quotations'))
-            ->select('status')
-            ->selectRaw('COUNT(*) as cnt')
-            ->selectRaw('COALESCE(SUM(total), 0) as total_sum')
-            ->groupBy('status')
-            ->get();
-
-        $byStatus = [];
-        $count = 0;
-        $total = 0.0;
-        foreach ($rows as $r) {
-            $status = (string) $r->status;
-            $byStatus[$status] = [
-                'count' => (int) $r->cnt,
-                'total' => (float) $r->total_sum,
-            ];
-            $count += (int) $r->cnt;
-            $total += (float) $r->total_sum;
-        }
-
-        $acceptedCount = (int) ($byStatus['accepted']['count'] ?? 0);
-        $acceptedTotal = (float) ($byStatus['accepted']['total'] ?? 0);
+        $summary = $quotesApi->getPeriodSummary(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        );
 
         $converted = 0;
-        if ($this->hasInvoicingModule()) {
-            $converted = (int) DB::connection('tenant')
-                ->table('invoices')
-                ->whereBetween('invoice_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-                ->whereNotNull('quotation_id')
-                ->whereNotIn('status', ['draft', 'cancelled'])
-                ->when(true, fn ($q) => $this->applyStoreFilter($q, 'invoices'))
-                ->count(DB::raw('DISTINCT quotation_id'));
+        if ($api = $this->invoicingApi()) {
+            $converted = $api->countConvertedQuotesInPeriod(
+                $start->format('Y-m-d'),
+                $end->format('Y-m-d')
+            );
         }
 
-        return [
-            'count' => $count,
-            'total' => $total,
-            'by_status' => $byStatus,
-            'accepted_count' => $acceptedCount,
-            'accepted_total' => $acceptedTotal,
-            'converted_to_invoice' => $converted,
-        ];
+        return array_merge($summary, ['converted_to_invoice' => $converted]);
     }
 
     /**
@@ -964,85 +553,41 @@ class ReportingService
      */
     public function getInvoicesSummary(Carbon $start, Carbon $end): array
     {
-        if (! $this->hasInvoicingModule()) {
-            return [
-                'issued_count' => 0,
-                'issued_total' => 0.0,
-                'draft_count' => 0,
-                'paid_count' => 0,
-                'paid_total' => 0.0,
-                'partial_count' => 0,
-                'partial_balance' => 0.0,
-                'outstanding_balance' => 0.0,
-                'cancelled_count' => 0,
-                'by_status' => [],
-            ];
-        }
-
-        $rows = DB::connection('tenant')
-            ->table('invoices')
-            ->whereBetween('invoice_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'invoices'))
-            ->select('status')
-            ->selectRaw('COUNT(*) as cnt')
-            ->selectRaw('COALESCE(SUM(total), 0) as total_sum')
-            ->selectRaw('COALESCE(SUM(balance), 0) as balance_sum')
-            ->groupBy('status')
-            ->get();
-
-        $byStatus = [];
-        foreach ($rows as $r) {
-            $byStatus[(string) $r->status] = [
-                'count' => (int) $r->cnt,
-                'total' => (float) $r->total_sum,
-            ];
-        }
-
-        $issuedStatuses = ['issued', 'partial', 'paid'];
-        $issuedCount = 0;
-        $issuedTotal = 0.0;
-        foreach ($issuedStatuses as $st) {
-            $issuedCount += (int) ($byStatus[$st]['count'] ?? 0);
-            $issuedTotal += (float) ($byStatus[$st]['total'] ?? 0);
-        }
-
-        $outstanding = (float) DB::connection('tenant')
-            ->table('invoices')
-            ->whereIn('status', ['issued', 'partial'])
-            ->where('balance', '>', 0.01)
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'invoices'))
-            ->sum('balance');
-
-        $partialBalance = (float) DB::connection('tenant')
-            ->table('invoices')
-            ->where('status', 'partial')
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'invoices'))
-            ->sum('balance');
-
-        return [
-            'issued_count' => $issuedCount,
-            'issued_total' => $issuedTotal,
-            'draft_count' => (int) ($byStatus['draft']['count'] ?? 0),
-            'paid_count' => (int) ($byStatus['paid']['count'] ?? 0),
-            'paid_total' => (float) ($byStatus['paid']['total'] ?? 0),
-            'partial_count' => (int) ($byStatus['partial']['count'] ?? 0),
-            'partial_balance' => $partialBalance,
-            'outstanding_balance' => $outstanding,
-            'cancelled_count' => (int) ($byStatus['cancelled']['count'] ?? 0),
-            'by_status' => $byStatus,
+        $empty = [
+            'issued_count' => 0,
+            'issued_total' => 0.0,
+            'draft_count' => 0,
+            'paid_count' => 0,
+            'paid_total' => 0.0,
+            'partial_count' => 0,
+            'partial_balance' => 0.0,
+            'outstanding_balance' => 0.0,
+            'cancelled_count' => 0,
+            'by_status' => [],
         ];
+
+        $api = $this->invoicingApi();
+        if (! $api) {
+            return $empty;
+        }
+
+        return $api->getPeriodSummary(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        );
     }
 
     public function getInvoicePaymentsTotal(Carbon $start, Carbon $end): float
     {
-        if (! $this->hasInvoicePaymentsModule()) {
+        $api = $this->invoicingApi();
+        if (! $api) {
             return 0.0;
         }
 
-        return (float) DB::connection('tenant')
-            ->table('invoice_payments')
-            ->whereBetween('payment_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->sum('amount');
+        return $api->getPaymentsTotal(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        );
     }
 
     /**
@@ -1050,34 +595,15 @@ class ReportingService
      */
     public function getInvoicePaymentsByMethod(Carbon $start, Carbon $end): array
     {
-        if (! $this->hasInvoicePaymentsModule()) {
+        $api = $this->invoicingApi();
+        if (! $api) {
             return [];
         }
 
-        $labels = [
-            'cash' => 'Espèces',
-            'check' => 'Chèque',
-            'bank_transfer' => 'Virement',
-            'mobile_money' => 'Mobile Money',
-            'other' => 'Autre',
-        ];
-
-        $rows = DB::connection('tenant')
-            ->table('invoice_payments')
-            ->whereBetween('payment_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->select('payment_method')
-            ->selectRaw('COUNT(*) as cnt')
-            ->selectRaw('SUM(amount) as total')
-            ->groupBy('payment_method')
-            ->orderByDesc('total')
-            ->get();
-
-        return $rows->map(fn ($r) => [
-            'method' => (string) $r->payment_method,
-            'method_label' => $labels[$r->payment_method] ?? $r->payment_method,
-            'total' => (float) $r->total,
-            'count' => (int) $r->cnt,
-        ])->all();
+        return $api->getPaymentsByMethod(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        );
     }
 
     /**
@@ -1085,25 +611,15 @@ class ReportingService
      */
     public function getDeliveriesSummary(Carbon $start, Carbon $end): array
     {
-        if (! Schema::connection('tenant')->hasTable('delivery_notes')) {
+        $api = $this->invoicingApi();
+        if (! $api) {
             return ['confirmed_count' => 0, 'draft_count' => 0];
         }
 
-        $confirmed = (int) DB::connection('tenant')
-            ->table('delivery_notes')
-            ->where('status', 'confirmed')
-            ->whereBetween('delivery_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'delivery_notes'))
-            ->count();
-
-        $draft = (int) DB::connection('tenant')
-            ->table('delivery_notes')
-            ->where('status', 'draft')
-            ->whereBetween('delivery_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'delivery_notes'))
-            ->count();
-
-        return ['confirmed_count' => $confirmed, 'draft_count' => $draft];
+        return $api->getDeliveriesSummary(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        );
     }
 
     /**
@@ -1111,34 +627,9 @@ class ReportingService
      */
     public function getTopOutstandingInvoices(int $limit = 10): array
     {
-        if (! $this->hasInvoicingModule() || ! Schema::connection('tenant')->hasTable('clients')) {
-            return [];
-        }
+        $api = $this->invoicingApi();
 
-        $rows = DB::connection('tenant')
-            ->table('invoices')
-            ->join('clients', 'invoices.client_id', '=', 'clients.id')
-            ->whereIn('invoices.status', ['issued', 'partial'])
-            ->where('invoices.balance', '>', 0.01)
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'invoices'))
-            ->select(
-                'invoices.invoice_number',
-                'clients.name as client_name',
-                'invoices.balance',
-                'invoices.due_date',
-                'invoices.status'
-            )
-            ->orderByDesc('invoices.balance')
-            ->limit($limit)
-            ->get();
-
-        return $rows->map(fn ($r) => [
-            'invoice_number' => $r->invoice_number,
-            'client_name' => $r->client_name,
-            'balance' => (float) $r->balance,
-            'due_date' => $r->due_date,
-            'status' => $r->status,
-        ])->all();
+        return $api ? $api->getTopOutstandingInvoices($limit) : [];
     }
 
     /**
@@ -1206,88 +697,15 @@ class ReportingService
             'by_tax' => [],
         ];
 
-        if (! $this->hasInvoicingModule()) {
+        $api = $this->invoicingApi();
+        if (! $api) {
             return $empty;
         }
 
-        $issuedStatuses = ['issued', 'partial', 'paid'];
-
-        $invoiceAgg = DB::connection('tenant')
-            ->table('invoices')
-            ->whereBetween('invoice_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->whereIn('status', $issuedStatuses)
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'invoices'))
-            ->selectRaw('COALESCE(SUM(GREATEST(COALESCE(subtotal, 0) - COALESCE(discount_amount, 0), 0)), 0) as ca_ht')
-            ->selectRaw('COALESCE(SUM(total), 0) as ca_ttc')
-            ->selectRaw('COALESCE(SUM(tax_amount), 0) as tax_fallback')
-            ->first();
-
-        $caHt = (float) ($invoiceAgg->ca_ht ?? 0);
-        $caTtc = (float) ($invoiceAgg->ca_ttc ?? 0);
-        $taxFallback = (float) ($invoiceAgg->tax_fallback ?? 0);
-
-        $tvaTotal = 0.0;
-        $otherTaxes = 0.0;
-        $byTax = [];
-
-        if (Schema::connection('tenant')->hasTable('invoice_tax_lines')) {
-            $taxQuery = DB::connection('tenant')
-                ->table('invoice_tax_lines as tl')
-                ->join('invoices as i', 'i.id', '=', 'tl.invoice_id')
-                ->whereBetween('i.invoice_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-                ->whereIn('i.status', $issuedStatuses)
-                ->when(true, function ($q) {
-                    $storeId = app(StoreContextService::class)->currentStoreId();
-                    if (
-                        $storeId
-                        && Schema::connection('tenant')->hasColumn('invoices', 'store_id')
-                    ) {
-                        $q->where('i.store_id', $storeId);
-                    }
-
-                    return $q;
-                });
-
-            if (Schema::connection('tenant')->hasColumn('invoice_tax_lines', 'tax_effect')) {
-                $taxQuery->where(function ($q) {
-                    $q->whereNull('tl.tax_effect')
-                        ->orWhere('tl.tax_effect', '<>', 'subtract');
-                });
-            }
-
-            $taxRows = $taxQuery
-                ->select('tl.tax_name')
-                ->selectRaw('COALESCE(SUM(tl.tax_amount), 0) as amount')
-                ->groupBy('tl.tax_name')
-                ->get();
-
-            foreach ($taxRows as $row) {
-                $amount = (float) $row->amount;
-                if ($amount <= 0) {
-                    continue;
-                }
-                $name = (string) $row->tax_name;
-                $byTax[] = ['name' => $name, 'amount' => $amount];
-                if (str_contains(mb_strtoupper($name), 'TVA')) {
-                    $tvaTotal += $amount;
-                } else {
-                    $otherTaxes += $amount;
-                }
-            }
-        }
-
-        if ($tvaTotal <= 0 && $otherTaxes <= 0 && $taxFallback > 0) {
-            $tvaTotal = $taxFallback;
-            $byTax[] = ['name' => 'TVA / taxes', 'amount' => $taxFallback];
-        }
-
-        return [
-            'ca_ht' => round($caHt, 2),
-            'tva_total' => round($tvaTotal, 2),
-            'other_taxes_total' => round($otherTaxes, 2),
-            'ca_ttc' => round($caTtc, 2),
-            'by_tax' => $byTax,
-        ];
+        return $api->getTaxBreakdown(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d')
+        );
     }
 
     /**
@@ -1357,33 +775,29 @@ class ReportingService
      */
     private function explorerTopProducts(Carbon $start, Carbon $end, ?int $clientId, int $limit, string $sortBy = 'revenue'): array
     {
-        $orderCol = $sortBy === 'quantity' ? 'quantity' : 'revenue';
+        $salesApi = $this->salesApi();
+        if (! $salesApi) {
+            return [
+                'title' => $sortBy === 'quantity' ? 'Marchandises les plus vendues (quantité)' : 'Marchandises les plus vendues (CA)',
+                'headers' => ['Référence', 'Article', 'Quantité', 'CA'],
+                'column_types' => ['text', 'text', 'qty', 'money_emphasis'],
+                'rows' => [],
+                'meta' => ['count' => 0],
+            ];
+        }
 
-        if ($clientId && Schema::connection('tenant')->hasTable('sale_lines')) {
-            $q = DB::connection('tenant')
-                ->table('sale_lines')
-                ->join('sales', 'sales.id', '=', 'sale_lines.sale_id')
-                ->whereBetween('sales.sale_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-                ->where('sales.client_id', $clientId)
-                ->when(true, fn ($query) => $this->applyStoreFilter($query, 'sales'))
-                ->select('sale_lines.item_id', 'sale_lines.item_name', 'sale_lines.item_sku')
-                ->selectRaw('SUM(sale_lines.quantity) as quantity')
-                ->selectRaw('SUM(sale_lines.line_total) as revenue')
-                ->groupBy('sale_lines.item_id', 'sale_lines.item_name', 'sale_lines.item_sku')
-                ->orderByDesc($orderCol)
-                ->limit($limit)
-                ->get();
-
-            $products = $q->map(fn ($r) => [
-                'item_name' => $r->item_name,
-                'item_sku' => $r->item_sku,
-                'quantity' => (float) $r->quantity,
-                'revenue' => (float) $r->revenue,
-            ])->all();
+        if ($clientId) {
+            $products = $salesApi->getTopProductsForClient(
+                $start->format('Y-m-d'),
+                $end->format('Y-m-d'),
+                $clientId,
+                $limit,
+                $sortBy
+            );
         } else {
             $products = $sortBy === 'quantity'
-                ? $this->getTopSellingByQuantity($start, $end, $limit)
-                : $this->getTopSellingProducts($start, $end, $limit);
+                ? $salesApi->getTopProductsByQuantity($start->format('Y-m-d'), $end->format('Y-m-d'), $limit)
+                : $salesApi->getTopProductsByRevenue($start->format('Y-m-d'), $end->format('Y-m-d'), $limit);
         }
 
         return [
@@ -1405,37 +819,32 @@ class ReportingService
      */
     private function explorerDirectSales(Carbon $start, Carbon $end, ?int $clientId, int $limit): array
     {
-        if (! Schema::connection('tenant')->hasTable('sales')) {
+        $salesApi = $this->salesApi();
+        if (! $salesApi) {
             return ['title' => 'Ventes directes', 'headers' => [], 'column_types' => [], 'rows' => [], 'meta' => []];
         }
 
-        $sales = DB::connection('tenant')
-            ->table('sales')
-            ->leftJoin('clients', 'clients.id', '=', 'sales.client_id')
-            ->whereBetween('sales.sale_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->when($clientId, fn ($q) => $q->where('sales.client_id', $clientId))
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'sales'))
-            ->orderByDesc('sales.sale_date')
-            ->orderByDesc('sales.id')
-            ->limit($limit)
-            ->get([
-                'sales.sale_number',
-                'sales.sale_date',
-                'sales.total',
-                'clients.name as client_name',
-            ]);
+        $sales = $salesApi->listSales(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d'),
+            $clientId,
+            $limit
+        );
 
         return [
             'title' => 'Ventes directes',
             'headers' => ['N°', 'Date', 'Client', 'Total'],
             'column_types' => ['text', 'date', 'text', 'money_emphasis'],
-            'rows' => $sales->map(fn ($s) => [
-                $s->sale_number,
-                Carbon::parse($s->sale_date)->format('d/m/Y'),
-                $s->client_name ?? 'Comptoir',
-                round((float) $s->total, 2),
-            ])->all(),
-            'meta' => ['count' => $sales->count(), 'total' => round($sales->sum('total'), 2)],
+            'rows' => array_map(fn ($s) => [
+                $s['sale_number'],
+                $s['sale_date'] ? Carbon::parse($s['sale_date'])->format('d/m/Y') : '',
+                $s['client_name'] ?? 'Comptoir',
+                round((float) $s['total'], 2),
+            ], $sales),
+            'meta' => [
+                'count' => count($sales),
+                'total' => round(array_sum(array_column($sales, 'total')), 2),
+            ],
         ];
     }
 
@@ -1444,49 +853,36 @@ class ReportingService
      */
     private function explorerInvoices(Carbon $start, Carbon $end, ?int $clientId, int $limit): array
     {
-        if (! $this->hasInvoicingModule()) {
+        $api = $this->invoicingApi();
+        if (! $api) {
             return ['title' => 'Factures', 'headers' => [], 'column_types' => [], 'rows' => [], 'meta' => []];
         }
 
-        $invoices = DB::connection('tenant')
-            ->table('invoices')
-            ->leftJoin('clients', 'clients.id', '=', 'invoices.client_id')
-            ->whereBetween('invoices.invoice_date', [$start->format('Y-m-d'), $end->format('Y-m-d')])
-            ->whereNotIn('invoices.status', ['draft', 'cancelled'])
-            ->when($clientId, fn ($q) => $q->where('invoices.client_id', $clientId))
-            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'invoices'))
-            ->orderByDesc('invoices.invoice_date')
-            ->limit($limit)
-            ->get([
-                'invoices.invoice_number',
-                'invoices.invoice_date',
-                'invoices.status',
-                'invoices.subtotal',
-                'invoices.discount_amount',
-                'invoices.tax_amount',
-                'invoices.total',
-                'invoices.balance',
-                'clients.name as client_name',
-            ]);
+        $invoices = $api->listIssuedInvoices(
+            $start->format('Y-m-d'),
+            $end->format('Y-m-d'),
+            $clientId,
+            $limit
+        );
 
         return [
             'title' => 'Factures (CA Facture)',
             'headers' => ['N°', 'Date', 'Client', 'Statut', 'HT', 'Taxes', 'TTC', 'Solde'],
             'column_types' => ['text', 'date', 'text', 'badge', 'money', 'money', 'money_emphasis', 'money'],
-            'rows' => $invoices->map(fn ($i) => [
-                $i->invoice_number,
-                Carbon::parse($i->invoice_date)->format('d/m/Y'),
-                $i->client_name ?? '',
-                self::invoiceStatusLabel((string) $i->status),
-                round(max(0, (float) $i->subtotal - (float) $i->discount_amount), 2),
-                round((float) $i->tax_amount, 2),
-                round((float) $i->total, 2),
-                round((float) $i->balance, 2),
-            ])->all(),
+            'rows' => array_map(fn ($i) => [
+                $i['invoice_number'],
+                $i['invoice_date'] ? Carbon::parse($i['invoice_date'])->format('d/m/Y') : '',
+                $i['client_name'] ?? '',
+                self::invoiceStatusLabel((string) $i['status']),
+                round(max(0, (float) $i['subtotal'] - (float) $i['discount_amount']), 2),
+                round((float) $i['tax_amount'], 2),
+                round((float) $i['total'], 2),
+                round((float) $i['balance'], 2),
+            ], $invoices),
             'meta' => [
-                'count' => $invoices->count(),
-                'total_ttc' => round($invoices->sum('total'), 2),
-                'total_tax' => round($invoices->sum('tax_amount'), 2),
+                'count' => count($invoices),
+                'total_ttc' => round(array_sum(array_column($invoices, 'total')), 2),
+                'total_tax' => round(array_sum(array_column($invoices, 'tax_amount')), 2),
             ],
         ];
     }
@@ -1563,10 +959,12 @@ class ReportingService
     {
         return match ($status) {
             'draft' => 'Brouillon',
-            'issued' => 'Émise',
+            'issued', 'sent' => 'Émise',
             'partial' => 'Part. payée',
             'paid' => 'Payée',
+            'overdue' => 'En retard',
             'cancelled' => 'Annulée',
+            'superseded' => 'Remplacée',
             default => $status,
         };
     }

@@ -17,8 +17,19 @@ class SubscriptionStatus extends Component
     public ?int $subscribe_plan_id = null;
     public int $subscribe_months = 1;
 
+    public function mount(): void
+    {
+        $user = auth('tenant')->user();
+        abort_unless(
+            $user && method_exists($user, 'isAdmin') && $user->isAdmin(),
+            403,
+            'Seul un administrateur peut gérer l’abonnement.'
+        );
+    }
+
     public function applyBalance(): void
     {
+        $this->authorizeAdmin();
         $tenant = app(TenantManager::class)->tenant();
         $sub = $tenant?->currentSubscription();
         if (!$tenant || !$sub) {
@@ -38,6 +49,7 @@ class SubscriptionStatus extends Component
 
     public function subscribeFromBalance(): void
     {
+        $this->authorizeAdmin();
         $this->validate([
             'subscribe_plan_id' => 'required|exists:plans,id',
             'subscribe_months' => 'required|integer|min:1|max:120',
@@ -61,6 +73,7 @@ class SubscriptionStatus extends Component
 
     public function changePlan(): void
     {
+        $this->authorizeAdmin();
         $this->validate(['new_plan_id' => 'required|exists:plans,id']);
         $tenant = app(TenantManager::class)->tenant();
         $sub = $tenant?->currentSubscription();
@@ -85,6 +98,7 @@ class SubscriptionStatus extends Component
 
     public function render()
     {
+        $this->authorizeAdmin();
         $tenant = app(TenantManager::class)->tenant();
         $subscription = $tenant ? $tenant->currentSubscription() : null;
         $subscriptions = $tenant ? $tenant->subscriptions : collect();
@@ -115,5 +129,15 @@ class SubscriptionStatus extends Component
                 'balanceTransactions' => $balanceTransactions,
                 'plansForSubscribe' => $plansForSubscribe,
             ]);
+    }
+
+    private function authorizeAdmin(): void
+    {
+        $user = auth('tenant')->user();
+        abort_unless(
+            $user && method_exists($user, 'isAdmin') && $user->isAdmin(),
+            403,
+            'Seul un administrateur peut gérer l’abonnement.'
+        );
     }
 }

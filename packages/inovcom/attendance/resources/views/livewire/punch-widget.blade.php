@@ -2,8 +2,13 @@
     <div
         class="attendance-punch-widget"
         wire:poll.60s="refreshAttendanceStatus"
-        x-data="{ flash: @entangle('punchFlashMessage') }"
-        x-init="$watch('flash', v => { if (v) setTimeout(() => $wire.clearPunchFlash(), 3500) })"
+        x-data
+        x-effect="
+            if ($wire.punchFlashMessage) {
+                clearTimeout(window.__punchFlashTimer);
+                window.__punchFlashTimer = setTimeout(() => $wire.clearPunchFlash(), 3500);
+            }
+        "
     >
         @if ($punchFlashMessage)
             <span
@@ -16,17 +21,37 @@
             </span>
         @endif
 
-        <div class="attendance-punch-widget__chip {{ $isPresent ? 'is-present' : ($arrivalTime ? 'is-done' : 'is-idle') }}">
+        <div
+            class="attendance-punch-widget__chip {{ $isPresent ? 'is-present' : ($arrivalTime ? 'is-done' : 'is-idle') }}"
+            wire:key="punch-chip-{{ $canPunchIn ? 'in' : ($canPunchOut ? 'out' : 'done') }}"
+        >
             <span class="attendance-punch-widget__dot" aria-hidden="true"></span>
-            <span class="attendance-punch-widget__times" title="Aujourd’hui {{ $clock }}">
-                @if ($arrivalTime || $departureTime)
-                    <strong>{{ $arrivalTime ?? '—' }}</strong>
-                    <span class="attendance-punch-widget__sep">→</span>
-                    <strong>{{ $departureTime ?? '…' }}</strong>
-                @else
-                    <span class="attendance-punch-widget__idle-label">Pas encore pointé</span>
-                @endif
-            </span>
+
+            @if (\Illuminate\Support\Facades\Route::has('tenant.attendance.index') && $tenantCode)
+                <a
+                    href="{{ route('tenant.attendance.index', ['tenant' => $tenantCode]) }}"
+                    class="attendance-punch-widget__times"
+                    title="Voir mon historique"
+                >
+                    @if ($arrivalTime || $departureTime)
+                        <strong>{{ $arrivalTime ?? '—' }}</strong>
+                        <span class="attendance-punch-widget__sep">→</span>
+                        <strong>{{ $departureTime ?? '…' }}</strong>
+                    @else
+                        <span class="attendance-punch-widget__idle-label">—</span>
+                    @endif
+                </a>
+            @else
+                <span class="attendance-punch-widget__times" title="Aujourd’hui {{ $clock }}">
+                    @if ($arrivalTime || $departureTime)
+                        <strong>{{ $arrivalTime ?? '—' }}</strong>
+                        <span class="attendance-punch-widget__sep">→</span>
+                        <strong>{{ $departureTime ?? '…' }}</strong>
+                    @else
+                        <span class="attendance-punch-widget__idle-label">—</span>
+                    @endif
+                </span>
+            @endif
 
             @if ($canPunchIn)
                 <button
@@ -52,14 +77,6 @@
                     <span wire:loading.remove wire:target="punchOut">Départ</span>
                     <span wire:loading wire:target="punchOut">…</span>
                 </button>
-            @endif
-
-            @if (\Illuminate\Support\Facades\Route::has('tenant.attendance.index') && $tenantCode)
-                <a
-                    href="{{ route('tenant.attendance.index', ['tenant' => $tenantCode]) }}"
-                    class="attendance-punch-widget__link"
-                    title="Ouvrir la page Présence"
-                >Présence</a>
             @endif
         </div>
     </div>

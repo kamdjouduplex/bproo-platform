@@ -32,6 +32,10 @@ class EmployeeShow extends Component
     public function mount(Employee $employee): void
     {
         $this->authorizePayrollAction('payroll.view');
+        if (! $this->canViewAllPayroll()) {
+            $this->authorizePayslipLine($employee->id);
+        }
+
         $this->employee = $employee->load([
             'user',
             'salaryHistory.changedBy',
@@ -169,7 +173,7 @@ class EmployeeShow extends Component
         return view('inovcom-payroll::livewire.employees.show')
             ->layout('layouts.app', [
                 'title' => $this->employee->full_name,
-                'subtitle' => 'Fiche employé',
+                'subtitle' => 'Ajustements & historique paie',
             ])
             ->with([
                 'payrollHistory' => $payrollHistory,
@@ -178,7 +182,6 @@ class EmployeeShow extends Component
                 'leaveTypes' => $leaveService->activeTypes(),
                 'leaveEnabled' => $leaveService->hasTables(),
                 'tenantCode' => $this->tenantCode(),
-                'canEdit' => $this->can('payroll.employees'),
                 'canLeave' => $this->can('payroll.leave'),
                 'canAdjust' => $this->can('payroll.adjustments'),
             ]);

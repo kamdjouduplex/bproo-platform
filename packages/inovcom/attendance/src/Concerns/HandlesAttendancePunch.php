@@ -44,14 +44,14 @@ trait HandlesAttendancePunch
         $this->punchFlashMessage = null;
 
         if (! $this->canAttendance('attendance.punch')) {
-            $this->dispatchAttendanceUpdated(false, 'Permission refusée pour le pointage.');
+            $this->applyAttendanceUpdate(false, 'Permission refusée pour le pointage.');
 
             return;
         }
 
         $user = Auth::guard('tenant')->user();
         if (! $user) {
-            $this->dispatchAttendanceUpdated(false, 'Session expirée. Reconnectez-vous.');
+            $this->applyAttendanceUpdate(false, 'Session expirée. Reconnectez-vous.');
 
             return;
         }
@@ -61,17 +61,40 @@ trait HandlesAttendancePunch
             ? $service->punchOut($user)
             : $service->punchIn($user);
 
-        $this->dispatchAttendanceUpdated((bool) $result['success'], (string) $result['message']);
+        // Refresh this component in the same request so the header chip updates
+        // without waiting for a browser event round-trip (or a full page reload).
+        $this->applyAttendanceUpdate((bool) $result['success'], (string) $result['message']);
     }
 
-    protected function dispatchAttendanceUpdated(bool $success, string $message): void
+    /**
+     * Apply local UI state, then notify sibling Livewire components (header ↔ page).
+     */
+    protected function applyAttendanceUpdate(bool $success, string $message): void
     {
-        $this->dispatch('attendance-updated', success: $success, message: $message);
+        $this->refreshAttendanceStatus();
+
+        if ($message !== '') {
+            $this->punchFlashMessage = $message;
+            $this->punchFlashType = $success ? 'success' : 'error';
+        }
+
+        $this->afterAttendanceUpdated($success, $message);
+        $this->dispatch(
+            'attendance-updated',
+            success: $success,
+            message: $message,
+            sourceId: $this->getId()
+        );
     }
 
     #[On('attendance-updated')]
-    public function onAttendanceUpdated(bool $success = true, string $message = ''): void
+    public function onAttendanceUpdated(bool $success = true, string $message = '', ?string $sourceId = null): void
     {
+        // Ignore our own echo — local punch already refreshed this component.
+        if ($sourceId !== null && $sourceId === $this->getId()) {
+            return;
+        }
+
         $this->refreshAttendanceStatus();
 
         if ($message !== '') {

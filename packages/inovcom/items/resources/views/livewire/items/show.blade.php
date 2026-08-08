@@ -107,14 +107,37 @@
         </div>
         @endif
 
-        @if (!empty($meta['batch_tracked']) || !empty($meta['requires_prescription']))
-        <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-            @if (!empty($meta['batch_tracked']))
-                <span class="badge badge-secondary">Suivi par lot</span>
-            @endif
-            @if (!empty($meta['requires_prescription']))
-                <span class="badge badge-secondary">Sur ordonnance</span>
-            @endif
+        @if (!empty($meta['batch_tracked']) || !empty($meta['requires_prescription']) || !empty($meta['dci']) || !empty($meta['therapeutic_family']) || !empty($meta['pharma_form']) || !empty($meta['dosage']) || !empty($meta['manufacturer']) || !empty($meta['storage_temp']))
+        <div style="margin-top:16px;">
+            <div style="font-size:12px; color:#6b7280; margin-bottom:8px;">Pharmacie</div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
+                @if (!empty($meta['batch_tracked']))
+                    <span class="badge badge-secondary">Suivi par lot</span>
+                @endif
+                @if (!empty($meta['requires_prescription']))
+                    <span class="badge badge-warning">Sur ordonnance</span>
+                @endif
+            </div>
+            <dl style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px 16px;margin:0;font-size:13px;">
+                @if (!empty($meta['dci']))
+                    <div><dt style="color:#94a3b8;font-size:11px;">DCI</dt><dd style="margin:2px 0 0;font-weight:600;">{{ $meta['dci'] }}</dd></div>
+                @endif
+                @if (!empty($meta['therapeutic_family']))
+                    <div><dt style="color:#94a3b8;font-size:11px;">Famille thérapeutique</dt><dd style="margin:2px 0 0;">{{ $meta['therapeutic_family'] }}</dd></div>
+                @endif
+                @if (!empty($meta['pharma_form']))
+                    <div><dt style="color:#94a3b8;font-size:11px;">Forme</dt><dd style="margin:2px 0 0;">{{ $meta['pharma_form'] }}</dd></div>
+                @endif
+                @if (!empty($meta['dosage']))
+                    <div><dt style="color:#94a3b8;font-size:11px;">Dosage</dt><dd style="margin:2px 0 0;">{{ $meta['dosage'] }}</dd></div>
+                @endif
+                @if (!empty($meta['manufacturer']))
+                    <div><dt style="color:#94a3b8;font-size:11px;">Fabricant</dt><dd style="margin:2px 0 0;">{{ $meta['manufacturer'] }}</dd></div>
+                @endif
+                @if (!empty($meta['storage_temp']))
+                    <div><dt style="color:#94a3b8;font-size:11px;">Conservation</dt><dd style="margin:2px 0 0;">{{ $meta['storage_temp'] }}</dd></div>
+                @endif
+            </dl>
         </div>
         @endif
     </section>

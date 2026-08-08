@@ -12,6 +12,8 @@
         "psr-4": {
             "App\\Http\\Controllers\\Admin\\": "src/Http/Controllers/Admin/",
             "App\\Livewire\\Admin\\": "src/Livewire/Admin/",
+            "App\\Models\\": "src/Models/",
+            "App\\Services\\": "src/Services/",
             "Bproo\\Platform\\Admin\\": "src/Platform/"
         }
     },

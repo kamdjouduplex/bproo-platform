@@ -15,7 +15,7 @@
                 <th>Sens</th>
                 <th>Quantité</th>
                 <th>Stock / Dispo</th>
-                <th>Ce qui s’est passé</th>
+                <th>Motif / Lot</th>
                 <th>Document</th>
                 <th>Par</th>
             </tr>
@@ -35,13 +35,13 @@
                     $isReserve = $direction === 'reserve';
                     $before = (float) ($isArray ? ($row['quantity_before'] ?? 0) : ($row->quantity_before ?? 0));
                     $after = (float) ($isArray ? ($row['quantity_after'] ?? 0) : ($row->quantity_after ?? 0));
-                    $typeLabel = $isArray ? ($row['type_label'] ?? '—') : '—';
+                    $typeLabel = $isArray ? ($row['type_label'] ?? $row['motif'] ?? '—') : '—';
                     $directionLabel = $isArray ? ($row['direction_label'] ?? ($in ? 'Entrée' : 'Sortie')) : ($in ? 'Entrée' : 'Sortie');
                     $story = $isArray ? ($row['story'] ?? null) : null;
                     $refLabel = $isArray ? ($row['reference_label'] ?? null) : null;
                     $refUrl = $isArray ? ($row['reference_url'] ?? null) : null;
                     $userName = $isArray ? ($row['user_name'] ?? null) : null;
-                    $reason = $isArray ? ($row['reason'] ?? null) : null;
+                    $lotLabel = $isArray ? ($row['batch_label'] ?? null) : null;
                     $senseClass = $isReserve ? 'is-reserve' : ($isRelease ? 'is-release' : ($in ? 'is-in' : 'is-out'));
                     $qtyPrefix = $isReserve || $in ? '+' : '−';
                     $stockLabel = $isReserveFlow ? 'Dispo' : 'Stock';
@@ -88,11 +88,10 @@
                         </span>
                     </td>
                     <td class="stock-movements-table__story">
-                        <div class="stock-movements-table__story-main">
-                            {{ $story ?: ($typeLabel . ' — ' . fmt_num(abs($qty))) }}
-                        </div>
-                        @if ($reason && $reason !== $refLabel && ! str_starts_with((string) $reason, 'Réservation +') && ! str_starts_with((string) $reason, 'Libération'))
-                            <div class="stock-movements-table__story-note">{{ $reason }}</div>
+                        @if ($lotLabel || $story)
+                            <div class="stock-movements-table__story-main">{{ $lotLabel ?: $story }}</div>
+                        @else
+                            <span class="stock-muted">—</span>
                         @endif
                     </td>
                     <td class="stock-movements-table__doc">
@@ -101,7 +100,7 @@
                         @elseif ($refLabel)
                             {{ $refLabel }}
                         @else
-                            <span class="stock-muted">Manuel / sans document</span>
+                            <span class="stock-muted">—</span>
                         @endif
                     </td>
                     <td>{{ $userName ?? '—' }}</td>

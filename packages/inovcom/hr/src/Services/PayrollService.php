@@ -50,9 +50,7 @@ class PayrollService
 
     public function saveDraft(PayrollRun $run, string $periodStart, string $periodEnd, ?string $notes): PayrollRun
     {
-        if (!$run->isDraft()) {
-            throw new \RuntimeException('Seules les fiches en brouillon peuvent être modifiées.');
-        }
+        $this->assertEditable($run);
 
         return DB::connection('tenant')->transaction(function () use ($run, $periodStart, $periodEnd, $notes) {
             $run->update([
@@ -70,9 +68,7 @@ class PayrollService
 
     public function recalculate(PayrollRun $run): PayrollRun
     {
-        if (!$run->isDraft()) {
-            throw new \RuntimeException('Recalcul impossible : fiche non brouillon.');
-        }
+        $this->assertEditable($run);
 
         $this->calculator->buildRunLines($run);
         $this->refreshRunTotals($run);
@@ -82,7 +78,11 @@ class PayrollService
 
     public function process(PayrollRun $run, ?int $userId): PayrollRun
     {
-        if (!$run->isDraft()) {
+        if ($run->isLocked()) {
+            throw new \RuntimeException('Cette fiche est payée et verrouillée : traitement impossible.');
+        }
+
+        if (! $run->isDraft()) {
             throw new \RuntimeException('Cette fiche a déjà été traitée.');
         }
 
@@ -97,7 +97,11 @@ class PayrollService
 
     public function markAsPaid(PayrollRun $run): PayrollRun
     {
-        if (!$run->isProcessed()) {
+        if ($run->isLocked()) {
+            throw new \RuntimeException('Cette fiche est déjà payée et verrouillée.');
+        }
+
+        if (! $run->isProcessed()) {
             throw new \RuntimeException('Traitez la fiche avant de la marquer comme payée.');
         }
 
@@ -115,8 +119,8 @@ class PayrollService
      */
     public function cancel(PayrollRun $run): void
     {
-        if ($run->isPaid()) {
-            throw new \RuntimeException('Impossible d\'annuler une fiche déjà payée.');
+        if ($run->isLocked()) {
+            throw new \RuntimeException('Impossible d’annuler une fiche déjà payée : les bulletins sont verrouillés.');
         }
 
         DB::connection('tenant')->transaction(function () use ($run) {
@@ -129,6 +133,20 @@ class PayrollService
             $run->lines()->delete();
             $run->delete();
         });
+    }
+
+    /**
+     * Modifications / recalcul : brouillon uniquement.
+     */
+    private function assertEditable(PayrollRun $run): void
+    {
+        if ($run->isLocked()) {
+            throw new \RuntimeException('Cette fiche est payée et verrouillée : les bulletins ne peuvent plus être modifiés.');
+        }
+
+        if (! $run->isDraft()) {
+            throw new \RuntimeException('Seules les fiches en brouillon peuvent être modifiées.');
+        }
     }
 
     public function refreshRunTotals(PayrollRun $run): void

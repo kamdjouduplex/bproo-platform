@@ -34,6 +34,32 @@ class Batch extends TenantModel
 
     public function isExpired(): bool
     {
-        return $this->expiry_date->isPast();
+        // Sellable through the expiry calendar day; blocked from the next day.
+        return $this->expiry_date->lt(now()->startOfDay());
+    }
+
+    /**
+     * Alert window for pharmacy dashboards.
+     *
+     * @return 'expired'|'d30'|'d90'|'d180'|'ok'
+     */
+    public function expiryAlertLevel(): string
+    {
+        if ($this->isExpired()) {
+            return 'expired';
+        }
+
+        $days = now()->startOfDay()->diffInDays($this->expiry_date->copy()->startOfDay(), false);
+        if ($days <= 30) {
+            return 'd30';
+        }
+        if ($days <= 90) {
+            return 'd90';
+        }
+        if ($days <= 180) {
+            return 'd180';
+        }
+
+        return 'ok';
     }
 }

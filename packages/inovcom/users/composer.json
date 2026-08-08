@@ -1,4 +1,4 @@
-﻿{
+{
     "name":  "bproo/users",
     "description":  "Inov-Com Users core module: tenant users, roles, permissions (RBAC)",
     "type":  "library",

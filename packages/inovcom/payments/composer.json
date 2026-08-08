@@ -1,4 +1,4 @@
-﻿{
+{
     "name":  "bproo/payments",
     "description":  "Inov-Com Invoice Payments module: suivi des paiements sur factures",
     "type":  "library",

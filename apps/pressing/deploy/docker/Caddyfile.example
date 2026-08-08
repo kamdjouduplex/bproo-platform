@@ -1,17 +1,4 @@
-# Install Caddy on the host (not in Docker) for automatic HTTPS.
-# Place at /etc/caddy/Caddyfile and: sudo systemctl reload caddy
-#
-# Replace domain and upstream port (HTTP_PORT from .env.production, default 8080).
-
-your-domain.com {
+pressing.afroinov.com {
     encode gzip zstd
-
-    reverse_proxy 127.0.0.1:8080
-
-    header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
-        X-Content-Type-Options nosniff
-        X-Frame-Options SAMEORIGIN
-        Referrer-Policy strict-origin-when-cross-origin
-    }
+    reverse_proxy pressing-web-1:80
 }

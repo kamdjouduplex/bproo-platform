@@ -192,6 +192,44 @@ class StorageLocationService
     }
 
     /**
+     * Map item_id => codes d'emplacement (batch, 1 requête).
+     *
+     * @param  array<int, int>  $itemIds
+     * @return array<int, string>
+     */
+    public function codesForItems(array $itemIds, ?int $storeId = null): array
+    {
+        $itemIds = array_values(array_unique(array_filter(array_map('intval', $itemIds))));
+        if ($itemIds === [] || !$this->isAvailable()) {
+            return [];
+        }
+
+        $storeId = $this->resolveStoreId($storeId);
+        $hasStoreColumn = Schema::connection('tenant')->hasColumn('storage_locations', 'store_id');
+
+        $rows = DB::connection('tenant')
+            ->table('item_storage_locations as isl')
+            ->join('storage_locations', 'storage_locations.id', '=', 'isl.storage_location_id')
+            ->whereIn('isl.item_id', $itemIds)
+            ->when($hasStoreColumn && $storeId, fn ($q) => $q->where('storage_locations.store_id', $storeId))
+            ->orderByDesc('isl.is_primary')
+            ->orderBy('storage_locations.code')
+            ->get(['isl.item_id', 'storage_locations.code']);
+
+        $map = [];
+        foreach ($rows as $row) {
+            $code = trim((string) ($row->code ?? ''));
+            if ($code === '') {
+                continue;
+            }
+            $id = (int) $row->item_id;
+            $map[$id] = isset($map[$id]) ? ($map[$id] . ', ' . $code) : $code;
+        }
+
+        return $map;
+    }
+
+    /**
      * Remplace l'ensemble des emplacements d'un article (pour un magasin).
      * Chaque ligne : ['zone' => ?, 'aisle' => ?, 'shelf' => ?, 'bin' => ?, 'is_primary' => bool].
      * Les lignes sans rayon sont ignorées. Un (et un seul) emplacement principal est garanti.

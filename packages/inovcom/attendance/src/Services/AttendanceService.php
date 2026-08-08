@@ -123,38 +123,19 @@ class AttendanceService
     /**
      * @return array{success: bool, message: string, punch: ?AttendancePunch}
      */
-    public function punchIn(User $user, ?string $notes = null): array
-    {
-        return $this->recordPunch($user, AttendancePunch::TYPE_IN, $notes);
-    }
-
-    /**
-     * @return array{success: bool, message: string, punch: ?AttendancePunch}
-     */
-    public function punchOut(User $user, ?string $notes = null): array
-    {
-        return $this->recordPunch($user, AttendancePunch::TYPE_OUT, $notes);
-    }
-
-    /**
-     * @return array{success: bool, message: string, punch: ?AttendancePunch}
-     */
-    public function punch(User $user, ?string $notes = null): array
-    {
-        $status = $this->todayStatus($user);
-
-        return $status['can_punch_out']
-            ? $this->punchOut($user, $notes)
-            : $this->punchIn($user, $notes);
-    }
-
-    /**
-     * @return array{success: bool, message: string, punch: ?AttendancePunch}
-     */
-    private function recordPunch(User $user, string $type, ?string $notes = null): array
+    private function recordPunch(User $user, string $type, ?string $notes = null, string $source = 'manual'): array
     {
         if (!$this->hasTable()) {
             return ['success' => false, 'message' => 'Module présence non installé (migration manquante).', 'punch' => null];
+        }
+
+        $network = app(AttendanceSettingsService::class)->assertOnCompanyNetwork();
+        if (! $network['allowed']) {
+            return [
+                'success' => false,
+                'message' => (string) $network['message'],
+                'punch' => null,
+            ];
         }
 
         $status = $this->todayStatus($user);
@@ -187,7 +168,7 @@ class AttendanceService
             'employee_id' => $employee?->id,
             'attendance_date' => $this->dateKey($now),
             'punched_at' => $now,
-            'source' => 'manual',
+            'source' => $source,
             'notes' => $notes,
         ];
 
@@ -204,6 +185,63 @@ class AttendanceService
             'message' => $label . ' enregistrée à ' . $now->format('H:i') . '.',
             'punch' => $punch,
         ];
+    }
+
+    /**
+     * @return array{success: bool, message: string, punch: ?AttendancePunch}
+     */
+    public function punchIn(User $user, ?string $notes = null, string $source = 'manual'): array
+    {
+        return $this->recordPunch($user, AttendancePunch::TYPE_IN, $notes, $source);
+    }
+
+    /**
+     * @return array{success: bool, message: string, punch: ?AttendancePunch}
+     */
+    public function punchOut(User $user, ?string $notes = null, string $source = 'manual'): array
+    {
+        return $this->recordPunch($user, AttendancePunch::TYPE_OUT, $notes, $source);
+    }
+
+    /**
+     * @return array{success: bool, message: string, punch: ?AttendancePunch}
+     */
+    public function punch(User $user, ?string $notes = null, string $source = 'manual'): array
+    {
+        $status = $this->todayStatus($user);
+
+        return $status['can_punch_out']
+            ? $this->punchOut($user, $notes, $source)
+            : $this->punchIn($user, $notes, $source);
+    }
+
+    /**
+     * Quick period bounds for UI presets.
+     *
+     * @return array{from: string, to: string}
+     */
+    public function periodBounds(string $period): array
+    {
+        $today = now();
+
+        return match ($period) {
+            'last_month' => [
+                'from' => $today->copy()->subMonthNoOverflow()->startOfMonth()->format('Y-m-d'),
+                'to' => $today->copy()->subMonthNoOverflow()->endOfMonth()->format('Y-m-d'),
+            ],
+            'this_year' => [
+                'from' => $today->copy()->startOfYear()->format('Y-m-d'),
+                'to' => $today->format('Y-m-d'),
+            ],
+            'last_7_days' => [
+                'from' => $today->copy()->subDays(6)->format('Y-m-d'),
+                'to' => $today->format('Y-m-d'),
+            ],
+            default => [ // this_month
+                'from' => $today->copy()->startOfMonth()->format('Y-m-d'),
+                'to' => $today->format('Y-m-d'),
+            ],
+        };
     }
 
     public function isPresentToday(User $user): bool

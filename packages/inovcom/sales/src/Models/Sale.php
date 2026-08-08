@@ -53,8 +53,16 @@ class Sale extends TenantModel
         return $this->belongsTo(\InovCom\Clients\Models\Client::class);
     }
 
+    /**
+     * Optional relation — only used when the Prescriptions package is installed.
+     * Sales must not require that package to load or save.
+     */
     public function prescription()
     {
+        if (! class_exists(\InovCom\Prescriptions\Models\Prescription::class)) {
+            return $this->belongsTo(static::class, 'prescription_id')->whereRaw('0 = 1');
+        }
+
         return $this->belongsTo(\InovCom\Prescriptions\Models\Prescription::class);
     }
 

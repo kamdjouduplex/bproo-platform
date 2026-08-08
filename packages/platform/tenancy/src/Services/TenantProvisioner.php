@@ -145,7 +145,7 @@ class TenantProvisioner
         $registry = app(ModuleRegistry::class);
         $modules = Module::orderBy('label')->get();
         $modulesConfig = config('modules', []);
-        $tenantType = $tenant->type ?? config('tenant_types.default', 'retail');
+        $tenantType = \App\Models\Tenant::normalizeType($tenant->type ?? config('tenant_types.default', 'erp'));
         $existingPivots = $tenant->modules()->get()->keyBy('id');
 
         $this->logStep($tenant->code, 'seed_modules');
@@ -189,6 +189,11 @@ class TenantProvisioner
 
         $enabledByDefault = (bool) $module->enabled_by_default;
         $tenantTypes = $cfg['tenant_types'] ?? [];
+        // Normalize legacy activity labels (retail/pharmacy) to product apps (erp/…).
+        $tenantTypes = array_values(array_unique(array_map(
+            static fn ($t) => \App\Models\Tenant::normalizeType($t),
+            $tenantTypes
+        )));
         if ($enabledByDefault && !empty($tenantTypes) && !in_array($tenantType, $tenantTypes, true)) {
             $enabledByDefault = false;
         }
@@ -196,10 +201,13 @@ class TenantProvisioner
             return true;
         }
 
+        // Inherit only from companies on the same product app (never cross-vertical).
         return DB::table('tenant_modules')
-            ->where('module_id', $module->id)
-            ->where('tenant_id', '!=', $tenant->id)
-            ->where('enabled', true)
+            ->join('tenants', 'tenants.id', '=', 'tenant_modules.tenant_id')
+            ->where('tenant_modules.module_id', $module->id)
+            ->where('tenant_modules.tenant_id', '!=', $tenant->id)
+            ->where('tenant_modules.enabled', true)
+            ->where('tenants.type', $tenantType)
             ->exists();
     }
 

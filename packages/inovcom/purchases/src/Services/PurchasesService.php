@@ -125,11 +125,45 @@ class PurchasesService
         array $receivedQuantities,
         ?string $notes = null,
         ?int $userId = null,
-        ?string $receiptDate = null
+        ?string $receiptDate = null,
+        array $lotInfo = []
     ): ReceiptNote {
-        $order = PurchaseOrder::with('lines')->findOrFail($orderId);
+        $order = PurchaseOrder::with('lines.item')->findOrFail($orderId);
 
         $this->ensureOrderReadyForReceipt($order);
+
+        $batchesApi = app()->bound(\InovCom\Kernel\Contracts\BatchesApi::class)
+            ? app(\InovCom\Kernel\Contracts\BatchesApi::class)
+            : null;
+        $batchesAvailable = $batchesApi && $batchesApi->isAvailable();
+
+        foreach ($receivedQuantities as $lineId => $quantity) {
+            if ((float) $quantity <= 0) {
+                continue;
+            }
+
+            $purchaseLine = PurchaseLine::with('item')->findOrFail($lineId);
+            if ((int) $purchaseLine->purchase_order_id !== (int) $orderId) {
+                continue;
+            }
+
+            $item = $purchaseLine->item;
+            $batchTracked = $item && is_array($item->metadata ?? null) && ! empty($item->metadata['batch_tracked']);
+            if ($batchesAvailable && $batchTracked) {
+                $lot = $lotInfo[$lineId] ?? $lotInfo[(string) $lineId] ?? [];
+                $batchNumber = trim((string) ($lot['batch_number'] ?? ''));
+                $expiryDate = trim((string) ($lot['expiry_date'] ?? ''));
+                if ($batchNumber === '' || $expiryDate === '') {
+                    throw new \RuntimeException(
+                        'N° de lot et date de péremption obligatoires pour : '
+                        .($purchaseLine->item_name ?? $item->name ?? 'article')
+                    );
+                }
+                if (strtotime($expiryDate) === false) {
+                    throw new \RuntimeException('Date de péremption invalide pour : '.($purchaseLine->item_name ?? $item->name));
+                }
+            }
+        }
 
         $receiptNumber = $this->documentNumbers->nextReceiptNumber(
             (int) ($receiptDate ? date('Y', strtotime($receiptDate)) : now()->format('Y'))
@@ -149,7 +183,7 @@ class PurchasesService
                 continue;
             }
 
-            $purchaseLine = PurchaseLine::findOrFail($lineId);
+            $purchaseLine = PurchaseLine::with('item')->findOrFail($lineId);
             if ((int) $purchaseLine->purchase_order_id !== (int) $orderId) {
                 continue;
             }
@@ -170,14 +204,29 @@ class PurchasesService
             $purchaseLine->received_quantity = (float) $purchaseLine->received_quantity + $quantityToReceive;
             $purchaseLine->save();
 
-            $this->stockService->addStock(
-                $purchaseLine->item_id,
-                $quantityToReceive,
-                'in',
-                'Purchase',
-                $receipt->id,
-                "Réception commande {$order->order_number}"
-            );
+            $item = $purchaseLine->item;
+            $batchTracked = $item && is_array($item->metadata ?? null) && ! empty($item->metadata['batch_tracked']);
+            $lot = $lotInfo[$lineId] ?? $lotInfo[(string) $lineId] ?? [];
+
+            if ($batchesAvailable && $batchTracked && $batchesApi) {
+                $batchesApi->recordReceipt(
+                    (int) $purchaseLine->item_id,
+                    trim((string) ($lot['batch_number'] ?? '')),
+                    \Carbon\Carbon::parse($lot['expiry_date']),
+                    $quantityToReceive,
+                    'purchase_receipt',
+                    (int) $receipt->id
+                );
+            } else {
+                $this->stockService->addStock(
+                    $purchaseLine->item_id,
+                    $quantityToReceive,
+                    'in',
+                    'Purchase',
+                    $receipt->id,
+                    "Réception commande {$order->order_number}"
+                );
+            }
 
             $this->priceHistory->record(
                 (int) $purchaseLine->item_id,

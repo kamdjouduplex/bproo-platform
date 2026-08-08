@@ -15,6 +15,7 @@ class PayrollRunsIndex extends Component
     use WithPagination;
 
     public string $statusFilter = 'all';
+
     public int $perPage = 20;
 
     public function mount(): void
@@ -27,7 +28,13 @@ class PayrollRunsIndex extends Component
         $this->authorizePayrollAction('payroll.process');
 
         try {
-            app(PayrollService::class)->cancel(PayrollRun::findOrFail($runId));
+            $run = PayrollRun::findOrFail($runId);
+            if ($run->isLocked()) {
+                session()->flash('error', 'Impossible d’annuler une fiche payée : les bulletins sont verrouillés.');
+
+                return;
+            }
+            app(PayrollService::class)->cancel($run);
             session()->flash('success', 'Fiche de paie annulée.');
         } catch (\Throwable $e) {
             session()->flash('error', $e->getMessage());
@@ -36,25 +43,42 @@ class PayrollRunsIndex extends Component
 
     public function render()
     {
-        $runs = PayrollRun::query()
-            ->with(['processedBy'])
-            ->when($this->statusFilter !== 'all', fn ($q) => $q->where('status', $this->statusFilter))
-            ->orderByDesc('period_start')
-            ->paginate($this->perPage);
+        $viewAll = $this->canViewAllPayroll();
+        $ownEmployeeId = $viewAll ? null : $this->ownEmployeeId();
 
-        $activeEmployees = Employee::where('is_active', true)->count();
+        $runsQuery = PayrollRun::query()
+            ->with(['processedBy', 'lines.employee'])
+            ->when($this->statusFilter !== 'all', fn ($q) => $q->where('status', $this->statusFilter))
+            ->when(! $viewAll, function ($q) use ($ownEmployeeId) {
+                if ($ownEmployeeId === null) {
+                    $q->whereRaw('0 = 1');
+
+                    return;
+                }
+                $q->whereHas('lines', fn ($l) => $l->where('employee_id', $ownEmployeeId));
+            })
+            ->orderByDesc('period_start');
+
+        $runs = $runsQuery->paginate($this->perPage);
+
+        $activeEmployees = $viewAll
+            ? Employee::where('is_active', true)->count()
+            : null;
 
         return view('inovcom-payroll::livewire.payroll-runs.index')
             ->layout('layouts.app', [
-                'title' => 'Paie',
-                'subtitle' => 'Périodes et bulletins',
+                'title' => $viewAll ? 'Paie' : 'Mes bulletins',
+                'subtitle' => $viewAll ? 'Périodes et bulletins' : 'Vos fiches de paie',
             ])
             ->with([
                 'runs' => $runs,
                 'activeEmployees' => $activeEmployees,
                 'tenantCode' => $this->tenantCode(),
-                'canCreate' => $this->can('payroll.create'),
-                'canProcess' => $this->can('payroll.process'),
+                'canCreate' => $viewAll && $this->can('payroll.create'),
+                'canProcess' => $viewAll && $this->can('payroll.process'),
+                'canViewAll' => $viewAll,
+                'ownEmployeeId' => $ownEmployeeId,
+                'canLeave' => $this->can('payroll.leave'),
             ]);
     }
 

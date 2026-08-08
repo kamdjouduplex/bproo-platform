@@ -42,6 +42,14 @@ class ItemsForm extends Component
     /** Pharmacy: requires prescription to sell */
     public bool $requires_prescription = false;
 
+    /** Pharmacy catalogue extensions (stored in metadata) */
+    public string $dci = '';
+    public string $therapeutic_family = '';
+    public string $pharma_form = '';
+    public string $dosage = '';
+    public string $manufacturer = '';
+    public string $storage_temp = '';
+
     /** Produit vendu en lot (composition d'autres articles) */
     public bool $is_set = false;
 
@@ -74,6 +82,11 @@ class ItemsForm extends Component
             $this->set_components = [
                 ['component_item_id' => null, 'quantity' => '1'],
             ];
+            if (items_is_pharmacy_catalog()) {
+                $this->batch_tracked = true;
+                $this->storage_temp = 'Ambiante';
+            }
+
             return;
         }
 
@@ -90,6 +103,12 @@ class ItemsForm extends Component
         $meta = $item->metadata ?? [];
         $this->batch_tracked = (bool) ($meta['batch_tracked'] ?? false);
         $this->requires_prescription = (bool) ($meta['requires_prescription'] ?? false);
+        $this->dci = (string) ($meta['dci'] ?? '');
+        $this->therapeutic_family = (string) ($meta['therapeutic_family'] ?? '');
+        $this->pharma_form = (string) ($meta['pharma_form'] ?? '');
+        $this->dosage = (string) ($meta['dosage'] ?? '');
+        $this->manufacturer = (string) ($meta['manufacturer'] ?? '');
+        $this->storage_temp = (string) ($meta['storage_temp'] ?? '');
         $this->is_set = (bool) ($meta['is_set'] ?? false);
 
         if ($this->is_set && app(ItemSetService::class)->isAvailable()) {
@@ -276,6 +295,12 @@ class ItemsForm extends Component
             $rules['unit_prices.*.cost'] = 'required|numeric|min:0';
         }
 
+        if (items_is_pharmacy_catalog()) {
+            $rules['dci'] = 'required|string|max:120';
+            $rules['dosage'] = 'required|string|max:80';
+            $rules['pharma_form'] = 'required|string|max:80';
+        }
+
         $skuInput = trim((string) ($this->sku ?? ''));
         if ($this->itemId) {
             // Référence figée après création
@@ -328,6 +353,17 @@ class ItemsForm extends Component
             : ($isUpdate ? (float) $item->cost : 0.0);
 
         $meta = $item->metadata ?? [];
+        $meta['batch_tracked'] = $this->is_set ? false : $this->batch_tracked;
+        $meta['requires_prescription'] = $this->requires_prescription;
+        $meta['is_set'] = $this->is_set;
+        $meta['dci'] = trim($this->dci) !== '' ? trim($this->dci) : null;
+        $meta['therapeutic_family'] = trim($this->therapeutic_family) !== '' ? trim($this->therapeutic_family) : null;
+        $meta['pharma_form'] = trim($this->pharma_form) !== '' ? trim($this->pharma_form) : null;
+        $meta['dosage'] = trim($this->dosage) !== '' ? trim($this->dosage) : null;
+        $meta['manufacturer'] = trim($this->manufacturer) !== '' ? trim($this->manufacturer) : null;
+        $meta['storage_temp'] = trim($this->storage_temp) !== '' ? trim($this->storage_temp) : null;
+        $meta = array_filter($meta, fn ($v) => $v !== null && $v !== '');
+        // Keep boolean false flags
         $meta['batch_tracked'] = $this->is_set ? false : $this->batch_tracked;
         $meta['requires_prescription'] = $this->requires_prescription;
         $meta['is_set'] = $this->is_set;
@@ -473,10 +509,15 @@ class ItemsForm extends Component
 
     public function render()
     {
-        return view('inovcom-items::livewire.items.form')
+        $noun = items_catalog_noun();
+        $isPharmacy = items_is_pharmacy_catalog();
+
+        return view($isPharmacy ? 'inovcom-items::livewire.items.form-pharmacy' : 'inovcom-items::livewire.items.form')
             ->layout('layouts.app', [
-                'title' => $this->itemId ? 'Modifier article' : 'Nouvel article',
-                'subtitle' => 'Catalogue produit',
+                'title' => $this->itemId
+                    ? ('Modifier '.$noun['singular'])
+                    : ($isPharmacy ? 'Nouveau médicament' : 'Nouvel article'),
+                'subtitle' => $noun['subtitle'],
             ])
             ->with([
                 'categories' => Category::orderBy('name')->get(),
@@ -489,6 +530,8 @@ class ItemsForm extends Component
                     ->get(['id', 'name', 'sku', 'metadata']),
                 'setServiceReady' => app(ItemSetService::class)->isAvailable(),
                 'canViewCost' => $this->canItem('items.view_cost'),
+                'isPharmacyCatalog' => $isPharmacy,
+                'catalogNoun' => $noun,
             ]);
     }
 
@@ -504,16 +547,17 @@ class ItemsForm extends Component
 
     private function buildNextReference(): string
     {
+        $prefix = items_catalog_noun()['sku_prefix'];
         $last = Item::query()
-            ->where('sku', 'like', 'ART-%')
+            ->where('sku', 'like', $prefix.'-%')
             ->orderByDesc('id')
             ->value('sku');
 
         $nextNumber = 1;
-        if ($last && preg_match('/ART-(\d+)/', (string) $last, $m)) {
+        if ($last && preg_match('/'.preg_quote($prefix, '/').'-(\d+)/', (string) $last, $m)) {
             $nextNumber = (int) $m[1] + 1;
         }
 
-        return 'ART-' . str_pad((string) $nextNumber, 6, '0', STR_PAD_LEFT);
+        return $prefix.'-'.str_pad((string) $nextNumber, 6, '0', STR_PAD_LEFT);
     }
 }

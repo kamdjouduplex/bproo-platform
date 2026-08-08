@@ -27,7 +27,7 @@
                             <option value="{{ $value }}">{{ $label }}</option>
                         @endforeach
                     </select>
-                    <span class="prospect-form-hint">D’où vient ce lead — utile pour mesurer le ROI des canaux.</span>
+                    <span class="prospect-form-hint">D’où vient ce prospect — utile pour mesurer le ROI des canaux.</span>
                 </div>
                 <div class="field">
                     <label class="field-label">Téléphone</label>
@@ -86,10 +86,10 @@
                     </select>
                 </div>
                 <div class="field">
-                    <label class="field-label">Coût du lead (FCFA)</label>
+                    <label class="field-label">Coût d’acquisition (FCFA)</label>
                     <input class="input" type="number" min="0" step="1" wire:model="cost">
                     <span class="prospect-form-hint">
-                        Ce que ce lead vous a coûté à acquérir (part de campagne, salon, pub…). Sert au calcul du CAC.
+                        Ce que ce prospect vous a coûté à acquérir (campagne, salon, pub…). Sert au calcul du CAC.
                     </span>
                 </div>
                 <div class="field">

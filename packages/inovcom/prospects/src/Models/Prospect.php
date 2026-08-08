@@ -8,11 +8,17 @@ use InovCom\Users\Models\User;
 
 class Prospect extends TenantModel
 {
+    /** @deprecated Conservé pour rétrocompatibilité — migrer vers STATUS_QUALIFIE */
     public const STATUS_NOUVEAU = 'nouveau';
 
+    /** @deprecated Conservé pour rétrocompatibilité — migrer vers STATUS_QUALIFIE */
     public const STATUS_CONTACTE = 'contacte';
 
     public const STATUS_QUALIFIE = 'qualifie';
+
+    public const STATUS_NEGOCIATION = 'negociation';
+
+    public const STATUS_GAGNE = 'gagne';
 
     public const STATUS_CONVERTI = 'converti';
 
@@ -78,9 +84,67 @@ class Prospect extends TenantModel
         return $this->hasMany(ProspectActivity::class)->orderByDesc('created_at');
     }
 
+    public function plannedActivities()
+    {
+        return $this->hasMany(ProspectActivity::class)
+            ->where('state', ProspectActivity::STATE_PLANNED)
+            ->orderBy('due_at');
+    }
+
+    public function nextPlannedActivity()
+    {
+        return $this->hasOne(ProspectActivity::class)
+            ->where('state', ProspectActivity::STATE_PLANNED)
+            ->orderByRaw('CASE WHEN due_at IS NULL THEN 1 ELSE 0 END')
+            ->orderBy('due_at');
+    }
+
+    /**
+     * Étapes actives du pipeline opportunités.
+     *
+     * @return list<string>
+     */
+    public static function pipelineStatuses(): array
+    {
+        return [
+            self::STATUS_QUALIFIE,
+            self::STATUS_NEGOCIATION,
+            self::STATUS_GAGNE,
+        ];
+    }
+
+    /**
+     * Infos minimales pour entrer dans le pipeline.
+     *
+     * @return list<string>
+     */
+    public function initiationGaps(): array
+    {
+        $gaps = [];
+        if (blank(trim((string) $this->name))) {
+            $gaps[] = 'Nom / raison sociale';
+        }
+        if (blank(trim((string) ($this->phone ?? ''))) && blank(trim((string) ($this->email ?? '')))) {
+            $gaps[] = 'Téléphone ou e-mail';
+        }
+
+        return $gaps;
+    }
+
+    public function isReadyToInitiate(): bool
+    {
+        return in_array($this->status, [self::STATUS_NOUVEAU, self::STATUS_CONTACTE], true)
+            && $this->initiationGaps() === [];
+    }
+
     public function isConverted(): bool
     {
         return $this->status === self::STATUS_CONVERTI;
+    }
+
+    public function isWon(): bool
+    {
+        return $this->status === self::STATUS_GAGNE;
     }
 
     public function isLost(): bool
@@ -95,11 +159,11 @@ class Prospect extends TenantModel
 
     public function canConvert(): bool
     {
-        return in_array($this->status, [self::STATUS_NOUVEAU, self::STATUS_CONTACTE, self::STATUS_QUALIFIE], true);
+        return $this->status === self::STATUS_GAGNE;
     }
 
     /**
-     * Bloqueurs à lever avant conversion en client (aligné sur la fiche client entreprise).
+     * Bloqueurs à lever avant conversion en client.
      *
      * @return list<string>
      */
@@ -135,9 +199,9 @@ class Prospect extends TenantModel
     public static function statusOptions(): array
     {
         return [
-            self::STATUS_NOUVEAU => 'Nouveau',
-            self::STATUS_CONTACTE => 'Contacté',
             self::STATUS_QUALIFIE => 'Qualifié',
+            self::STATUS_NEGOCIATION => 'Négociation',
+            self::STATUS_GAGNE => 'Gagné',
             self::STATUS_CONVERTI => 'Converti',
             self::STATUS_PERDU => 'Perdu',
         ];
@@ -147,20 +211,22 @@ class Prospect extends TenantModel
     public static function statusHints(): array
     {
         return [
-            self::STATUS_NOUVEAU => 'Lead entrant, pas encore travaillé.',
-            self::STATUS_CONTACTE => 'Premier contact établi (appel, visite, message).',
-            self::STATUS_QUALIFIE => 'Besoin, budget et intention d’achat confirmés — prêt à convertir.',
+            self::STATUS_QUALIFIE => 'Prospect qualifié — besoin identifié, à faire avancer.',
+            self::STATUS_NEGOCIATION => 'Discussion commerciale / offre en cours.',
+            self::STATUS_GAGNE => 'Affaire gagnée — prêt à convertir en client.',
             self::STATUS_CONVERTI => 'Devenu client dans le système.',
             self::STATUS_PERDU => 'Opportunité abandonnée (motif à renseigner).',
+            self::STATUS_NOUVEAU => 'Ancien statut — à migrer vers Qualifié.',
+            self::STATUS_CONTACTE => 'Ancien statut — à migrer vers Qualifié.',
         ];
     }
 
     public static function statusBadgeClass(string $status): string
     {
         return match ($status) {
-            self::STATUS_CONVERTI => 'badge-success',
-            self::STATUS_QUALIFIE => 'badge-info',
-            self::STATUS_CONTACTE => 'badge-warning',
+            self::STATUS_CONVERTI, self::STATUS_GAGNE => 'badge-success',
+            self::STATUS_NEGOCIATION => 'badge-info',
+            self::STATUS_QUALIFIE => 'badge-warning',
             self::STATUS_PERDU => 'badge-error',
             default => 'badge-neutral',
         };
@@ -168,7 +234,10 @@ class Prospect extends TenantModel
 
     public static function statusLabel(string $status): string
     {
-        return self::statusOptions()[$status] ?? $status;
+        return match ($status) {
+            self::STATUS_NOUVEAU, self::STATUS_CONTACTE => self::statusOptions()[self::STATUS_QUALIFIE],
+            default => self::statusOptions()[$status] ?? $status,
+        };
     }
 
     public static function sourceOptions(): array

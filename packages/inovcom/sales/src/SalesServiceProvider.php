@@ -26,7 +26,7 @@ class SalesServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        //
+        $this->app->singleton(\InovCom\Kernel\Contracts\SalesApi::class, \InovCom\Sales\Services\SalesApiService::class);
     }
 
     public function boot(): void

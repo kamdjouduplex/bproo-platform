@@ -40,6 +40,16 @@ class StockIndex extends Component
         'out_of_stock' => 'Rupture',
     ];
 
+    public function mount(): void
+    {
+        $status = request()->query('status');
+        if (is_string($status) && array_key_exists($status, self::STATUS_LABELS)) {
+            $this->statusFilters = [$status];
+        } elseif (is_array($status)) {
+            $this->statusFilters = $this->normalizeStatusFilters($status);
+        }
+    }
+
     public function updatedSearch(): void
     {
         $this->resetPage();

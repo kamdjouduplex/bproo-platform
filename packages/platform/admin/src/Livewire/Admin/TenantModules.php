@@ -2,111 +2,250 @@
 
 namespace App\Livewire\Admin;
 
-use App\Models\Module;
+use App\Jobs\InstallModuleJob;
+use App\Jobs\UninstallModuleJob;
 use App\Models\Tenant;
 use App\Services\ModuleRegistry;
+use Illuminate\Support\Facades\Cache;
 use Livewire\Component;
 
+/**
+ * Activation — enable/install modules per client (tenant).
+ * Catalog & platform-wide ops live under Modules + Module fiche.
+ */
 class TenantModules extends Component
 {
-    public array $tenants = [];
-    public array $modules = [];
     public $tenantId = null;
-    public array $states = [];
-    public array $updatedAt = [];
-    public array $moduleKeyById = [];
+
+    public string $search = '';
+
+    public string $group = '';
+
+    public string $status = ''; // '' | active | inactive
+
+    private const PENDING_TTL = 300;
+
+    private const PENDING_PREFIX = 'module_pending:';
 
     public function mount(): void
     {
-        $this->tenants = Tenant::orderBy('name')->get(['id', 'name', 'code'])->toArray();
-        $this->modules = Module::orderBy('label')->get([
-            'id',
-            'key',
-            'label',
-            'description',
-            'enabled_by_default',
-        ])->toArray();
-        $this->moduleKeyById = collect($this->modules)->pluck('key', 'id')->toArray();
-
-        $this->tenantId = $this->tenants[0]['id'] ?? null;
-        $this->loadStates();
+        $requested = request()->query('tenant');
+        if ($requested && Tenant::whereKey($requested)->exists()) {
+            $this->tenantId = (int) $requested;
+        } else {
+            $this->tenantId = Tenant::orderBy('name')->value('id');
+        }
     }
 
-    public function updatedTenantId(): void
+    public function getTenantsProperty()
     {
-        $this->loadStates();
+        return Tenant::orderBy('name')->get(['id', 'name', 'code', 'type']);
     }
 
-    public function toggle(int $moduleId): void
+    public function install(string $moduleKey): void
     {
-        if (!$this->tenantId) {
+        if (! $this->tenantId) {
+            notify()->error('Sélectionnez un client.');
+
             return;
         }
 
-        $enabled = !($this->states[$moduleId] ?? false);
-        $this->states[$moduleId] = $enabled;
+        if ((bool) (config("modules.{$moduleKey}.core") ?? false)) {
+            notify()->info('Module core déjà disponible.');
 
-        $tenant = Tenant::find($this->tenantId);
-        if (!$tenant) {
             return;
         }
 
-        $moduleKey = $this->moduleKeyById[$moduleId] ?? null;
-        if ($moduleKey) {
-            $registry = app(ModuleRegistry::class);
-            if ($enabled) {
-                try {
-                    $registry->ensureNoFamilyConflict($moduleKey, $tenant);
-                } catch (\RuntimeException $e) {
-                    $this->states[$moduleId] = false;
-                    notify()->error($e->getMessage());
-                    return;
-                }
-                try {
-                    $registry->install($moduleKey, $tenant);
-                } catch (\Throwable $e) {
-                    $this->states[$moduleId] = false;
-                    $tenant->modules()->syncWithoutDetaching([$moduleId => ['enabled' => false]]);
-                    notify()->error($e->getMessage());
-                    return;
-                }
-            } else {
-                $registry->uninstall($moduleKey, $tenant);
+        $pendingKey = self::PENDING_PREFIX."{$this->tenantId}:{$moduleKey}";
+        Cache::put($pendingKey, 'install', self::PENDING_TTL);
+
+        try {
+            InstallModuleJob::dispatchSync((int) $this->tenantId, $moduleKey, auth()->id());
+            $this->clearTenantCache();
+            notify()->success('Module activé.');
+        } catch (\Throwable $e) {
+            Cache::forget($pendingKey);
+            notify()->error($e->getMessage());
+        }
+    }
+
+    public function uninstall(string $moduleKey): void
+    {
+        if (! $this->tenantId) {
+            notify()->error('Sélectionnez un client.');
+
+            return;
+        }
+
+        if ((bool) (config("modules.{$moduleKey}.core") ?? false)) {
+            notify()->error('Impossible de désactiver un module core.');
+
+            return;
+        }
+
+        $pendingKey = self::PENDING_PREFIX."{$this->tenantId}:{$moduleKey}";
+        Cache::put($pendingKey, 'uninstall', self::PENDING_TTL);
+
+        try {
+            UninstallModuleJob::dispatchSync((int) $this->tenantId, $moduleKey, auth()->id());
+            $this->clearTenantCache();
+            notify()->success('Module désactivé.');
+        } catch (\Throwable $e) {
+            Cache::forget($pendingKey);
+            notify()->error($e->getMessage());
+        }
+    }
+
+    public function activateDefaults(): void
+    {
+        if (! $this->tenantId) {
+            notify()->error('Sélectionnez un client.');
+
+            return;
+        }
+
+        $n = 0;
+        foreach ($this->catalog() as $module) {
+            if ($module['core'] || ! $module['enabled_by_default'] || $module['enabled']) {
+                continue;
+            }
+            try {
+                Cache::put(self::PENDING_PREFIX."{$this->tenantId}:{$module['key']}", 'install', self::PENDING_TTL);
+                InstallModuleJob::dispatchSync((int) $this->tenantId, $module['key'], auth()->id());
+                $n++;
+            } catch (\Throwable $e) {
+                Cache::forget(self::PENDING_PREFIX."{$this->tenantId}:{$module['key']}");
             }
         }
 
-        $tenant->modules()->syncWithoutDetaching([
-            $moduleId => ['enabled' => $enabled],
-        ]);
-
-        $this->loadStates();
+        $this->clearTenantCache();
+        notify()->success($n > 0 ? "{$n} module(s) par défaut activé(s)." : 'Rien à activer.');
     }
 
-    private function loadStates(): void
+    public function clearStuckPending(): void
     {
-        $this->states = [];
-        if (!$this->tenantId) {
+        if (! $this->tenantId) {
+            notify()->error('Sélectionnez un client.');
+
             return;
         }
 
-        $tenant = Tenant::with('modules')->find($this->tenantId);
-        $moduleMap = $tenant?->modules->keyBy('id') ?? collect();
-
-        foreach ($this->modules as $module) {
-            $moduleId = $module['id'];
-            $pivot = $moduleMap->get($moduleId)?->pivot;
-            $enabled = $pivot ? (bool) $pivot->enabled : (bool) $module['enabled_by_default'];
-            $this->states[$moduleId] = $enabled;
-            $this->updatedAt[$moduleId] = $pivot?->updated_at?->toDateTimeString();
+        foreach ($this->catalog() as $module) {
+            Cache::forget(self::PENDING_PREFIX."{$this->tenantId}:{$module['key']}");
         }
+
+        notify()->success('États « en cours » réinitialisés.');
+    }
+
+    private function clearTenantCache(): void
+    {
+        $tenant = Tenant::find($this->tenantId);
+        if ($tenant) {
+            app(ModuleRegistry::class)->clearCache($tenant);
+        }
+    }
+
+    private function catalog(): array
+    {
+        $groupLabels = config('modules.sidebar_groups', []);
+        $config = collect(config('modules', []))
+            ->except(['core_migration_tags', 'sidebar_groups'])
+            ->filter(fn ($m) => is_array($m) && isset($m['label']));
+
+        $enabledLookup = [];
+        if ($this->tenantId) {
+            $tenant = Tenant::find($this->tenantId);
+            if ($tenant) {
+                $enabledLookup = array_fill_keys(
+                    app(ModuleRegistry::class)->getEnabledModulesFromDb($tenant),
+                    true
+                );
+            }
+        }
+
+        $list = [];
+        $tenant = $this->tenantId ? Tenant::find($this->tenantId) : null;
+        $tenantType = $tenant ? Tenant::normalizeType($tenant->getRawOriginal('type') ?? $tenant->type) : null;
+
+        foreach ($config as $key => $cfg) {
+            $types = array_values(array_unique(array_map(
+                static fn ($t) => Tenant::normalizeType($t),
+                (array) ($cfg['tenant_types'] ?? [])
+            )));
+            if ($tenantType && $types !== [] && ! in_array($tenantType, $types, true)) {
+                continue;
+            }
+
+            $core = (bool) ($cfg['core'] ?? false);
+            $enabled = $core || isset($enabledLookup[$key]);
+            $pending = $this->tenantId
+                ? Cache::has(self::PENDING_PREFIX."{$this->tenantId}:{$key}")
+                : false;
+
+            $list[] = [
+                'key' => $key,
+                'label' => $cfg['label'] ?? $key,
+                'description' => $cfg['description'] ?? '',
+                'group' => $cfg['group'] ?? 'system',
+                'group_label' => $groupLabels[$cfg['group'] ?? 'system'] ?? ($cfg['group'] ?? 'system'),
+                'core' => $core,
+                'enabled_by_default' => (bool) ($cfg['enabled_by_default'] ?? false),
+                'module_family' => $cfg['module_family'] ?? null,
+                'enabled' => $enabled,
+                'pending' => $pending,
+            ];
+        }
+
+        return $list;
     }
 
     public function render()
     {
-        return view('livewire.admin.tenant-modules')
-            ->layout('layouts.app', [
-                'title' => 'Modules',
-                'subtitle' => 'Activation par vendeur',
-            ]);
+        $catalog = collect($this->catalog());
+
+        if ($this->search !== '') {
+            $q = mb_strtolower(trim($this->search));
+            $catalog = $catalog->filter(fn ($m) => str_contains(mb_strtolower($m['label']), $q)
+                || str_contains(mb_strtolower($m['key']), $q));
+        }
+        if ($this->group !== '') {
+            $catalog = $catalog->where('group', $this->group);
+        }
+        if ($this->status === 'active') {
+            $catalog = $catalog->where('enabled', true);
+        } elseif ($this->status === 'inactive') {
+            $catalog = $catalog->where('enabled', false);
+        }
+
+        $catalog = $catalog->sortBy('label')->values();
+        $full = collect($this->catalog());
+
+        $groups = collect(config('modules', []))
+            ->except(['core_migration_tags', 'sidebar_groups'])
+            ->filter(fn ($m) => is_array($m) && isset($m['label']))
+            ->pluck('group')
+            ->filter()
+            ->unique()
+            ->sort()
+            ->values()
+            ->mapWithKeys(fn ($g) => [$g => config("modules.sidebar_groups.{$g}", $g)]);
+
+        $tenant = $this->tenantId ? Tenant::find($this->tenantId) : null;
+
+        return view('livewire.admin.tenant-modules', [
+            'tenants' => $this->tenants,
+            'modules' => $catalog,
+            'groups' => $groups,
+            'tenant' => $tenant,
+            'kpis' => [
+                'active' => $full->where('enabled', true)->count(),
+                'inactive' => $full->where('enabled', false)->count(),
+                'core' => $full->where('core', true)->count(),
+                'total' => $full->count(),
+            ],
+        ])->layout('layouts.app', [
+            'title' => 'Activation',
+            'subtitle' => 'Modules par client',
+        ]);
     }
 }

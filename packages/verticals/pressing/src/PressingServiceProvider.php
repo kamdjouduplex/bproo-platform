@@ -8,11 +8,13 @@ use InovCom\Kernel\Traits\LazyModuleBoot;
 use Livewire\Livewire;
 use Pressing\Http\Controllers\PressingOrderPrintController;
 use Pressing\Http\Controllers\PressingOrderQrController;
+use Pressing\Http\Controllers\LavageRelancesPrintController;
 use Pressing\Http\Livewire\Agences\AgencesIndex;
 use Pressing\Http\Livewire\Consumables\ConsumablesIndex;
 use Pressing\Http\Livewire\Clients\ClientsIndex;
 use Pressing\Http\Livewire\Deliveries\DeliveriesIndex;
 use Pressing\Http\Livewire\FinProduction\FinProductionIndex;
+use Pressing\Http\Livewire\LavageRelances\LavageRelancesIndex;
 use Pressing\Http\Livewire\Loyalty\LoyaltyIndex;
 use Pressing\Http\Livewire\Orders\OrdersCreate;
 use Pressing\Http\Livewire\Orders\OrdersIndex;
@@ -77,6 +79,7 @@ class PressingServiceProvider extends ServiceProvider
         Livewire::component('pressing.reports-index', ReportsIndex::class);
         Livewire::component('pressing.loyalty-index', LoyaltyIndex::class);
         Livewire::component('pressing.loyalty-settings', LoyaltySettings::class);
+        Livewire::component('pressing.lavage-relances-index', LavageRelancesIndex::class);
 
         Route::bind('pressingAgence', fn ($value) => Agence::on('tenant')->findOrFail($value));
         Route::bind('pressingClient', fn ($value) => PressingClient::on('tenant')->findOrFail($value));
@@ -105,6 +108,14 @@ class PressingServiceProvider extends ServiceProvider
                 Route::get('/pressing-clients', ClientsIndex::class)
                     ->middleware(['module:pressing_clients'])
                     ->name('tenant.pressing_clients.index');
+
+                Route::get('/pressing-lavage-relances', LavageRelancesIndex::class)
+                    ->middleware(['module:pressing_lavage_relances'])
+                    ->name('tenant.pressing_lavage_relances.index');
+
+                Route::get('/pressing-lavage-relances/print', LavageRelancesPrintController::class)
+                    ->middleware(['module:pressing_lavage_relances'])
+                    ->name('tenant.pressing_lavage_relances.print');
 
                 Route::get('/pressing-orders', OrdersIndex::class)
                     ->middleware(['module:pressing_orders'])

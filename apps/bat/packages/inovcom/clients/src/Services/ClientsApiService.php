@@ -48,4 +48,24 @@ class ClientsApiService implements ClientsApi
     {
         return Client::where('id', $id)->exists();
     }
+
+    public function createQuickClient(array $data): object
+    {
+        $name = trim((string) ($data['name'] ?? ''));
+        if ($name === '') {
+            throw new \InvalidArgumentException('Le nom du client est obligatoire.');
+        }
+
+        $seq = (int) (Client::query()->max('id') ?? 0) + 1;
+        $client = Client::create([
+            'code' => 'CLI-'.str_pad((string) $seq, 6, '0', STR_PAD_LEFT),
+            'name' => $name,
+            'type' => 'individual',
+            'phone' => trim((string) ($data['phone'] ?? '')) ?: null,
+            'email' => trim((string) ($data['email'] ?? '')) ?: null,
+            'is_active' => true,
+        ]);
+
+        return $client;
+    }
 }

@@ -4,9 +4,12 @@ namespace InovCom\Prescriptions;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use InovCom\Prescriptions\Http\Controllers\PrescriptionPrintController;
 use InovCom\Prescriptions\Http\Livewire\PrescriptionForm;
 use InovCom\Prescriptions\Http\Livewire\PrescriptionsIndex;
 use InovCom\Prescriptions\Models\Prescription;
+use InovCom\Prescriptions\Services\PrescriptionsApiService;
+use InovCom\Kernel\Contracts\PrescriptionsApi;
 use InovCom\Kernel\Traits\LazyModuleBoot;
 use Livewire\Livewire;
 
@@ -18,7 +21,8 @@ class PrescriptionsServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        //
+        // Bound even when module UI is off — Sales detects via isAvailable().
+        $this->app->singleton(PrescriptionsApi::class, PrescriptionsApiService::class);
     }
 
     public function boot(): void
@@ -52,6 +56,9 @@ class PrescriptionsServiceProvider extends ServiceProvider
                 Route::get('/prescriptions/{prescription}/edit', PrescriptionForm::class)
                     ->middleware(['module:prescriptions'])
                     ->name('tenant.prescriptions.edit');
+                Route::get('/prescriptions/{prescription}/print', PrescriptionPrintController::class)
+                    ->middleware(['module:prescriptions'])
+                    ->name('tenant.prescriptions.print');
             });
     }
 }

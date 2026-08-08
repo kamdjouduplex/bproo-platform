@@ -48,6 +48,16 @@ trait LazyModuleBoot
             return true;
         }
 
-        return $registry->isEnabled($this->moduleKey, $tenant);
+        if ($registry->isEnabled($this->moduleKey, $tenant)) {
+            return true;
+        }
+
+        foreach ($this->alsoBootWhenModules ?? [] as $altKey) {
+            if (is_string($altKey) && $altKey !== '' && $registry->isEnabled($altKey, $tenant)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

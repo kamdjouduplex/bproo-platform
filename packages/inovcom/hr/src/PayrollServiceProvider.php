@@ -19,6 +19,7 @@ use InovCom\Payroll\Services\LeaveService;
 use InovCom\Payroll\Services\PayrollAdjustmentService;
 use InovCom\Payroll\Services\PayrollCalculationService;
 use InovCom\Payroll\Services\PayrollService;
+use InovCom\Payroll\Services\UserEmployeeSyncService;
 use Livewire\Livewire;
 
 class PayrollServiceProvider extends ServiceProvider
@@ -34,6 +35,8 @@ class PayrollServiceProvider extends ServiceProvider
         $this->app->singleton(PayrollAdjustmentService::class);
         $this->app->singleton(PayrollCalculationService::class);
         $this->app->singleton(PayrollService::class);
+        $this->app->singleton(UserEmployeeSyncService::class);
+        $this->app->singleton(\InovCom\Kernel\Contracts\PayrollApi::class, \InovCom\Payroll\Services\PayrollApiService::class);
     }
 
     public function boot(): void
@@ -79,16 +82,27 @@ class PayrollServiceProvider extends ServiceProvider
                 Route::get('/payroll/leaves', LeavesIndex::class)
                     ->middleware(['module:payroll'])
                     ->name('tenant.payroll.leaves.index');
-                Route::get('/payroll/employees/list', EmployeesIndex::class)
+                // Employés : création/gestion via Utilisateurs — anciennes URLs redirigées.
+                Route::get('/payroll/employees/list', fn () => redirect()->route('tenant.users.index', request()->query()))
                     ->middleware(['module:payroll'])
                     ->name('tenant.payroll.employees.index');
-                Route::get('/payroll/employees/create', EmployeesForm::class)
+                Route::get('/payroll/employees/create', fn () => redirect()->route('tenant.users.create', request()->query()))
                     ->middleware(['module:payroll'])
                     ->name('tenant.payroll.employees.create');
                 Route::get('/payroll/employees/{employee}', EmployeeShow::class)
                     ->middleware(['module:payroll'])
                     ->name('tenant.payroll.employees.show');
-                Route::get('/payroll/employees/{employee}/edit', EmployeesForm::class)
+                Route::get('/payroll/employees/{employee}/edit', function ($employee) {
+                    $emp = EmployeeModel::on('tenant')->findOrFail($employee);
+                    if ($emp->user_id && \Illuminate\Support\Facades\Route::has('tenant.users.edit')) {
+                        return redirect()->route('tenant.users.edit', array_merge(
+                            ['user' => $emp->user_id],
+                            request()->query()
+                        ));
+                    }
+
+                    return redirect()->route('tenant.users.index', request()->query());
+                })
                     ->middleware(['module:payroll'])
                     ->name('tenant.payroll.employees.edit');
                 Route::get('/payroll/{payroll_run}/payslip/{line}', PayslipPrintController::class)

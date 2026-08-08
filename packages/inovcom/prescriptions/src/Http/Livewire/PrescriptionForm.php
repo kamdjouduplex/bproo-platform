@@ -21,7 +21,7 @@ class PrescriptionForm extends Component
     public string $status = 'active';
     public string $notes = '';
 
-    /** @var array<int, array{item_id: int|null, item_name: string, quantity: string, instructions: string}> */
+    /** @var array<int, array{item_id: int|null, item_name: string, quantity: string, quantity_dispensed: string, instructions: string}> */
     public array $lines = [];
 
     public function mount($prescription = null): void
@@ -34,9 +34,16 @@ class PrescriptionForm extends Component
             $prescription = request()->route('prescription');
             $prescription = $prescription instanceof Prescription ? $prescription : null;
         }
-        if (!$prescription) {
+        if (! $prescription) {
             $this->number = $this->generateNumber();
-            $this->lines = [['item_id' => null, 'item_name' => '', 'quantity' => '1', 'instructions' => '']];
+            $this->lines = [[
+                'item_id' => null,
+                'item_name' => '',
+                'quantity' => '1',
+                'quantity_dispensed' => '0',
+                'instructions' => '',
+            ]];
+
             return;
         }
         $this->prescriptionId = $prescription->id;
@@ -52,16 +59,29 @@ class PrescriptionForm extends Component
             'item_id' => $l->item_id,
             'item_name' => $l->item?->name ?? '',
             'quantity' => (string) $l->quantity,
+            'quantity_dispensed' => (string) $l->quantity_dispensed,
             'instructions' => $l->instructions ?? '',
         ])->toArray();
         if (empty($this->lines)) {
-            $this->lines = [['item_id' => null, 'item_name' => '', 'quantity' => '1', 'instructions' => '']];
+            $this->lines = [[
+                'item_id' => null,
+                'item_name' => '',
+                'quantity' => '1',
+                'quantity_dispensed' => '0',
+                'instructions' => '',
+            ]];
         }
     }
 
     public function addLine(): void
     {
-        $this->lines[] = ['item_id' => null, 'item_name' => '', 'quantity' => '1', 'instructions' => ''];
+        $this->lines[] = [
+            'item_id' => null,
+            'item_name' => '',
+            'quantity' => '1',
+            'quantity_dispensed' => '0',
+            'instructions' => '',
+        ];
     }
 
     public function removeLine(int $index): void
@@ -90,7 +110,7 @@ class PrescriptionForm extends Component
         ]);
 
         $prescription = $this->prescriptionId ? Prescription::find($this->prescriptionId) : new Prescription();
-        if (!$prescription) {
+        if (! $prescription) {
             return;
         }
 
@@ -106,27 +126,86 @@ class PrescriptionForm extends Component
         ]);
         $prescription->save();
 
+        // Preserve already-dispensed qty per item when rewriting lines (partial fills must survive edits).
+        $previousByItem = [];
+        foreach ($prescription->lines()->get() as $old) {
+            $itemId = (int) $old->item_id;
+            $previousByItem[$itemId] = ($previousByItem[$itemId] ?? 0) + (float) $old->quantity_dispensed;
+        }
+
         $prescription->lines()->delete();
-        foreach (array_values(array_filter($this->lines, fn ($r) => !empty($r['item_id']))) as $idx => $row) {
+        foreach (array_values(array_filter($this->lines, fn ($r) => ! empty($r['item_id']))) as $idx => $row) {
+            $itemId = (int) $row['item_id'];
+            $qty = (float) $row['quantity'];
+            $dispensed = min($qty, (float) ($previousByItem[$itemId] ?? 0));
+            if (isset($previousByItem[$itemId])) {
+                $previousByItem[$itemId] = max(0, $previousByItem[$itemId] - $dispensed);
+            }
+
             PrescriptionLine::create([
                 'prescription_id' => $prescription->id,
-                'item_id' => (int) $row['item_id'],
-                'quantity' => (float) $row['quantity'],
+                'item_id' => $itemId,
+                'quantity' => $qty,
+                'quantity_dispensed' => $dispensed,
                 'instructions' => $row['instructions'] ?? null,
                 'sort_order' => $idx,
             ]);
+        }
+
+        $prescription->load('lines');
+        $allDone = $prescription->lines->isNotEmpty() && $prescription->lines->every(
+            fn ($line) => (float) $line->quantity_dispensed + 0.0001 >= (float) $line->quantity
+        );
+        if ($allDone && $prescription->status === Prescription::STATUS_ACTIVE) {
+            $prescription->status = Prescription::STATUS_DISPENSED;
+            $prescription->save();
+        } elseif (! $allDone && $prescription->status === Prescription::STATUS_DISPENSED) {
+            $prescription->status = Prescription::STATUS_ACTIVE;
+            $prescription->save();
         }
 
         $tenantCode = request()->query('tenant') ?? session('tenant_code') ?? optional(request()->attributes->get('tenant'))->code;
         $this->redirect(route('tenant.prescriptions.index', ['tenant' => $tenantCode]), navigate: true);
     }
 
+    public function closeRemaining(): void
+    {
+        if (! $this->prescriptionId) {
+            return;
+        }
+
+        $rx = Prescription::with('lines')->find($this->prescriptionId);
+        if (! $rx) {
+            return;
+        }
+
+        $anyRemaining = $rx->lines->contains(fn ($l) => $l->remaining_quantity > 0.0001);
+        if (! $anyRemaining) {
+            session()->flash('success', 'Aucun reste à clôturer.');
+
+            return;
+        }
+
+        if (app()->bound(\InovCom\Kernel\Contracts\PrescriptionsApi::class)) {
+            app(\InovCom\Kernel\Contracts\PrescriptionsApi::class)
+                ->closeRemaining((int) $this->prescriptionId, 'Patient ne reviendra pas');
+        } else {
+            $rx->notes = trim(($rx->notes ? $rx->notes."\n" : '').'Reste clôturé le '.now()->format('d/m/Y').' — Patient ne reviendra pas');
+            $rx->status = Prescription::STATUS_CANCELLED;
+            $rx->save();
+        }
+
+        $this->status = Prescription::STATUS_CANCELLED;
+        session()->flash('success', 'Reste clôturé. L’ordonnance n’est plus délivrable.');
+    }
+
     private function generateNumber(): string
     {
-        $prefix = 'RX-' . now()->format('Ymd') . '-';
-        $last = Prescription::where('number', 'like', $prefix . '%')->orderByDesc('id')->first();
+        $prefix = 'RX-'.now()->format('Ymd').'-';
+        $last = Prescription::where('number', 'like', $prefix.'%')->orderByDesc('id')->first();
         $seq = $last ? (int) substr($last->number, strlen($prefix)) + 1 : 1;
-        return $prefix . str_pad((string) $seq, 3, '0', STR_PAD_LEFT);
+
+        return $prefix.str_pad((string) $seq, 3, '0', STR_PAD_LEFT);
     }
 
     public function render()

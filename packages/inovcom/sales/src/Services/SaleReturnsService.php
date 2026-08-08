@@ -232,6 +232,7 @@ class SaleReturnsService
         if (!empty($meta['is_set']) && !empty($meta['set_components']) && app()->bound(ItemSetService::class)) {
             $factor = max(0.0001, (float) ($saleLine->conversion_factor ?: 1));
             $returnedSets = $quantityBase / $factor;
+            $batchAllocations = is_array($meta['batch_allocations'] ?? null) ? $meta['batch_allocations'] : [];
 
             foreach ($meta['set_components'] as $component) {
                 $perSet = (float) ($component['quantity_per_set'] ?? 0);
@@ -242,6 +243,18 @@ class SaleReturnsService
 
                 $qtyRestore = round($perSet * $returnedSets, 3);
                 if ($qtyRestore <= 0) {
+                    continue;
+                }
+
+                $componentAlloc = $batchAllocations[$componentId] ?? $batchAllocations[(string) $componentId] ?? null;
+                if ($batchesAvailable && $batchesApi && is_array($componentAlloc) && $componentAlloc !== []) {
+                    $this->restoreQuantityAcrossBatches(
+                        $batchesApi,
+                        $componentAlloc,
+                        $qtyRestore,
+                        'sale_return_line',
+                        (int) $saleReturn->id
+                    );
                     continue;
                 }
 
@@ -393,6 +406,46 @@ class SaleReturnsService
         }
 
         return (float) $query->sum('total_refund');
+    }
+
+    /**
+     * Restore a returned quantity across the original FEFO batch allocations (pro-rata).
+     *
+     * @param  array<int|string, float>  $allocations  batch_id => original base qty consumed
+     */
+    private function restoreQuantityAcrossBatches(
+        BatchesApi $batchesApi,
+        array $allocations,
+        float $qtyRestore,
+        string $referenceType,
+        int $referenceId
+    ): void {
+        $totalAllocated = array_sum(array_map('floatval', $allocations));
+        if ($totalAllocated <= 0 || $qtyRestore <= 0) {
+            return;
+        }
+
+        $batchIds = array_keys($allocations);
+        $lastBatchId = end($batchIds);
+        $remaining = $qtyRestore;
+
+        foreach ($allocations as $batchId => $origQty) {
+            $batchId = (int) $batchId;
+            if ($batchId <= 0) {
+                continue;
+            }
+
+            if ((string) $batchId === (string) $lastBatchId) {
+                $take = round($remaining, 3);
+            } else {
+                $take = round($qtyRestore * ((float) $origQty / $totalAllocated), 3);
+                $remaining -= $take;
+            }
+
+            if ($take > 0) {
+                $batchesApi->restoreToBatch($batchId, $take, $referenceType, $referenceId);
+            }
+        }
     }
 
     private function generateReturnNumber(): string

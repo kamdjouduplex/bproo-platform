@@ -53,11 +53,13 @@ class ItemsShow extends Component
 
         return view('inovcom-items::livewire.items.show')
             ->layout('layouts.app', [
-                'title' => 'Article ' . item_primary_label($this->item->sku, $this->item->name, (string) $this->item->id),
+                'title' => ucfirst(items_catalog_noun()['singular']).' '.item_primary_label($this->item->sku, $this->item->name, (string) $this->item->id),
                 'subtitle' => item_secondary_label($this->item->sku, $this->item->name) ?? $this->item->name,
             ])
             ->with([
                 'canViewCost' => $canViewCost,
+                'isPharmacyCatalog' => items_is_pharmacy_catalog(),
+                'catalogNoun' => items_catalog_noun(),
                 'canUpdate' => $this->canItem('items.update'),
                 'showPurchaseHistory' => $showPurchaseHistory,
                 'latestMarketEntry' => $latestMarketEntry,

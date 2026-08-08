@@ -8,7 +8,7 @@
 <div class="page-body">
     <section class="card app-table-card">
         <div class="table-toolbar">
-            <div class="table-title">Catalogue</div>
+            <div class="table-title">{{ $catalogNoun['title'] ?? 'Catalogue' }}</div>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <form wire:submit.prevent="applySearch" style="display: inline-flex; gap: 4px;">
                     <input class="input input-sm" type="text" wire:model="search" placeholder="Désignation, référence ou code-barres" style="min-width: 220px;" aria-label="Rechercher">
@@ -94,14 +94,14 @@
                                     <a class="btn btn-secondary btn-sm" href="{{ route('tenant.items.edit', [$item->id, 'tenant' => $tenantCode]) }}">Modifier</a>
                                 @endif
                                 @if ($canDelete)
-                                    <button type="button" class="btn btn-secondary btn-sm" wire:click="delete({{ $item->id }})" onclick="return confirm('Supprimer cet article ?')">Supprimer</button>
+                                    <button type="button" class="btn btn-secondary btn-sm" wire:click="delete({{ $item->id }})" onclick="return confirm('Supprimer ce {{ $catalogNoun['singular'] ?? 'article' }} ?')">Supprimer</button>
                                 @endif
                             </td>
                         </tr>
                     @endforeach
                     @if ($items->count() === 0)
                         <tr>
-                            <td colspan="{{ $colCount }}">Aucun article pour le moment.</td>
+                            <td colspan="{{ $colCount }}">Aucun {{ $catalogNoun['singular'] ?? 'article' }} pour le moment.</td>
                         </tr>
                     @endif
                 </tbody>

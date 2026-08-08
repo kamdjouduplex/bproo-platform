@@ -1,4 +1,4 @@
-﻿{
+{
     "name":  "bproo/attendance",
     "description":  "Inov-Com Attendance module: employee presence tracking",
     "type":  "library",
@@ -26,5 +26,5 @@
     "replace":  {
 
                 },
-    "version":  "1.0.0"
+    "version":  "1.1.0"
 }

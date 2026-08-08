@@ -23,8 +23,13 @@ class ItemsServiceProvider extends ServiceProvider
      */
     protected string $moduleKey = 'items';
 
+    /** Also boot package routes when Médicaments (pharmacy catalogue) is enabled. */
+    protected array $alsoBootWhenModules = ['medicaments'];
+
     public function register(): void
     {
+        require_once __DIR__.'/helpers.php';
+
         // Register ItemsApi interface implementation
         $this->app->singleton(ItemsApi::class, ItemsApiService::class);
     }

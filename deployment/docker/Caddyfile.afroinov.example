@@ -1,0 +1,24 @@
+# Bproo Platform — Caddy (nouveaux hosts)
+
+# Ne pas modifier / supprimer les blocs existants :
+#   erp.afroinov.com, storeapp, complexesms, Afro Inov, etc.
+
+myerp.afroinov.com {
+    encode gzip zstd
+    reverse_proxy myerp-web-1:80
+}
+
+pharma.afroinov.com {
+    encode gzip zstd
+    reverse_proxy pharma-web-1:80
+}
+
+pressing.afroinov.com {
+    encode gzip zstd
+    reverse_proxy pressing-web-1:80
+}
+
+admin.afroinov.com {
+    encode gzip zstd
+    reverse_proxy admin-web-1:80
+}

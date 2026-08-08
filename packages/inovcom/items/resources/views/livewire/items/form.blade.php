@@ -8,8 +8,10 @@
     <section class="card item-form-card">
         <header class="item-form-card__head">
             <div>
-                <p class="item-form-card__eyebrow">Catalogue</p>
-                <h2 class="card-title item-form-card__title">{{ $itemId ? 'Modifier l\'article' : 'Nouvel article' }}</h2>
+                <p class="item-form-card__eyebrow">{{ $catalogNoun['title'] ?? 'Catalogue' }}</p>
+                <h2 class="card-title item-form-card__title">
+                    {{ $itemId ? 'Modifier le '.$catalogNoun['singular'] : 'Nouveau '.$catalogNoun['singular'] }}
+                </h2>
             </div>
             @if ($itemId && $sku)
                 <div class="item-ref-badge item-ref-badge--locked">
@@ -214,29 +216,55 @@
             <div class="field" style="grid-column: 1 / -1;">
                 <label class="field-toggle">
                     <input type="checkbox" wire:model="is_active">
-                    Article actif (visible en vente et dans les listes)
+                    {{ ucfirst($catalogNoun['singular'] ?? 'article') }} actif (visible en vente et dans les listes)
                 </label>
             </div>
             <div class="field" style="grid-column: 1 / -1;">
                 <label class="field-toggle">
                     <input type="checkbox" wire:model.live="is_set" @disabled(!$setServiceReady)>
-                    Produit en lot (composition d'articles)
+                    Produit en lot (composition d’{{ $catalogNoun['plural'] ?? 'articles' }})
                 </label>
                 @if (!$setServiceReady)
                     <p style="font-size:12px;color:#6b7280;margin:4px 0 0;">Migration « lots » requise pour ce tenant.</p>
                 @endif
             </div>
+            @if ($isPharmacyCatalog ?? false)
             <div class="field" style="grid-column: 1 / -1;">
-                <span class="field-label" style="display:block; margin-bottom:8px;">Pharmacie (optionnel)</span>
+                <span class="field-label" style="display:block; margin-bottom:8px;">Pharmacie</span>
                 <label class="field-toggle" style="margin-right:16px;">
                     <input type="checkbox" wire:model="batch_tracked" @disabled($is_set)>
                     Suivi par lot / date de péremption
                 </label>
                 <label class="field-toggle">
                     <input type="checkbox" wire:model="requires_prescription">
-                    Sur ordonnance
+                    Sur ordonnance (obligatoire au POS)
                 </label>
             </div>
+            <div class="field">
+                <label class="field-label">DCI (dénomination commune)</label>
+                <input class="input" wire:model="dci" placeholder="Ex. Paracétamol" maxlength="120">
+            </div>
+            <div class="field">
+                <label class="field-label">Famille thérapeutique</label>
+                <input class="input" wire:model="therapeutic_family" placeholder="Ex. Antalgique" maxlength="120">
+            </div>
+            <div class="field">
+                <label class="field-label">Forme</label>
+                <input class="input" wire:model="pharma_form" placeholder="Ex. Comprimé, sirop, injectable" maxlength="80">
+            </div>
+            <div class="field">
+                <label class="field-label">Dosage</label>
+                <input class="input" wire:model="dosage" placeholder="Ex. 500 mg" maxlength="80">
+            </div>
+            <div class="field">
+                <label class="field-label">Fabricant</label>
+                <input class="input" wire:model="manufacturer" placeholder="Laboratoire" maxlength="120">
+            </div>
+            <div class="field">
+                <label class="field-label">Conservation</label>
+                <input class="input" wire:model="storage_temp" placeholder="Ex. Ambiante, 2–8 °C" maxlength="80">
+            </div>
+            @endif
             </div>
         </section>
 

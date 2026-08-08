@@ -2,6 +2,12 @@
     $tenantCode = $tenantCode ?? request()->query('tenant');
     $service = app(\InovCom\Attendance\Services\AttendanceService::class);
     $punchesToday = $todayStatus['punches_today'] ?? collect();
+    $periodLabels = [
+        'this_month' => 'Ce mois',
+        'last_month' => 'Mois dernier',
+        'this_year' => 'Cette année',
+        'last_7_days' => '7 derniers jours',
+    ];
 @endphp
 
 <div class="page-body attendance-page">
@@ -17,11 +23,17 @@
         </div>
     @endif
 
+    @if ($networkConfigured && ! $networkOk)
+        <div class="alert alert-error" style="margin-bottom:16px;" role="alert">
+            {{ $networkMessage }}
+        </div>
+    @endif
+
     <section class="attendance-hero card {{ $isPresent ? 'attendance-hero--present' : ($departureTime ? 'attendance-hero--complete' : 'attendance-hero--idle') }}">
         <div class="attendance-hero__main">
             <div class="attendance-hero__label">
-                Pointage du jour
-                @if (!empty($connectedUserName) && ! $canViewAll)
+                Aujourd’hui
+                @if (!empty($connectedUserName))
                     · {{ $connectedUserName }}
                 @endif
             </div>
@@ -35,6 +47,11 @@
                     <span class="attendance-pill attendance-pill--idle">En attente d’arrivée</span>
                 @endif
             </div>
+            @if ($networkConfigured)
+                <p class="attendance-hero__hint" style="margin-top:10px;">
+                    Pointage autorisé sur le Wi‑Fi <strong>{{ $wifiName }}</strong>
+                </p>
+            @endif
         </div>
 
         <div class="attendance-hero__metrics">
@@ -59,14 +76,9 @@
                         wire:loading.attr="disabled"
                         wire:target="punchIn,punchOut"
                     >
-                        <span wire:loading.remove wire:target="punchIn">
-                            {{ $arrivalTime ? 'Nouvelle arrivée' : 'Pointer l’arrivée' }}
-                        </span>
+                        <span wire:loading.remove wire:target="punchIn">Pointer l’arrivée</span>
                         <span wire:loading wire:target="punchIn">Enregistrement…</span>
                     </button>
-                    <p class="attendance-hero__hint">
-                        Même action que le bouton <strong>Arrivée</strong> dans la barre du haut — l’état se synchronise partout.
-                    </p>
                 @elseif ($canPunchOut)
                     <button
                         type="button"
@@ -78,19 +90,23 @@
                         <span wire:loading.remove wire:target="punchOut">Pointer le départ</span>
                         <span wire:loading wire:target="punchOut">Enregistrement…</span>
                     </button>
-                    <p class="attendance-hero__hint">
-                        Arrivée enregistrée à <strong>{{ $arrivalTime }}</strong>. Utilisez aussi <strong>Départ</strong> dans la barre du haut.
-                    </p>
                 @endif
             @else
                 <p class="attendance-hero__hint">Vous n’avez pas la permission de pointer.</p>
             @endif
 
-            @if ($canSheet)
-                <a class="btn btn-secondary" href="{{ route('tenant.attendance.sheet', ['tenant' => $tenantCode]) }}">
-                    Fiche de présence
-                </a>
-            @endif
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
+                @if ($canSheet)
+                    <a class="btn btn-secondary" href="{{ route('tenant.attendance.sheet', ['tenant' => $tenantCode]) }}">
+                        Fiches
+                    </a>
+                @endif
+                @if ($canSettings ?? false)
+                    <a class="btn btn-secondary" href="{{ route('tenant.attendance.settings', ['tenant' => $tenantCode]) }}">
+                        Paramètres
+                    </a>
+                @endif
+            </div>
         </div>
     </section>
 
@@ -115,36 +131,66 @@
     @if ($myReport && ($myReport['expected_days'] ?? 0) === 0 && ($myReport['punches'] ?? collect())->isNotEmpty())
         <div class="alert alert-warning" style="margin-bottom:16px;">
             Des pointages existent sur la période, mais aucun jour ouvré (lun.–sam.) n’est encore comptabilisé.
-            Vérifiez que votre fiche employé est liée à votre compte dans Paie → Employés.
+            Vérifiez que votre fiche employé est liée à votre compte dans Utilisateurs.
         </div>
     @endif
 
     @if ($myReport)
         <section class="card" style="margin-bottom:16px; padding:16px;">
-            <div class="card-title" style="margin-bottom:12px;">Ma performance (période filtrée)</div>
+            <div class="card-title" style="margin-bottom:12px;">
+                @if ($canViewAll && $employeeFilter !== '')
+                    Performance (employé sélectionné)
+                @else
+                    Ma performance
+                @endif
+            </div>
             @include('inovcom-attendance::components.performance-indicator', ['report' => $myReport])
         </section>
     @endif
 
     <section class="card app-table-card">
-        <div class="table-toolbar">
+        <div class="table-toolbar" style="flex-wrap:wrap; gap:10px;">
             <div class="table-title">
                 @if ($canViewAll)
                     Historique des pointages
                 @else
-                    Mon historique de pointages
+                    Mon historique
                 @endif
             </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-left:auto;">
+                <div class="attendance-period-pills" role="group" aria-label="Période">
+                    @foreach ($periodLabels as $key => $label)
+                        <button
+                            type="button"
+                            class="btn btn-sm {{ $period === $key ? 'btn-primary' : 'btn-secondary' }}"
+                            wire:click="setPeriod('{{ $key }}')"
+                        >{{ $label }}</button>
+                    @endforeach
+                </div>
                 <input class="input input-sm" type="date" wire:model.live="dateFrom" title="Du" aria-label="Date de début">
                 <input class="input input-sm" type="date" wire:model.live="dateTo" title="Au" aria-label="Date de fin">
-                @if ($canViewAll && $employees->isNotEmpty())
-                    <select class="input input-sm" wire:model.live="employeeFilter" aria-label="Employé">
-                        <option value="">Tous employés</option>
-                        @foreach ($employees as $emp)
-                            <option value="{{ $emp->id }}">{{ $emp->full_name }} ({{ $emp->employee_number }})</option>
-                        @endforeach
-                    </select>
+                @if ($canViewAll)
+                    <input
+                        class="input input-sm"
+                        type="search"
+                        wire:model.live.debounce.300ms="employeeSearch"
+                        placeholder="Rechercher un employé…"
+                        aria-label="Rechercher un employé"
+                        style="min-width:180px;"
+                    >
+                    @if ($employees->isNotEmpty())
+                        <select class="input input-sm" wire:model.live="employeeFilter" aria-label="Employé">
+                            <option value="">Tous les employés</option>
+                            @foreach ($employees as $emp)
+                                <option value="{{ $emp->id }}">{{ $emp->full_name }} ({{ $emp->employee_number }})</option>
+                            @endforeach
+                        </select>
+                    @endif
+                @endif
+                @if ($exportUrl)
+                    <a class="btn btn-secondary btn-sm" href="{{ $exportUrl }}" target="_blank" rel="noopener">
+                        Exporter PDF
+                    </a>
                 @endif
             </div>
         </div>
@@ -155,7 +201,9 @@
                         <th>Date</th>
                         <th>Type</th>
                         <th>Heure</th>
-                        <th>Employé lié</th>
+                        @if ($canViewAll)
+                            <th>Employé</th>
+                        @endif
                     </tr>
                 </thead>
                 <tbody>
@@ -170,11 +218,13 @@
                                 <span class="badge {{ $isOut ? 'badge-neutral' : 'badge-success' }}">{{ $typeLabel }}</span>
                             </td>
                             <td class="prospect-money">{{ $p->punched_at->format('H:i:s') }}</td>
-                            <td>{{ $p->user?->name ?? '—' }}</td>
+                            @if ($canViewAll)
+                                <td>{{ $p->employee?->full_name ?? $p->user?->name ?? '—' }}</td>
+                            @endif
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="4" style="text-align:center;color:#94a3b8;padding:28px;">
+                            <td colspan="{{ $canViewAll ? 4 : 3 }}" style="text-align:center;color:#94a3b8;padding:28px;">
                                 Aucun pointage sur cette période.
                             </td>
                         </tr>

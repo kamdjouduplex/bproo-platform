@@ -17,6 +17,19 @@ class ModuleEvents extends Component
     public ?string $moduleKey = null;
     public ?string $action = null;
 
+    public function mount(): void
+    {
+        if (request()->filled('moduleKey')) {
+            $this->moduleKey = (string) request()->query('moduleKey');
+        }
+        if (request()->filled('tenantId')) {
+            $this->tenantId = (int) request()->query('tenantId');
+        }
+        if (request()->filled('action')) {
+            $this->action = (string) request()->query('action');
+        }
+    }
+
     public function updatedSearch(): void
     {
         $this->resetPage();

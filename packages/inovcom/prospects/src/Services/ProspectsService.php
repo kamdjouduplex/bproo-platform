@@ -10,6 +10,7 @@ use InovCom\Clients\Models\Client;
 use InovCom\Clients\Services\ClientCodeGenerator;
 use InovCom\Prospects\Models\Prospect;
 use InovCom\Prospects\Models\ProspectActivity;
+use InovCom\Users\Models\User;
 
 class ProspectsService
 {
@@ -29,7 +30,7 @@ class ProspectsService
                 'rccm' => $data['rccm'] ?? null,
                 'niu' => $data['niu'] ?? null,
                 'source' => $data['source'] ?? Prospect::SOURCE_OTHER,
-                'status' => Prospect::STATUS_NOUVEAU,
+                'status' => Prospect::STATUS_QUALIFIE,
                 'cost' => (float) ($data['cost'] ?? 0),
                 'expected_value' => isset($data['expected_value']) && $data['expected_value'] !== ''
                     ? (float) $data['expected_value']
@@ -165,11 +166,148 @@ class ProspectsService
         return ProspectActivity::create([
             'prospect_id' => $prospect->id,
             'user_id' => $userId ?? auth('tenant')->id(),
+            'assignee_id' => $prospect->owner_id,
             'type' => $type,
+            'summary' => null,
+            'state' => ProspectActivity::STATE_DONE,
             'body' => $body,
+            'due_at' => null,
+            'completed_at' => now(),
             'from_status' => $fromStatus,
             'to_status' => $toStatus,
         ]);
+    }
+
+    /**
+     * Place un prospect au démarrage du pipeline (Qualifié).
+     */
+    public function initiateAsProspect(Prospect $prospect, ?int $userId = null): Prospect
+    {
+        if (in_array($prospect->status, Prospect::pipelineStatuses(), true)) {
+            return $prospect;
+        }
+
+        if ($prospect->isConverted() || $prospect->isLost()) {
+            throw new \RuntimeException('Ce prospect n’est plus éligible au pipeline.');
+        }
+
+        $gaps = $prospect->initiationGaps();
+        if ($gaps !== []) {
+            throw new \RuntimeException('Complétez la fiche : '.implode(', ', $gaps).'.');
+        }
+
+        return $this->changeStatus(
+            $prospect,
+            Prospect::STATUS_QUALIFIE,
+            null,
+            'Entrée dans le pipeline (Qualifié).',
+            $userId
+        );
+    }
+
+    public function assignOwner(Prospect $prospect, ?int $ownerId, ?int $userId = null): Prospect
+    {
+        if ($prospect->isConverted()) {
+            throw new \RuntimeException('Un prospect converti ne peut plus être réassigné.');
+        }
+
+        $userId = $userId ?? auth('tenant')->id();
+        $oldOwnerId = $prospect->owner_id;
+        if ((int) ($oldOwnerId ?? 0) === (int) ($ownerId ?? 0)) {
+            return $prospect;
+        }
+
+        $prospect->owner_id = $ownerId ?: null;
+        $prospect->updated_by = $userId;
+        $prospect->save();
+
+        $oldName = $oldOwnerId
+            ? (User::find($oldOwnerId)?->name ?? '#'.$oldOwnerId)
+            : 'Non assigné';
+        $newName = $ownerId
+            ? (User::find($ownerId)?->name ?? '#'.$ownerId)
+            : 'Non assigné';
+
+        $this->addActivity(
+            $prospect,
+            ProspectActivity::TYPE_NOTE,
+            'Commercial : '.$oldName.' → '.$newName,
+            $userId
+        );
+
+        return $prospect->fresh(['owner']);
+    }
+
+    /**
+     * @param  array{type:string,body?:?string,summary?:?string,due_at:string,assignee_id?:?int}  $data
+     */
+    public function scheduleActivity(Prospect $prospect, array $data, ?int $userId = null): ProspectActivity
+    {
+        if ($prospect->isLost()) {
+            throw new \RuntimeException('Impossible de planifier une action sur un prospect perdu.');
+        }
+
+        $type = (string) ($data['type'] ?? ProspectActivity::TYPE_CALL);
+        if (! array_key_exists($type, ProspectActivity::actionableTypeOptions())) {
+            $type = ProspectActivity::TYPE_TASK;
+        }
+
+        $dueAt = $data['due_at'] ?? null;
+        if (! $dueAt) {
+            throw new \InvalidArgumentException('Indiquez la date / heure de la prochaine action.');
+        }
+
+        $summary = trim((string) ($data['summary'] ?? ''));
+        $body = trim((string) ($data['body'] ?? ''));
+        if ($body === '') {
+            $body = $summary !== ''
+                ? $summary
+                : ProspectActivity::typeLabel($type).' planifié(e).';
+        }
+
+        $assigneeId = isset($data['assignee_id']) && $data['assignee_id'] !== '' && $data['assignee_id'] !== null
+            ? (int) $data['assignee_id']
+            : ($prospect->owner_id ?: ($userId ?? auth('tenant')->id()));
+
+        return ProspectActivity::create([
+            'prospect_id' => $prospect->id,
+            'user_id' => $userId ?? auth('tenant')->id(),
+            'assignee_id' => $assigneeId,
+            'type' => $type,
+            'summary' => $summary !== '' ? $summary : ProspectActivity::typeLabel($type),
+            'state' => ProspectActivity::STATE_PLANNED,
+            'body' => $body,
+            'due_at' => $dueAt,
+            'completed_at' => null,
+        ]);
+    }
+
+    public function completeActivity(ProspectActivity $activity, ?string $note = null, ?int $userId = null): ProspectActivity
+    {
+        if ($activity->state === ProspectActivity::STATE_DONE) {
+            return $activity;
+        }
+
+        $activity->state = ProspectActivity::STATE_DONE;
+        $activity->completed_at = now();
+        if ($note) {
+            $activity->body = trim($activity->body."\n".trim($note));
+        }
+        $activity->save();
+
+        return $activity;
+    }
+
+    public function cancelActivity(ProspectActivity $activity, ?int $userId = null): ProspectActivity
+    {
+        if ($activity->state !== ProspectActivity::STATE_PLANNED) {
+            return $activity;
+        }
+
+        $activity->state = ProspectActivity::STATE_CANCELLED;
+        $activity->save();
+
+        return $activity;
     }
 
     /**

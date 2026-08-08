@@ -32,6 +32,10 @@ class Tenant extends Model
         'multi_store_setup_error',
         'balance',
         'balance_currency',
+        'metrics_cached_at',
+        'users_count',
+        'modules_enabled_count',
+        'last_tenant_activity_at',
     ];
 
     protected $casts = [
@@ -42,6 +46,8 @@ class Tenant extends Model
         'multi_store_enabled' => 'boolean',
         'multi_store_enabled_at' => 'datetime',
         'balance' => 'decimal:2',
+        'metrics_cached_at' => 'datetime',
+        'last_tenant_activity_at' => 'datetime',
     ];
 
     public function modules()
@@ -128,25 +134,70 @@ class Tenant extends Model
     }
 
     /**
-     * Get tenant type (e.g. retail, pharmacy, restaurant). Defaults to config default.
+     * Resolve product-app type (erp, pressing, bat). Maps legacy activity labels.
      */
     public function getTypeAttribute($value): string
     {
-        $type = $value ?? config('tenant_types.default', 'retail');
-        $types = array_keys(config('tenant_types.types', []));
-        return in_array($type, $types, true) ? $type : config('tenant_types.default', 'retail');
+        return static::normalizeType($value);
     }
 
     /**
-     * Get human-readable label for the tenant's type.
+     * Human-readable product app label.
      */
     public function getTypeLabelAttribute(): string
     {
         $types = config('tenant_types.types', []);
-        $type = $this->attributes['type'] ?? config('tenant_types.default', 'retail');
-        $validTypes = array_keys($types);
-        $resolved = in_array($type, $validTypes, true) ? $type : config('tenant_types.default', 'retail');
+        $resolved = static::normalizeType($this->attributes['type'] ?? null);
+
         return $types[$resolved]['label'] ?? $resolved;
+    }
+
+    /**
+     * Login URL for this tenant in its product app.
+     */
+    public function getAppLoginUrlAttribute(): ?string
+    {
+        $types = config('tenant_types.types', []);
+        $resolved = static::normalizeType($this->attributes['type'] ?? null);
+        $cfg = $types[$resolved] ?? null;
+        if (!$cfg) {
+            return null;
+        }
+
+        $base = rtrim((string) ($cfg['base_url'] ?? ''), '/');
+        $path = (string) ($cfg['login_path'] ?? '/app/login');
+        if ($base === '') {
+            return null;
+        }
+
+        return $base . $path . '?tenant=' . urlencode((string) $this->code);
+    }
+
+    public function supportsMultiStore(): bool
+    {
+        $types = config('tenant_types.types', []);
+        $resolved = static::normalizeType($this->attributes['type'] ?? null);
+
+        return (bool) ($types[$resolved]['supports_multi_store'] ?? false);
+    }
+
+    public static function normalizeType(mixed $value): string
+    {
+        $raw = is_string($value) && $value !== ''
+            ? $value
+            : (string) config('tenant_types.default', 'erp');
+
+        $aliases = config('tenant_types.legacy_aliases', []);
+        if (isset($aliases[$raw])) {
+            $raw = $aliases[$raw];
+        }
+
+        $types = array_keys(config('tenant_types.types', []));
+        if ($types !== [] && ! in_array($raw, $types, true)) {
+            return (string) config('tenant_types.default', 'erp');
+        }
+
+        return $raw;
     }
 
     public function databaseConfig(): array

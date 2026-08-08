@@ -1,5 +1,26 @@
 @php
     $tenantCode = $tenantCode ?? request()->query('tenant') ?? session('tenant_code');
+    $userName = $userName ?? '';
+    $currency = $currency ?? 'XOF';
+    $hasSales = $hasSales ?? false;
+    $hasStock = $hasStock ?? false;
+    $hasInvoicing = $hasInvoicing ?? false;
+    $hasReporting = $hasReporting ?? false;
+    $canViewReporting = $canViewReporting ?? false;
+    $storeDimensionReady = $storeDimensionReady ?? false;
+    $monthLabel = $monthLabel ?? now()->translatedFormat('F Y');
+    $invoiceRevenueMonth = $invoiceRevenueMonth ?? 0;
+    $invoiceCollectedMonth = $invoiceCollectedMonth ?? 0;
+    $invoiceCountMonth = $invoiceCountMonth ?? 0;
+    $expensesMonth = $expensesMonth ?? 0;
+    $pendingInvoices = $pendingInvoices ?? 0;
+    $unpaidInvoicesTotal = $unpaidInvoicesTotal ?? 0;
+    $moduleLinks = $moduleLinks ?? [];
+    $quickActions = $quickActions ?? [];
+    $salesChart = $salesChart ?? [];
+    $recentInvoices = $recentInvoices ?? [];
+    $storePerformance = $storePerformance ?? [];
+    $lowStockItems = $lowStockItems ?? [];
 @endphp
 
 <div class="dashboard">
@@ -242,7 +263,11 @@
             <h2 class="dashboard-modules__title">Accès rapide aux modules</h2>
             <div class="dashboard-modules__grid">
                 @foreach ($moduleLinks as $link)
-                    <a href="{{ route($link['route'], ['tenant' => $tenantCode]) }}" class="dashboard-module-card">
+                    @php
+                        $hrefRoute = $link['route'] ?? data_get($link, 'children.0.route');
+                    @endphp
+                    @continue(! $hrefRoute || ! Route::has($hrefRoute))
+                    <a href="{{ route($hrefRoute, ['tenant' => $tenantCode]) }}" class="dashboard-module-card">
                         <span class="dashboard-module-card__label">{{ $link['label'] }}</span>
                         <span class="dashboard-module-card__arrow">→</span>
                     </a>

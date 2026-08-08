@@ -29,7 +29,7 @@ class ItemsIndex extends Component
 
         $item = Item::find($itemId);
         if (!$item) {
-            notify()->error('Article introuvable.');
+            notify()->error(ucfirst(items_catalog_noun()['singular']).' introuvable.');
             return;
         }
 
@@ -45,7 +45,7 @@ class ItemsIndex extends Component
             Event::dispatch(new ItemDeleted($itemId, $tenant));
         }
 
-        notify()->success('Article supprimé.');
+        notify()->success(ucfirst(items_catalog_noun()['singular']).' supprimé.');
         $this->resetPage();
     }
 
@@ -59,6 +59,7 @@ class ItemsIndex extends Component
         $user = auth('tenant')->user();
         $columnService = app(ItemsListColumnService::class);
         $visibleColumns = $columnService->visibleColumnsForUser($user);
+        $noun = items_catalog_noun();
 
         $items = Item::query()
             ->with(['category', 'brand', 'unit', 'unitPrices.unit'])
@@ -74,8 +75,8 @@ class ItemsIndex extends Component
 
         return view('inovcom-items::livewire.items.index')
             ->layout('layouts.app', [
-                'title' => 'Articles',
-                'subtitle' => 'Catalogue produit',
+                'title' => $noun['title'],
+                'subtitle' => $noun['subtitle'],
             ])
             ->with([
                 'items' => $items,
@@ -85,6 +86,8 @@ class ItemsIndex extends Component
                 'canCreate' => $this->canItem('items.create'),
                 'canUpdate' => $this->canItem('items.update'),
                 'canDelete' => $this->canItem('items.delete'),
+                'isPharmacyCatalog' => items_is_pharmacy_catalog(),
+                'catalogNoun' => $noun,
             ]);
     }
 }

@@ -18,7 +18,7 @@ class LossesServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        //
+        $this->app->singleton(\InovCom\Kernel\Contracts\LossesApi::class, \InovCom\Losses\Services\LossesApiService::class);
     }
 
     public function boot(): void

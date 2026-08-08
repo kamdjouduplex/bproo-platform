@@ -5,6 +5,7 @@ namespace InovCom\Stock;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use InovCom\Kernel\Traits\LazyModuleBoot;
+use InovCom\Kernel\Contracts\StockApi;
 use InovCom\Stock\Http\Livewire\ProductForm;
 use InovCom\Stock\Http\Livewire\ProductsIndex;
 use InovCom\Stock\Http\Livewire\StockDashboard;
@@ -14,6 +15,8 @@ use InovCom\Stock\Http\Livewire\WarehousesIndex;
 use InovCom\Stock\Models\Product;
 use InovCom\Stock\Models\StockMovement;
 use InovCom\Stock\Models\Warehouse;
+use InovCom\Stock\Adapters\BatStockApiAdapter;
+use InovCom\Stock\Services\StockService;
 use Livewire\Livewire;
 
 class StockServiceProvider extends ServiceProvider
@@ -21,6 +24,12 @@ class StockServiceProvider extends ServiceProvider
     use LazyModuleBoot;
 
     protected string $moduleKey = 'stock';
+
+    public function register(): void
+    {
+        $this->app->singleton(StockApi::class, BatStockApiAdapter::class);
+        $this->app->singleton(StockService::class);
+    }
 
     public function boot(): void
     {

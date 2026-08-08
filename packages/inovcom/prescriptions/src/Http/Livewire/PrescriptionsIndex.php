@@ -20,7 +20,7 @@ class PrescriptionsIndex extends Component
 
     public function render()
     {
-        $query = Prescription::query()->with('client')
+        $query = Prescription::query()->with(['client', 'lines'])
             ->when($this->search !== '', function ($q) {
                 $q->where(function ($q2) {
                     $q2->where('number', 'like', '%' . $this->search . '%')

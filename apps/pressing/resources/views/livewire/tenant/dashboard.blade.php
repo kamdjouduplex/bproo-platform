@@ -238,7 +238,11 @@
             <h2 class="dashboard-modules__title">Accès rapide aux modules</h2>
             <div class="dashboard-modules__grid">
                 @foreach ($moduleLinks as $link)
-                    <a href="{{ route($link['route'], ['tenant' => $tenantCode]) }}" class="dashboard-module-card">
+                    @php
+                        $hrefRoute = $link['route'] ?? data_get($link, 'children.0.route');
+                    @endphp
+                    @continue(! $hrefRoute || ! Route::has($hrefRoute))
+                    <a href="{{ route($hrefRoute, ['tenant' => $tenantCode]) }}" class="dashboard-module-card">
                         <span class="dashboard-module-card__label">{{ $link['label'] }}</span>
                         <span class="dashboard-module-card__arrow">→</span>
                     </a>

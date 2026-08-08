@@ -4,12 +4,14 @@ namespace InovCom\Facturation;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use InovCom\Facturation\Adapters\BatInvoicingApiAdapter;
 use InovCom\Facturation\Http\Controllers\InvoicePdfController;
 use InovCom\Facturation\Http\Controllers\PaymentReceiptPdfController;
 use InovCom\Facturation\Http\Livewire\InvoiceForm;
 use InovCom\Facturation\Http\Livewire\InvoicesIndex;
 use InovCom\Facturation\Models\Invoice;
 use InovCom\Facturation\Models\InvoicePayment;
+use InovCom\Kernel\Contracts\InvoicingApi;
 use InovCom\Kernel\Traits\LazyModuleBoot;
 use Livewire\Livewire;
 
@@ -18,6 +20,11 @@ class FacturationServiceProvider extends ServiceProvider
     use LazyModuleBoot;
 
     protected string $moduleKey = 'facturation';
+
+    public function register(): void
+    {
+        $this->app->singleton(InvoicingApi::class, BatInvoicingApiAdapter::class);
+    }
 
     public function boot(): void
     {

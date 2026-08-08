@@ -15,9 +15,13 @@ class PayrollRunForm extends Component
     use AuthorizesPayrollActions;
 
     public ?int $payrollRunId = null;
+
     public ?string $period_start = null;
+
     public ?string $period_end = null;
+
     public string $notes = '';
+
     /** @var array<int, array{employee_id: int, base_salary: string, bonuses: string, deductions: string, net_salary: string}> */
     public array $lines = [];
 
@@ -25,15 +29,34 @@ class PayrollRunForm extends Component
     {
         $this->authorizePayrollAction('payroll.view');
 
+        $viewAll = $this->canViewAllPayroll();
+
+        // Création réservée aux profils RH / admin
+        if ((! $payroll_run || ! $payroll_run->exists) && ! $viewAll) {
+            $this->redirect(route('tenant.payroll.index', ['tenant' => $this->tenantCode()]), navigate: true);
+
+            return;
+        }
+
         $service = app(PayrollService::class);
 
         if ($payroll_run && $payroll_run->exists) {
+            if (! $viewAll) {
+                $ownId = $this->ownEmployeeId();
+                abort_unless(
+                    $ownId !== null && $payroll_run->lines()->where('employee_id', $ownId)->exists(),
+                    403,
+                    'Vous ne pouvez consulter que vos propres bulletins.'
+                );
+            }
+
             $this->payrollRunId = $payroll_run->id;
             $this->period_start = $payroll_run->period_start->format('Y-m-d');
             $this->period_end = $payroll_run->period_end->format('Y-m-d');
             $this->notes = $payroll_run->notes ?? '';
             $this->loadLinesFromRun($payroll_run);
         } else {
+            $this->authorizePayrollAction('payroll.create');
             $start = Carbon::now()->startOfMonth();
             $end = Carbon::now()->endOfMonth();
             $this->period_start = $start->format('Y-m-d');
@@ -47,7 +70,17 @@ class PayrollRunForm extends Component
     private function loadLinesFromRun(PayrollRun $run): void
     {
         $this->lines = [];
-        foreach ($run->lines()->with('employee')->get() as $line) {
+        $query = $run->lines()->with('employee');
+
+        if (! $this->canViewAllPayroll()) {
+            $ownId = $this->ownEmployeeId();
+            if ($ownId === null) {
+                return;
+            }
+            $query->where('employee_id', $ownId);
+        }
+
+        foreach ($query->get() as $line) {
             $this->lines[$line->employee_id] = [
                 'employee_id' => $line->employee_id,
                 'base_salary' => (string) $line->base_salary,
@@ -61,12 +94,18 @@ class PayrollRunForm extends Component
     public function recalculate(): void
     {
         $this->authorizePayrollAction('payroll.update');
-        if (!$this->payrollRunId) {
+        if (! $this->payrollRunId) {
             return;
         }
 
         try {
-            $run = app(PayrollService::class)->recalculate(PayrollRun::findOrFail($this->payrollRunId));
+            $run = PayrollRun::findOrFail($this->payrollRunId);
+            if ($run->isLocked()) {
+                session()->flash('error', 'Fiche payée et verrouillée : recalcul impossible.');
+
+                return;
+            }
+            $run = app(PayrollService::class)->recalculate($run);
             $this->loadLinesFromRun($run);
             session()->flash('success', 'Paie recalculée (ajustements enregistrés sur les employés).');
         } catch (\Throwable $e) {
@@ -86,6 +125,11 @@ class PayrollRunForm extends Component
 
         try {
             $run = PayrollRun::findOrFail($this->payrollRunId);
+            if ($run->isLocked()) {
+                session()->flash('error', 'Fiche payée et verrouillée : modification impossible.');
+
+                return;
+            }
             app(PayrollService::class)->saveDraft(
                 $run,
                 $this->period_start,
@@ -105,7 +149,7 @@ class PayrollRunForm extends Component
     public function process(): void
     {
         $this->authorizePayrollAction('payroll.process');
-        if (!$this->payrollRunId) {
+        if (! $this->payrollRunId) {
             return;
         }
 
@@ -123,13 +167,13 @@ class PayrollRunForm extends Component
     public function markAsPaid(): void
     {
         $this->authorizePayrollAction('payroll.process');
-        if (!$this->payrollRunId) {
+        if (! $this->payrollRunId) {
             return;
         }
 
         try {
             app(PayrollService::class)->markAsPaid(PayrollRun::findOrFail($this->payrollRunId));
-            session()->flash('success', 'Fiche marquée comme payée.');
+            session()->flash('success', 'Fiche marquée comme payée. Les bulletins sont désormais verrouillés.');
         } catch (\Throwable $e) {
             session()->flash('error', $e->getMessage());
         }
@@ -138,7 +182,7 @@ class PayrollRunForm extends Component
     public function cancel(): void
     {
         $this->authorizePayrollAction('payroll.process');
-        if (!$this->payrollRunId) {
+        if (! $this->payrollRunId) {
             return;
         }
 
@@ -153,25 +197,47 @@ class PayrollRunForm extends Component
 
     public function render()
     {
+        $viewAll = $this->canViewAllPayroll();
+        $ownEmployeeId = $viewAll ? null : $this->ownEmployeeId();
+
         $run = $this->payrollRunId
             ? PayrollRun::with(['lines.employee', 'lines.items', 'processedBy'])->find($this->payrollRunId)
             : null;
 
-        $employees = Employee::where('is_active', true)->orderBy('last_name')->orderBy('first_name')->get();
+        if ($run && ! $viewAll && $ownEmployeeId) {
+            $run->setRelation(
+                'lines',
+                $run->lines->where('employee_id', $ownEmployeeId)->values()
+            );
+        }
+
+        $employees = $viewAll
+            ? Employee::where('is_active', true)->orderBy('last_name')->orderBy('first_name')->get()
+            : Employee::where('id', $ownEmployeeId)->get();
+
         $employeeNames = $employees->keyBy('id')->map(fn ($e) => $e->full_name);
+
+        $myNet = null;
+        if (! $viewAll && $ownEmployeeId && isset($this->lines[$ownEmployeeId])) {
+            $myNet = (float) $this->lines[$ownEmployeeId]['net_salary'];
+        }
 
         return view('inovcom-payroll::livewire.payroll-runs.form')
             ->layout('layouts.app', [
-                'title' => $this->payrollRunId ? 'Fiche de paie ' . ($run?->reference ?? '') : 'Nouvelle fiche de paie',
-                'subtitle' => 'Paie mensuelle',
+                'title' => $viewAll
+                    ? ($this->payrollRunId ? 'Fiche de paie '.($run?->reference ?? '') : 'Nouvelle fiche de paie')
+                    : 'Mon bulletin',
+                'subtitle' => $viewAll ? 'Paie mensuelle' : 'Consultation de votre fiche',
             ])
             ->with([
                 'run' => $run,
                 'employees' => $employees,
                 'employeeNames' => $employeeNames,
                 'tenantCode' => $this->tenantCode(),
-                'canProcess' => $this->can('payroll.process'),
-                'canUpdate' => $this->can('payroll.update'),
+                'canProcess' => $viewAll && $this->can('payroll.process'),
+                'canUpdate' => $viewAll && $this->can('payroll.update'),
+                'canViewAll' => $viewAll,
+                'myNet' => $myNet,
             ]);
     }
 

@@ -3,13 +3,18 @@
 namespace App\Livewire\Admin;
 
 use App\Jobs\ProvisionTenantJob;
+use App\Models\PlatformProspect;
 use App\Models\Tenant;
+use App\Services\ProspectConversionService;
 use Illuminate\Support\Str;
 use Livewire\Component;
 
 class TenantForm extends Component
 {
     public ?int $tenantId = null;
+
+    /** CRM prospect being converted into this client (create only). */
+    public ?int $fromProspectId = null;
 
     public string $name = '';
     public string $code = '';
@@ -20,7 +25,7 @@ class TenantForm extends Component
     public ?string $db_password = null;
     public bool $is_active = true;
     public bool $multi_store_enabled = false;
-    public string $type = 'retail';
+    public string $type = '';
     public string $contact_key_first_name = '';
     public string $contact_key_last_name = '';
     public string $contact_key_phone = '';
@@ -35,28 +40,95 @@ class TenantForm extends Component
 
     public function mount(?Tenant $tenant = null): void
     {
-        if (!$tenant) {
+        $this->type = (string) config('tenant_types.default', 'erp');
+
+        if ($tenant) {
+            $this->tenantId = $tenant->id;
+            $this->name = $tenant->name;
+            $this->code = $tenant->code;
+            $this->db_name = $tenant->db_name;
+            $this->db_host = $tenant->db_host;
+            $this->db_port = $tenant->db_port;
+            $this->db_username = $tenant->db_username;
+            $this->db_password = '';
+            $this->showAdvancedDb = (bool) ($tenant->db_host || $tenant->db_port || $tenant->db_username);
+            $this->is_active = $tenant->is_active;
+            $this->multi_store_enabled = (bool) $tenant->multi_store_enabled;
+            $this->type = Tenant::normalizeType($tenant->getRawOriginal('type') ?? $tenant->type);
+            $this->contact_key_first_name = $tenant->contact_key_first_name ?? '';
+            $this->contact_key_last_name = $tenant->contact_key_last_name ?? '';
+            $this->contact_key_phone = $tenant->contact_key_phone ?? '';
+            $this->country = $tenant->country ?? '';
+            $this->city = $tenant->city ?? '';
+            $this->contact_key_address = $tenant->contact_key_address ?? '';
+
             return;
         }
 
-        $this->tenantId = $tenant->id;
-        $this->name = $tenant->name;
-        $this->code = $tenant->code;
-        $this->db_name = $tenant->db_name;
-        $this->db_host = $tenant->db_host;
-        $this->db_port = $tenant->db_port;
-        $this->db_username = $tenant->db_username;
-        $this->db_password = '';
-        $this->showAdvancedDb = (bool) ($tenant->db_host || $tenant->db_port || $tenant->db_username);
-        $this->is_active = $tenant->is_active;
-        $this->multi_store_enabled = (bool) $tenant->multi_store_enabled;
-        $this->type = $tenant->type;
-        $this->contact_key_first_name = $tenant->contact_key_first_name ?? '';
-        $this->contact_key_last_name = $tenant->contact_key_last_name ?? '';
-        $this->contact_key_phone = $tenant->contact_key_phone ?? '';
-        $this->country = $tenant->country ?? '';
-        $this->city = $tenant->city ?? '';
-        $this->contact_key_address = $tenant->contact_key_address ?? '';
+        $prospectId = (int) request()->query('prospect', 0);
+        if ($prospectId > 0) {
+            $this->prefillFromProspect($prospectId);
+        }
+    }
+
+    private function prefillFromProspect(int $prospectId): void
+    {
+        $prospect = PlatformProspect::query()
+            ->whereNull('converted_tenant_id')
+            ->find($prospectId);
+
+        if (! $prospect) {
+            notify()->error('Prospect introuvable ou déjà converti.');
+
+            return;
+        }
+
+        $this->fromProspectId = $prospect->id;
+        $conversion = app(ProspectConversionService::class);
+        $names = $conversion->splitName($prospect->contact_name);
+
+        $this->name = (string) $prospect->company_name;
+        $this->code = Str::slug(strtolower((string) $prospect->company_name), '_');
+        $this->type = Tenant::normalizeType($prospect->product_interest ?: config('tenant_types.default', 'erp'));
+        $this->contact_key_first_name = $names['first'];
+        $this->contact_key_last_name = $names['last'];
+        $this->contact_key_phone = (string) ($prospect->contact_phone ?? '');
+        $this->country = (string) ($prospect->country ?? '');
+        $this->city = (string) ($prospect->city ?? '');
+        $this->admin_name = trim((string) ($prospect->contact_name ?: 'Admin'));
+        $this->admin_email = (string) ($prospect->contact_email ?? '');
+    }
+
+    public function updatedType(string $value): void
+    {
+        $this->type = Tenant::normalizeType($value);
+        if (! $this->selectedTypeSupportsMultiStore()) {
+            $this->multi_store_enabled = false;
+        }
+    }
+
+    public function selectedTypeConfig(): array
+    {
+        $types = config('tenant_types.types', []);
+
+        return $types[$this->type] ?? [];
+    }
+
+    public function selectedTypeSupportsMultiStore(): bool
+    {
+        return (bool) ($this->selectedTypeConfig()['supports_multi_store'] ?? false);
+    }
+
+    public function selectedTypeLoginUrl(): ?string
+    {
+        $cfg = $this->selectedTypeConfig();
+        $base = rtrim((string) ($cfg['base_url'] ?? ''), '/');
+        $path = (string) ($cfg['login_path'] ?? '/app/login');
+        if ($base === '' || trim($this->code) === '') {
+            return $base === '' ? null : ($base . $path . '?tenant=…');
+        }
+
+        return $base . $path . '?tenant=' . urlencode(trim($this->code));
     }
 
     private function defaultDbName(string $code): string
@@ -66,8 +138,10 @@ class TenantForm extends Component
             return '';
         }
 
+        $prefix = (string) ($this->selectedTypeConfig()['db_prefix'] ?? 'erp');
+
         do {
-            $name = 'erp_' . $slug . '_' . strtolower(Str::random(4));
+            $name = $prefix . '_' . $slug . '_' . strtolower(Str::random(4));
         } while (Tenant::where('db_name', $name)->exists());
 
         return $name;
@@ -76,12 +150,17 @@ class TenantForm extends Component
     public function save(): void
     {
         $this->provisioningError = null;
+        $this->type = Tenant::normalizeType($this->type);
+
+        if (! $this->selectedTypeSupportsMultiStore()) {
+            $this->multi_store_enabled = false;
+        }
 
         if (!$this->tenantId && trim($this->db_name) === '' && trim($this->code) !== '') {
             $this->db_name = $this->defaultDbName($this->code);
         }
 
-        $typeKeys = array_keys(config('tenant_types.types', ['retail' => []]));
+        $typeKeys = array_keys(config('tenant_types.types', ['erp' => []]));
         $data = $this->validate([
             'name' => 'required|string|max:255',
             'code' => 'required|string|max:50',
@@ -92,7 +171,7 @@ class TenantForm extends Component
             'db_password' => 'nullable|string|max:255',
             'is_active' => 'boolean',
             'multi_store_enabled' => 'boolean',
-            'type' => 'required|string|in:' . implode(',', $typeKeys ?: ['retail']),
+            'type' => 'required|string|in:' . implode(',', $typeKeys ?: ['erp']),
             'contact_key_first_name' => 'nullable|string|max:255',
             'contact_key_last_name' => 'nullable|string|max:255',
             'contact_key_phone' => 'nullable|string|max:50',
@@ -130,7 +209,7 @@ class TenantForm extends Component
             unset($data['db_password']);
         }
 
-        // Standard deploy: use system DB credentials (erp_app). Ignore accidental autofill in hidden fields.
+        // Standard deploy: use system DB credentials. Ignore accidental autofill in hidden fields.
         if (!$this->tenantId && !$this->showAdvancedDb) {
             $data['db_host'] = null;
             $data['db_port'] = null;
@@ -143,7 +222,6 @@ class TenantForm extends Component
             return;
         }
 
-        // Ensure db_name is set correctly (no modification)
         $dbName = trim($data['db_name']);
         if (empty($dbName)) {
             notify()->error('Le nom de la base de données est requis.');
@@ -151,31 +229,29 @@ class TenantForm extends Component
         }
 
         $tenant->fill($data);
-        $tenant->db_name = $dbName; // Explicitly set to ensure no modification
-        $tenant->type = $data['type'] ?? config('tenant_types.default', 'retail');
+        $tenant->db_name = $dbName;
+        $tenant->type = Tenant::normalizeType($data['type'] ?? config('tenant_types.default', 'erp'));
         $tenant->multi_store_setup_status = $tenant->multi_store_enabled ? 'pending' : 'disabled';
         $tenant->multi_store_setup_error = null;
         if (!$tenant->multi_store_enabled) {
             $tenant->multi_store_enabled_at = null;
         }
-        
-        // Set initial provisioning status for new tenants
+
         if (!$this->tenantId) {
             $tenant->provisioning_status = 'pending';
         }
-        
+
         $tenant->save();
-        
-        // Log for debugging
-        \Illuminate\Support\Facades\Log::info("Tenant saved", [
+
+        \Illuminate\Support\Facades\Log::info('Tenant saved', [
             'tenant_id' => $tenant->id,
             'code' => $tenant->code,
+            'type' => $tenant->getRawOriginal('type') ?? $tenant->type,
             'db_name' => $tenant->db_name,
-            'db_name_from_form' => $this->db_name,
+            'from_prospect_id' => $this->fromProspectId,
         ]);
 
         if (!$this->tenantId) {
-            // Dispatch provisioning job instead of running synchronously
             ProvisionTenantJob::dispatch(
                 $tenant,
                 $this->admin_name,
@@ -183,23 +259,49 @@ class TenantForm extends Component
                 $this->admin_password
             );
 
+            if ($this->fromProspectId) {
+                $prospect = PlatformProspect::query()
+                    ->whereNull('converted_tenant_id')
+                    ->find($this->fromProspectId);
+                if ($prospect) {
+                    try {
+                        app(ProspectConversionService::class)->attachTenant($prospect, $tenant);
+                    } catch (\Throwable $e) {
+                        notify()->error($e->getMessage());
+                    }
+                }
+            }
+
+            $appLabel = $tenant->type_label;
             $message = $tenant->multi_store_enabled
-                ? 'Vendeur créé. Provisionnement multi-magasins en cours (1–2 min) — consultez Santé vendeurs.'
-                : 'Vendeur créé. Provisionnement en cours (1–2 min) — consultez Santé vendeurs.';
+                ? "Entreprise créée pour {$appLabel}. Provisionnement multi-magasins en cours — consultez Santé."
+                : "Entreprise créée pour {$appLabel}. Provisionnement en cours — consultez Santé.";
             notify()->success($message);
-        } else {
-            notify()->success('Vendeur mis à jour avec succès.');
+            $this->redirect(route('system.tenants.show', $tenant), navigate: true);
+
+            return;
         }
 
+        notify()->success('Entreprise mise à jour avec succès.');
         $this->redirect(route('system.tenants'), navigate: true);
     }
 
     public function render()
     {
-        return view('livewire.admin.tenant-form')
-            ->layout('layouts.app', [
-                'title' => $this->tenantId ? 'Modifier vendeur' : 'Créer vendeur',
-                'subtitle' => 'Gestion des boutiques',
-            ]);
+        $fromProspect = $this->fromProspectId
+            ? PlatformProspect::find($this->fromProspectId)
+            : null;
+
+        return view('livewire.admin.tenant-form', [
+            'productTypes' => config('tenant_types.types', []),
+            'supportsMultiStore' => $this->selectedTypeSupportsMultiStore(),
+            'loginUrlPreview' => $this->selectedTypeLoginUrl(),
+            'fromProspect' => $fromProspect,
+        ])->layout('layouts.app', [
+            'title' => $this->tenantId
+                ? 'Modifier entreprise'
+                : ($this->fromProspectId ? 'Convertir en client' : 'Créer entreprise'),
+            'subtitle' => 'Control Center — sociétés & applications',
+        ]);
     }
 }

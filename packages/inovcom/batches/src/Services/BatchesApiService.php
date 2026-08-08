@@ -16,64 +16,176 @@ class BatchesApiService implements BatchesApi
         return Schema::connection('tenant')->hasTable('batches');
     }
 
-    public function getBatchesForItem(int $itemId, bool $fefo = true): Collection
+    public function getBatchesForItem(int $itemId, bool $fefo = true, bool $excludeExpired = true): Collection
     {
-        if (!$this->isAvailable()) {
+        if (! $this->isAvailable()) {
             return collect();
         }
 
         $query = Batch::where('item_id', $itemId)->where('quantity', '>', 0);
+        if ($excludeExpired) {
+            $query->whereDate('expiry_date', '>=', now()->toDateString());
+        }
         if ($fefo) {
             $query->orderBy('expiry_date');
         }
+
         return $query->get();
     }
 
-    public function consumeFromBatches(int $itemId, float $quantity, ?string $referenceType = null, ?int $referenceId = null): array
+    public function sellableQuantity(int $itemId): float
     {
-        if (!$this->isAvailable() || $quantity <= 0) {
+        return (float) $this->getBatchesForItem($itemId, false, true)->sum('quantity');
+    }
+
+    public function previewAllocation(int $itemId, float $quantity, ?int $preferredBatchId = null): array
+    {
+        if (! $this->isAvailable() || $quantity <= 0) {
             return [];
         }
 
         $remaining = $quantity;
-        $consumed = [];
+        $preview = [];
 
-        $batches = $this->getBatchesForItem($itemId, true);
+        $batches = $this->orderedBatchesForConsume($itemId, $preferredBatchId);
         foreach ($batches as $batch) {
-            if ($remaining <= 0) {
+            if ($remaining <= 0.0001) {
                 break;
             }
             $take = min((float) $batch->quantity, $remaining);
             if ($take <= 0) {
                 continue;
             }
-
-            $qtyBefore = (float) $batch->quantity;
-            $qtyAfter = $qtyBefore - $take;
-            $batch->quantity = $qtyAfter;
-            $batch->save();
-
-            BatchMovement::create([
-                'batch_id' => $batch->id,
-                'quantity' => -$take,
-                'quantity_before' => $qtyBefore,
-                'quantity_after' => $qtyAfter,
-                'reference_type' => $referenceType,
-                'reference_id' => $referenceId,
-            ]);
-
-            $consumed[$batch->id] = $take;
+            $preview[] = [
+                'batch_id' => (int) $batch->id,
+                'batch_number' => (string) $batch->batch_number,
+                'expiry_date' => $batch->expiry_date->format('Y-m-d'),
+                'quantity' => round($take, 3),
+            ];
             $remaining -= $take;
         }
 
-        if ($consumed && Schema::connection('tenant')->hasTable('stock_levels')) {
-            $this->decreaseStockLevel($itemId, $quantity);
-        }
-        if ($consumed && Schema::connection('tenant')->hasTable('stock_movements')) {
-            $this->recordStockMovementOut($itemId, $quantity, $referenceType, $referenceId);
+        return $preview;
+    }
+
+    public function consumeFromBatches(
+        int $itemId,
+        float $quantity,
+        ?string $referenceType = null,
+        ?int $referenceId = null,
+        ?int $preferredBatchId = null
+    ): array {
+        if (! $this->isAvailable() || $quantity <= 0) {
+            return [];
         }
 
-        return $consumed;
+        return DB::connection('tenant')->transaction(function () use ($itemId, $quantity, $referenceType, $referenceId, $preferredBatchId) {
+            $remaining = $quantity;
+            $consumed = [];
+
+            $batches = $this->orderedBatchesForConsume($itemId, $preferredBatchId);
+            $takenByBatch = [];
+            foreach ($batches as $batchRow) {
+                if ($remaining <= 0) {
+                    break;
+                }
+                $batch = Batch::query()->whereKey($batchRow->id)->lockForUpdate()->first();
+                if (! $batch || (float) $batch->quantity <= 0) {
+                    continue;
+                }
+                if ($batch->expiry_date->lt(now()->startOfDay())) {
+                    continue;
+                }
+                if ((int) $batch->item_id !== $itemId) {
+                    continue;
+                }
+
+                $take = min((float) $batch->quantity, $remaining);
+                if ($take <= 0) {
+                    continue;
+                }
+
+                $qtyBefore = (float) $batch->quantity;
+                $qtyAfter = $qtyBefore - $take;
+                $batch->quantity = $qtyAfter;
+                $batch->save();
+
+                BatchMovement::create([
+                    'batch_id' => $batch->id,
+                    'quantity' => -$take,
+                    'quantity_before' => $qtyBefore,
+                    'quantity_after' => $qtyAfter,
+                    'reference_type' => $referenceType,
+                    'reference_id' => $referenceId,
+                ]);
+
+                $takenByBatch[] = [
+                    'batch' => $batch,
+                    'quantity' => $take,
+                ];
+                $consumed[$batch->id] = ($consumed[$batch->id] ?? 0) + $take;
+                $remaining -= $take;
+
+                if ($preferredBatchId !== null) {
+                    break;
+                }
+            }
+
+            if ($remaining > 0.0001) {
+                $msg = $preferredBatchId !== null
+                    ? 'Stock insuffisant sur le lot sélectionné.'
+                    : 'Impossible de finaliser la vente : stock périmé ou insuffisant '
+                        .'(disponible non périmé : '.number_format(max(0, $quantity - $remaining), 3, ',', ' ').').';
+                throw new \RuntimeException($msg);
+            }
+
+            foreach ($takenByBatch as $row) {
+                /** @var Batch $batch */
+                $batch = $row['batch'];
+                $take = (float) $row['quantity'];
+                if (Schema::connection('tenant')->hasTable('stock_levels')) {
+                    $level = $this->getStockLevelRow($itemId);
+                    $stockBefore = $level ? (float) $level->quantity : 0.0;
+                    $this->decreaseStockLevel($itemId, $take);
+                    $stockAfter = max(0, $stockBefore - $take);
+                } else {
+                    $stockBefore = 0.0;
+                    $stockAfter = 0.0;
+                }
+                if (Schema::connection('tenant')->hasTable('stock_movements')) {
+                    $this->recordStockMovementOut(
+                        $itemId,
+                        $take,
+                        $referenceType,
+                        $referenceId,
+                        $stockBefore,
+                        $stockAfter,
+                        $this->batchReasonLabel('out', $batch)
+                    );
+                }
+            }
+
+            return $consumed;
+        });
+    }
+
+    /**
+     * @return Collection<int, Batch>
+     */
+    private function orderedBatchesForConsume(int $itemId, ?int $preferredBatchId): Collection
+    {
+        if ($preferredBatchId !== null) {
+            $preferred = Batch::query()
+                ->where('id', $preferredBatchId)
+                ->where('item_id', $itemId)
+                ->where('quantity', '>', 0)
+                ->whereDate('expiry_date', '>=', now()->toDateString())
+                ->get();
+
+            return $preferred;
+        }
+
+        return $this->getBatchesForItem($itemId, true, true);
     }
 
     public function recordReceipt(int $itemId, string $batchNumber, \Carbon\CarbonInterface $expiryDate, float $quantity, string $referenceType, int $referenceId): object
@@ -112,10 +224,24 @@ class BatchesApiService implements BatchesApi
         ]);
 
         if (Schema::connection('tenant')->hasTable('stock_levels')) {
+            $level = $this->getStockLevelRow($itemId);
+            $stockBefore = $level ? (float) $level->quantity : 0.0;
             $this->increaseStockLevel($itemId, $quantity);
+            $stockAfter = $stockBefore + $quantity;
+        } else {
+            $stockBefore = 0.0;
+            $stockAfter = 0.0;
         }
         if (Schema::connection('tenant')->hasTable('stock_movements')) {
-            $this->recordStockMovementIn($itemId, $quantity, $referenceType, $referenceId);
+            $this->recordStockMovementIn(
+                $itemId,
+                $quantity,
+                $referenceType,
+                $referenceId,
+                $stockBefore,
+                $stockAfter,
+                $this->batchReasonLabel('in', $batch)
+            );
         }
 
         return $batch;
@@ -146,17 +272,187 @@ class BatchesApiService implements BatchesApi
             'reference_id' => $referenceId,
         ]);
 
+        $itemId = (int) $batch->item_id;
         if (Schema::connection('tenant')->hasTable('stock_levels')) {
-            $this->increaseStockLevel((int) $batch->item_id, $quantity);
+            $level = $this->getStockLevelRow($itemId);
+            $stockBefore = $level ? (float) $level->quantity : 0.0;
+            $this->increaseStockLevel($itemId, $quantity);
+            $stockAfter = $stockBefore + $quantity;
+        } else {
+            $stockBefore = 0.0;
+            $stockAfter = 0.0;
         }
         if (Schema::connection('tenant')->hasTable('stock_movements')) {
             $this->recordStockMovementIn(
-                (int) $batch->item_id,
+                $itemId,
                 $quantity,
                 $referenceType ?? 'sale_return',
-                $referenceId ?? 0
+                $referenceId ?? 0,
+                $stockBefore,
+                $stockAfter,
+                $this->batchReasonLabel('in', $batch)
             );
         }
+    }
+
+    public function writeOffExpiredBatch(int $batchId, ?string $notes = null): array
+    {
+        if (! $this->isAvailable()) {
+            throw new \RuntimeException('Module lots indisponible.');
+        }
+
+        return DB::connection('tenant')->transaction(function () use ($batchId, $notes) {
+            $batch = Batch::query()->whereKey($batchId)->lockForUpdate()->first();
+            if (! $batch) {
+                throw new \InvalidArgumentException('Lot introuvable.');
+            }
+
+            if (! $batch->isExpired()) {
+                throw new \InvalidArgumentException(
+                    'Seuls les lots déjà périmés peuvent être sortis ainsi. Utilisez les pertes pour une destruction anticipée.'
+                );
+            }
+
+            $qty = round((float) $batch->quantity, 3);
+            if ($qty <= 0.0001) {
+                throw new \InvalidArgumentException('Ce lot n’a plus de quantité à sortir.');
+            }
+
+            $itemId = (int) $batch->item_id;
+            $batchNumber = (string) $batch->batch_number;
+
+            $batch->quantity = 0;
+            $batch->save();
+
+            BatchMovement::create([
+                'batch_id' => $batch->id,
+                'quantity' => -$qty,
+                'quantity_before' => $qty,
+                'quantity_after' => 0,
+                'reference_type' => 'expiry_write_off',
+                'reference_id' => $batch->id,
+            ]);
+
+            $lossRecordId = $this->maybeCreateExpiryLossRecord($batch, $qty, $notes);
+
+            if (Schema::connection('tenant')->hasTable('stock_levels')) {
+                $row = $this->getStockLevelRow($itemId);
+                $stockBefore = $row ? (float) $row->quantity : 0.0;
+                $stockAfter = max(0, $stockBefore - $qty);
+                $reserved = $row ? (float) $row->reserved_quantity : 0.0;
+                $avail = max(0, $stockAfter - $reserved);
+
+                if ($row) {
+                    DB::connection('tenant')->table('stock_levels')->where('item_id', $itemId)->update([
+                        'quantity' => $stockAfter,
+                        'available_quantity' => $avail,
+                        'updated_at' => now(),
+                    ]);
+                }
+
+                if (Schema::connection('tenant')->hasTable('stock_movements')) {
+                    $reason = 'Lot '.$batchNumber.' · exp. '.$batch->expiry_date->format('d/m/Y');
+                    if ($notes) {
+                        $reason .= ' — '.$notes;
+                    }
+                    DB::connection('tenant')->table('stock_movements')->insert([
+                        'item_id' => $itemId,
+                        'type' => 'out',
+                        'reference_type' => 'expiry_write_off',
+                        'reference_id' => $lossRecordId ?? $batch->id,
+                        'quantity' => -$qty,
+                        'quantity_before' => $stockBefore,
+                        'quantity_after' => $stockAfter,
+                        'reason' => $reason,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            return [
+                'batch_id' => (int) $batch->id,
+                'item_id' => $itemId,
+                'quantity' => $qty,
+                'batch_number' => $batchNumber,
+                'loss_record_id' => $lossRecordId,
+            ];
+        });
+    }
+
+    /**
+     * Optional audit in Losses module (confirmed, without double stock removal).
+     */
+    private function maybeCreateExpiryLossRecord(Batch $batch, float $qty, ?string $notes): ?int
+    {
+        if (! Schema::connection('tenant')->hasTable('loss_records')
+            || ! Schema::connection('tenant')->hasTable('loss_reasons')) {
+            return null;
+        }
+
+        $reasonId = DB::connection('tenant')
+            ->table('loss_reasons')
+            ->where('code', 'expired')
+            ->value('id');
+
+        if (! $reasonId) {
+            $reasonId = DB::connection('tenant')
+                ->table('loss_reasons')
+                ->where('name', 'like', '%expir%')
+                ->value('id');
+        }
+
+        if (! $reasonId) {
+            return null;
+        }
+
+        $userId = auth('tenant')->id();
+        if (! $userId) {
+            return null;
+        }
+
+        $year = now()->year;
+        $lastRef = DB::connection('tenant')
+            ->table('loss_records')
+            ->where('reference', 'like', 'LOSS-'.$year.'-%')
+            ->orderByDesc('id')
+            ->value('reference');
+        $next = $lastRef ? ((int) preg_replace('/[^0-9]/', '', substr((string) $lastRef, -6)) + 1) : 1;
+        $reference = 'LOSS-'.$year.'-'.str_pad((string) $next, 6, '0', STR_PAD_LEFT);
+
+        $itemCost = 0.0;
+        if (Schema::connection('tenant')->hasTable('items')) {
+            $itemCost = (float) (DB::connection('tenant')->table('items')->where('id', $batch->item_id)->value('cost') ?? 0);
+        }
+
+        $description = 'Sortie lot périmé '.$batch->batch_number
+            .' (péremption '.$batch->expiry_date->format('d/m/Y').')';
+        if ($notes) {
+            $description .= ' — '.$notes;
+        }
+
+        $payload = [
+            'reference' => $reference,
+            'item_id' => $batch->item_id,
+            'loss_reason_id' => $reasonId,
+            'quantity' => $qty,
+            'value' => $itemCost > 0 ? round($itemCost * $qty, 2) : 0,
+            'loss_date' => now()->toDateString(),
+            'description' => $description,
+            'status' => 'confirmed',
+            'created_by' => $userId,
+            'confirmed_by' => $userId,
+            'confirmed_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+
+        if (Schema::connection('tenant')->hasColumn('loss_records', 'store_id')
+            && class_exists(\App\Services\StoreContextService::class)) {
+            $payload['store_id'] = app(\App\Services\StoreContextService::class)->currentStoreId();
+        }
+
+        return (int) DB::connection('tenant')->table('loss_records')->insertGetId($payload);
     }
 
     private function getStockLevelRow(int $itemId): ?object
@@ -208,11 +504,22 @@ class BatchesApiService implements BatchesApi
         }
     }
 
-    private function recordStockMovementOut(int $itemId, float $quantity, ?string $refType, ?int $refId): void
+    private function batchReasonLabel(string $direction, Batch $batch): string
     {
-        $row = DB::connection('tenant')->table('stock_levels')->where('item_id', $itemId)->first();
-        $before = $row ? (float) $row->quantity : 0;
-        $after = max(0, $before - $quantity);
+        $exp = $batch->expiry_date?->format('d/m/Y') ?? '—';
+
+        return 'Lot '.$batch->batch_number.' · exp. '.$exp;
+    }
+
+    private function recordStockMovementOut(
+        int $itemId,
+        float $quantity,
+        ?string $refType,
+        ?int $refId,
+        float $before,
+        float $after,
+        string $reason
+    ): void {
         DB::connection('tenant')->table('stock_movements')->insert([
             'item_id' => $itemId,
             'type' => 'out',
@@ -221,17 +528,21 @@ class BatchesApiService implements BatchesApi
             'quantity' => -$quantity,
             'quantity_before' => $before,
             'quantity_after' => $after,
-            'reason' => 'batch_consume',
+            'reason' => $reason,
             'created_at' => now(),
             'updated_at' => now(),
         ]);
     }
 
-    private function recordStockMovementIn(int $itemId, float $quantity, string $refType, int $refId): void
-    {
-        $row = DB::connection('tenant')->table('stock_levels')->where('item_id', $itemId)->first();
-        $before = $row ? (float) $row->quantity : 0;
-        $after = $before + $quantity;
+    private function recordStockMovementIn(
+        int $itemId,
+        float $quantity,
+        string $refType,
+        int $refId,
+        float $before,
+        float $after,
+        string $reason
+    ): void {
         DB::connection('tenant')->table('stock_movements')->insert([
             'item_id' => $itemId,
             'type' => 'in',
@@ -240,7 +551,7 @@ class BatchesApiService implements BatchesApi
             'quantity' => $quantity,
             'quantity_before' => $before,
             'quantity_after' => $after,
-            'reason' => 'batch_receipt',
+            'reason' => $reason,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

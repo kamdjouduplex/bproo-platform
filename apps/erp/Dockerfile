@@ -1,3 +1,5 @@
+# Prefer monorepo build: deployment/docker/Dockerfile.app (compose context = repo root).
+# This file remains for legacy app-only builds and will fail if ../../packages is missing.
 FROM composer:2 AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./

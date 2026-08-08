@@ -1,41 +1,52 @@
 <?php
 
 return [
-    /*
-    |--------------------------------------------------------------------------
-    | Tenant types (business profiles)
-    |--------------------------------------------------------------------------
-    | Each tenant has one type. Type influences which modules are suggested
-    | and which default modules are enabled at provisioning. Module variants
-    | (e.g. sales vs sales-restaurant) are chosen per tenant; at most one
-    | module per "module_family" can be enabled per tenant.
-    */
     'types' => [
-        'retail' => [
-            'label' => 'Boutique / Commerce',
-            'description' => 'Vente au détail, POS classique',
+        'erp' => [
+            'label' => 'ERP / POS',
+            'description' => 'Boutique, stock, ventes, facturation — application ERP.',
+            'app_key' => 'erp',
+            'login_path' => '/app/login',
+            'base_url' => env('PRODUCT_ERP_URL', 'http://127.0.0.1:8000'),
+            'supports_multi_store' => true,
+            'db_prefix' => 'erp',
         ],
-        'pharmacy' => [
-            'label' => 'Pharmacie',
-            'description' => 'Vente de médicaments, lots, prescriptions',
-        ],
-        'bakery' => [
-            'label' => 'Boulangerie',
-            'description' => 'Vente pain et pâtisserie',
-        ],
-        'restaurant' => [
-            'label' => 'Restaurant',
-            'description' => 'Tables, commandes, cuisine',
+        'pharma' => [
+            'label' => 'Bproo Pharma',
+            'description' => 'Pharmacie — POS, lots, ordonnances — application Pharma.',
+            'app_key' => 'pharma',
+            'login_path' => '/app/login',
+            'base_url' => env('PRODUCT_PHARMA_URL', 'http://127.0.0.1:8003'),
+            'supports_multi_store' => true,
+            'db_prefix' => 'pharma',
         ],
         'pressing' => [
             'label' => 'Pressing',
-            'description' => 'Gestion de pressing / blanchisserie',
+            'description' => 'Réception, production, livraisons — application Pressing.',
+            'app_key' => 'pressing',
+            'login_path' => '/app/login',
+            'base_url' => env('PRODUCT_PRESSING_URL', 'http://127.0.0.1:8001'),
+            'supports_multi_store' => false,
+            'db_prefix' => 'pressing',
         ],
-        'other' => [
-            'label' => 'Autre',
-            'description' => 'Autre type d\'activité',
+        'bat' => [
+            'label' => 'BAT / BTP',
+            'description' => 'Chantiers, devis, maintenance — application BAT.',
+            'app_key' => 'bat',
+            'login_path' => '/app/login',
+            'base_url' => env('PRODUCT_BAT_URL', 'http://127.0.0.1:8002'),
+            'supports_multi_store' => false,
+            'db_prefix' => 'bat',
         ],
     ],
 
     'default' => 'pressing',
+
+    'legacy_aliases' => [
+        'retail' => 'erp',
+        'pharmacy' => 'pharma',
+        'bakery' => 'erp',
+        'restaurant' => 'erp',
+        'other' => 'erp',
+    ],
 ];

@@ -39,6 +39,7 @@ return [
         'menu_order' => 10,
         'icon' => 'users',
         'permission' => 'clients.view',
+        'tenant_types' => ['bat'],
     ],
     'offres' => [
         'core' => true,
@@ -51,6 +52,7 @@ return [
         'menu_order' => 30,
         'icon' => 'folder',
         'permission' => 'offres.view',
+        'tenant_types' => ['bat'],
     ],
     'devis' => [
         'core' => true,
@@ -63,6 +65,7 @@ return [
         'menu_order' => 35,
         'icon' => 'document',
         'permission' => 'devis.view',
+        'tenant_types' => ['bat'],
     ],
     'items' => [
         'core' => false,
@@ -76,6 +79,7 @@ return [
         'menu_order' => 40,
         'icon' => 'shopping-bag',
         'permission' => 'items.view',
+        'tenant_types' => ['bat'],
     ],
     'projets' => [
         'core' => true,
@@ -90,6 +94,7 @@ return [
         'menu_order' => 38,
         'icon' => 'building',
         'permission' => 'projets.view',
+        'tenant_types' => ['bat'],
     ],
     'prestations' => [
         'core' => true,
@@ -104,6 +109,7 @@ return [
         'menu_order' => 39,
         'icon' => 'tool',
         'permission' => 'projets.view',
+        'tenant_types' => ['bat'],
     ],
     'planning' => [
         'core' => true,
@@ -117,6 +123,7 @@ return [
         'menu_order' => 52,
         'icon' => 'calendar',
         'permission' => 'planning.view',
+        'tenant_types' => ['bat'],
     ],
     'suivi' => [
         'core' => true,
@@ -130,6 +137,7 @@ return [
         'menu_order' => 53,
         'icon' => 'clipboard',
         'permission' => 'suivi.view',
+        'tenant_types' => ['bat'],
     ],
     'maintenance' => [
         'core' => true,
@@ -144,6 +152,7 @@ return [
         'menu_order' => 40,
         'icon' => 'tool',
         'permission' => 'maintenance.view',
+        'tenant_types' => ['bat'],
     ],
     'facturation' => [
         'core' => true,
@@ -156,6 +165,7 @@ return [
         'menu_order' => 42,
         'icon' => 'chart',
         'permission' => 'facturation.view',
+        'tenant_types' => ['bat'],
     ],
     'achats' => [
         'core' => true,
@@ -168,6 +178,7 @@ return [
         'menu_order' => 45,
         'icon' => 'shopping-bag',
         'permission' => 'achats.view',
+        'tenant_types' => ['bat'],
     ],
     'dms' => [
         'core' => true,
@@ -180,6 +191,7 @@ return [
         'menu_order' => 55,
         'icon' => 'document',
         'permission' => 'dms.view',
+        'tenant_types' => ['bat'],
     ],
     'stock' => [
         'core'               => true,
@@ -193,6 +205,7 @@ return [
         'menu_order'         => 56,
         'icon'               => 'folder',
         'permission'         => 'stock.view',
+        'tenant_types'       => ['bat'],
     ],
     'logistique' => [
         'core'               => true,
@@ -206,6 +219,7 @@ return [
         'menu_order'         => 57,
         'icon'               => 'folder',
         'permission'         => 'logistique.view',
+        'tenant_types'       => ['bat'],
     ],
     'rh' => [
         'core'              => true,
@@ -218,6 +232,7 @@ return [
         'menu_order'        => 60,
         'icon'              => 'users',
         'permission'        => 'rh.view',
+        'tenant_types'      => ['bat'],
     ],
     'users' => [
         'core' => true,
@@ -230,6 +245,7 @@ return [
         'menu_order' => 20,
         'icon' => 'users',
         'permission' => 'users.view',
+        'tenant_types' => [],
     ],
     'configuration' => [
         'core' => true,
@@ -242,5 +258,6 @@ return [
         'icon' => 'cog',
         'permission' => 'configuration.view',
         'menu_order' => 90,
+        'tenant_types' => [],
     ],
 ];

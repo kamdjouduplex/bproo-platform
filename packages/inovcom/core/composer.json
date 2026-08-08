@@ -1,4 +1,4 @@
-﻿{
+{
     "name":  "bproo/core",
     "description":  "Inov-Com kernel contracts and base classes for tenant modules",
     "type":  "library",
