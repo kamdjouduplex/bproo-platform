@@ -2,7 +2,8 @@
 # Build from repo root, e.g.:
 #   docker build -f deployment/docker/Dockerfile.app --build-arg APP_DIR=apps/erp --target app -t bproo/erp:latest .
 #
-# Composer path repos in apps/*/composer.json resolve to ../../packages → /packages in the image.
+# Composer path repos in apps/*/composer.json resolve to ../../packages → /packages in the vendor stage.
+# In the app stage WORKDIR is /var/www/html, so ../../packages resolves to /var/packages (symlink).
 
 ARG APP_DIR=apps/erp
 
@@ -12,6 +13,8 @@ WORKDIR /app
 COPY ${APP_DIR}/composer.json ${APP_DIR}/composer.lock ./
 # Path repos: ../../packages/... from /app → /packages/...
 COPY packages /packages
+# Copy path packages into vendor/ (symlinks break when layers are copied)
+ENV COMPOSER_MIRROR_PATH_REPOS=1
 RUN composer install --no-dev --prefer-dist --no-interaction --no-scripts --no-autoloader --no-security-blocking
 
 FROM node:20-alpine AS frontend
@@ -52,8 +55,13 @@ WORKDIR /var/www/html
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 COPY --from=vendor /app/vendor ./vendor
 COPY --from=vendor /packages /packages
+# Root composer.json PSR-4 maps use ../../packages from this WORKDIR → /var/packages
+RUN ln -sfn /packages /var/packages
 COPY ${APP_DIR}/ .
 COPY --from=frontend /app/public/build ./public/build
+
+# Drop cached package discovery from the build context (paths/providers may be stale)
+RUN rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
 
 # Dummy key only for image build (real APP_KEY comes from .env.production at runtime)
 RUN APP_ENV=production APP_KEY=base64:ZHVtbXlCdWlsZEtleUZvckRvY2tlckltYWdlMTIzNDU= \
