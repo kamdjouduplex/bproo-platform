@@ -47,6 +47,9 @@ id_rsa.*
 # --- Dependencies ---
 **/node_modules/
 **/vendor/
+# Laravel published / overridden package views (not Composer vendor/)
+!**/resources/views/vendor/
+!**/resources/views/vendor/**/
 
 # --- Frontend build ---
 **/public/build/

@@ -1106,9 +1106,28 @@
 #laravel-notify {
     position: fixed;
     inset: auto 16px 16px auto;
-    z-index: 80;
+    z-index: 9999;
     pointer-events: none;
     width: min(100vw - 32px, 22rem);
+}
+
+/* Guard: package default SVGs use Tailwind h-6/w-6 which are absent here */
+#laravel-notify svg {
+    width: 22px;
+    height: 22px;
+    max-width: 22px;
+    max-height: 22px;
+    flex-shrink: 0;
+}
+
+#laravel-notify .notify {
+    position: fixed !important;
+    inset: auto 16px 16px auto !important;
+    display: block !important;
+    width: min(100vw - 32px, 22rem) !important;
+    max-width: 22rem !important;
+    pointer-events: none;
+    z-index: 9999;
 }
 
 .cc-notify {
