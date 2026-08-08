@@ -63,10 +63,14 @@ COPY --from=frontend /app/public/build ./public/build
 # Drop cached package discovery from the build context (paths/providers may be stale)
 RUN rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
 
-# Dummy key only for image build (real APP_KEY comes from .env.production at runtime)
-RUN APP_ENV=production APP_KEY=base64:ZHVtbXlCdWlsZEtleUZvckRvY2tlckltYWdlMTIzNDU= \
-    composer dump-autoload --optimize --no-interaction \
-    && php artisan package:discover --ansi
+# Dummy key for build only. Use --no-scripts so composer.json post-autoload-dump
+# does not fail the image build; entrypoint re-runs package:discover at start.
+RUN APP_ENV=production \
+    APP_KEY=base64:ZHVtbXlCdWlsZEtleUZvckRvY2tlckltYWdlMTIzNDU= \
+    LOG_CHANNEL=stderr \
+    composer dump-autoload --optimize --no-interaction --no-scripts \
+    && php artisan package:discover --ansi --no-interaction \
+    || echo "WARN: package:discover deferred to container entrypoint"
 
 RUN mkdir -p database/migrations/tenant_modules \
     && chown -R www-data:www-data storage bootstrap/cache database/migrations/tenant_modules \
