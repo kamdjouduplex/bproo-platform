@@ -8,6 +8,13 @@ if [ -d "storage" ] && [ -d "bootstrap/cache" ]; then
   chmod -R ug+rwx storage bootstrap/cache || true
 fi
 
+# Named volume bootstrap/cache can keep a packages.php from a --dev install
+# (e.g. Collision). Production images use composer --no-dev — rediscover.
+rm -f bootstrap/cache/packages.php bootstrap/cache/services.php
+if [ -f artisan ]; then
+  php artisan package:discover --ansi --no-interaction 2>/dev/null || true
+fi
+
 if [ ! -e "public/storage" ] && [ -d "storage/app/public" ]; then
   php artisan storage:link 2>/dev/null || ln -sfn ../storage/app/public public/storage
 fi
