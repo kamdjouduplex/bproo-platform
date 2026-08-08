@@ -5,10 +5,10 @@
     "license":  "MIT",
     "require":  {
                     "php":  "^8.1",
-                    "inovcom/clients":  "@dev",
-                    "inovcom/items":  "@dev",
-                    "inovcom/invoicing":  "@dev",
-                    "inovcom/stock":  "@dev",
+                    "bproo/crm":  "@dev",
+                    "bproo/items":  "@dev",
+                    "bproo/invoicing":  "@dev",
+                    "bproo/inventory":  "@dev",
                     "laravel/framework":  "^10.0",
                     "livewire/livewire":  "^3.0|^4.0",
                     "bproo/core":  "@dev"

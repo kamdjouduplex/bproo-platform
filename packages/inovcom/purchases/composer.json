@@ -5,9 +5,9 @@
     "license":  "MIT",
     "require":  {
                     "php":  "^8.1",
-                    "inovcom/items":  "@dev",
-                    "inovcom/providers":  "@dev",
-                    "inovcom/stock":  "@dev",
+                    "bproo/items":  "@dev",
+                    "bproo/providers":  "@dev",
+                    "bproo/inventory":  "@dev",
                     "laravel/framework":  "^10.0",
                     "livewire/livewire":  "^3.0|^4.0",
                     "bproo/core":  "@dev"

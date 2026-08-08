@@ -12,7 +12,7 @@ WORKDIR /app
 COPY ${APP_DIR}/composer.json ${APP_DIR}/composer.lock ./
 # Path repos: ../../packages/... from /app → /packages/...
 COPY packages /packages
-RUN composer install --no-dev --prefer-dist --no-interaction --no-scripts --no-autoloader
+RUN composer install --no-dev --prefer-dist --no-interaction --no-scripts --no-autoloader --no-security-blocking
 
 FROM node:20-alpine AS frontend
 ARG APP_DIR
