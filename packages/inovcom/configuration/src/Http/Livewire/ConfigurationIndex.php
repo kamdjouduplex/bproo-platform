@@ -2,7 +2,7 @@
 
 namespace InovCom\Configuration\Http\Livewire;
 
-use App\Livewire\Concerns\ConfiguresTenantCurrencies;
+use App\Support\ConfiguresTenantCurrencies;
 use App\Services\TenantBrandingService;
 use App\Services\TenantManager;
 use App\Support\TenantSettingsApplier;

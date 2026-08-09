@@ -3,7 +3,7 @@
 namespace App\Livewire\Admin;
 
 use App\Jobs\SetupTenantMultiStoreJob;
-use App\Livewire\Concerns\ConfiguresTenantCurrencies;
+use App\Support\ConfiguresTenantCurrencies;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Bus;
 use Livewire\Component;

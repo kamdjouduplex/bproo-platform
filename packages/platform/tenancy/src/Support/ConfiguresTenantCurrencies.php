@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Concerns;
+namespace App\Support;
 
 use App\Models\Tenant;
 use App\Services\TenantCurrencyService;
