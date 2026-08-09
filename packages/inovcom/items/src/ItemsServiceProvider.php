@@ -5,11 +5,13 @@ namespace InovCom\Items;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use InovCom\Items\Http\Livewire\ItemsForm;
+use InovCom\Items\Http\Livewire\ItemsImport;
 use InovCom\Items\Http\Livewire\ItemsIndex;
 use InovCom\Items\Http\Livewire\ItemsListConfig;
 use InovCom\Items\Http\Livewire\ItemsShow;
 use InovCom\Items\Models\Item;
 use InovCom\Items\Services\ItemsApiService;
+use InovCom\Items\Services\ItemsImportService;
 use InovCom\Kernel\Contracts\ItemsApi;
 use InovCom\Kernel\Traits\LazyModuleBoot;
 use Livewire\Livewire;
@@ -32,6 +34,7 @@ class ItemsServiceProvider extends ServiceProvider
 
         // Register ItemsApi interface implementation
         $this->app->singleton(ItemsApi::class, ItemsApiService::class);
+        $this->app->singleton(ItemsImportService::class);
     }
 
     public function boot(): void
@@ -51,6 +54,7 @@ class ItemsServiceProvider extends ServiceProvider
         Livewire::component('inovcom-items.items-form', ItemsForm::class);
         Livewire::component('inovcom-items.items-show', ItemsShow::class);
         Livewire::component('inovcom-items.items-list-config', ItemsListConfig::class);
+        Livewire::component('inovcom-items.items-import', ItemsImport::class);
 
         Route::bind('item', fn ($value) => Item::on('tenant')->findOrFail($value));
 
@@ -65,6 +69,9 @@ class ItemsServiceProvider extends ServiceProvider
                 Route::get('/items', ItemsIndex::class)
                     ->middleware(['module:items'])
                     ->name('tenant.items.index');
+                Route::get('/items/import', ItemsImport::class)
+                    ->middleware(['module:items'])
+                    ->name('tenant.items.import');
                 Route::get('/items/list-config', ItemsListConfig::class)
                     ->middleware(['module:items'])
                     ->name('tenant.items.list-config');

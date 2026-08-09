@@ -157,6 +157,7 @@
         "bproo/ui-core": "@dev",
         "bproo/pharma": "@dev",
         "barryvdh/laravel-dompdf": "^3.1",
+        "phpoffice/phpspreadsheet": "^1.29|^2.0|^3.0|^4.0|^5.0",
         "guzzlehttp/guzzle": "^7.2",
         "bproo/attendance": "@dev",
         "bproo/batches": "@dev",

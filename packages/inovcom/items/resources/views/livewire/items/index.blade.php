@@ -23,6 +23,7 @@
                     <a class="btn btn-secondary btn-sm" href="{{ route('tenant.items.list-config', ['tenant' => $tenantCode]) }}">Config</a>
                 @endif
                 @if ($canCreate)
+                    <a class="btn btn-secondary btn-sm" href="{{ route('tenant.items.import', ['tenant' => $tenantCode]) }}">Importer Excel</a>
                     <a class="btn btn-primary btn-sm" href="{{ route('tenant.items.create', ['tenant' => $tenantCode]) }}">Nouveau</a>
                 @endif
             </div>
