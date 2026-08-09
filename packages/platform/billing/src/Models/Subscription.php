@@ -10,6 +10,9 @@ class Subscription extends Model
     protected $fillable = [
         'tenant_id',
         'plan_id',
+        'billing_mode',
+        'seats_billed',
+        'unit_price',
         'status',
         'current_period_start',
         'current_period_end',
@@ -27,6 +30,8 @@ class Subscription extends Model
         'suspended_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'grace_ends_at' => 'date',
+        'seats_billed' => 'integer',
+        'unit_price' => 'decimal:2',
     ];
 
     public const STATUS_ACTIVE = 'active';

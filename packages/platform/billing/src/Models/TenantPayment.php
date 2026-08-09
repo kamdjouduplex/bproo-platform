@@ -12,6 +12,9 @@ class TenantPayment extends Model
         'tenant_id',
         'subscription_id',
         'amount',
+        'months_applied',
+        'seats_billed',
+        'unit_price',
         'currency',
         'paid_at',
         'method',
@@ -23,6 +26,9 @@ class TenantPayment extends Model
     protected $casts = [
         'amount' => 'decimal:2',
         'paid_at' => 'date',
+        'months_applied' => 'integer',
+        'seats_billed' => 'integer',
+        'unit_price' => 'decimal:2',
     ];
 
     public const METHOD_CASH = 'cash';

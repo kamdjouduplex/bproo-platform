@@ -40,7 +40,7 @@
             <div class="dashboard-kpi__meta">
                 @if ($subscription?->plan)
                     {{ $subscription->plan->name }}
-                    · {{ fmt_money($subscription->plan->price) }} {{ $subscription->plan->currency }}/{{ $subscription->plan->billing_interval === 'yearly' ? 'an' : 'mois' }}
+                    · {{ $planRateLabel ?? $subscription->plan->rateLabel($tenant) }}
                 @else
                     Pas de plan
                 @endif
@@ -120,7 +120,7 @@
     @elseif (!$subscription)
         <section class="cc-card" style="border-color:#fde68a;background:#fffbeb;margin-bottom:14px;">
             <div class="cc-card__body">
-                Aucun abonnement. Enregistrez un paiement en choisissant un plan : la période est calculée automatiquement (montant ÷ prix).
+                Aucun abonnement. Enregistrez un paiement avec un plan : précisez le nombre de mois ou laissez le calcul automatique (montant ÷ tarif mensuel).
             </div>
         </section>
     @endif
@@ -133,24 +133,31 @@
             </div>
             <div class="cc-card__body">
                 <p class="cc-billing__hint">
-                    Avec un plan : le montant prolonge l’abonnement (mois = montant ÷ prix). Sans plan : crédit sur le solde prépayé.
+                    <strong>Forfait mensuel</strong> : montant ÷ prix/mois (ou précisez les mois).<br>
+                    <strong>Par utilisateur</strong> : montant ÷ (prix/siège × sièges du client). Reliquat → solde.
                 </p>
                 <div class="form-grid">
                     <div class="field">
-                        <label class="field-label">Montant</label>
-                        <input class="input" type="number" min="0" step="0.01" wire:model="payment_amount" placeholder="0">
+                        <label class="field-label">Montant payé</label>
+                        <input class="input" type="number" min="0" step="0.01" wire:model.live="payment_amount" placeholder="30000">
                     </div>
                     <div class="field">
                         <label class="field-label">Appliquer à un plan</label>
-                        <select class="input" wire:model="payment_plan_id">
+                        <select class="input" wire:model.live="payment_plan_id">
                             <option value="">— Solde uniquement —</option>
                             @foreach ($plans as $plan)
                                 <option value="{{ $plan->id }}">
                                     {{ $plan->name }}
-                                    ({{ $plan->price > 0 ? fmt_money($plan->price).' '.$plan->currency.'/'.($plan->billing_interval === 'yearly' ? 'an' : 'mois') : 'Gratuit' }})
+                                    · {{ $plan->isPerSeat() ? 'par user' : 'forfait' }}
+                                    · {{ $plan->rateLabel($tenant) }}
                                 </option>
                             @endforeach
                         </select>
+                    </div>
+                    <div class="field">
+                        <label class="field-label">Mois prépayés (optionnel)</label>
+                        <input class="input" type="number" min="1" max="120" wire:model.live="payment_months" placeholder="Auto">
+                        <span class="field-hint">Ex. 3 = forcer 3 mois. Vide = calcul auto depuis le montant.</span>
                     </div>
                     <div class="field">
                         <label class="field-label">Devise</label>
@@ -173,6 +180,26 @@
                         <input class="input" wire:model="payment_notes" placeholder="Optionnel">
                     </div>
                 </div>
+
+                @if ($paymentQuote)
+                    <div style="margin-top:12px;padding:12px 14px;border-radius:10px;background:#f8fafc;border:1px solid #e2e8f0;">
+                        @if (!empty($paymentQuote['error']))
+                            <strong style="color:#b91c1c;">{{ $paymentQuote['error'] }}</strong>
+                        @else
+                            <strong>Aperçu :</strong>
+                            {{ $paymentQuote['months'] }} mois
+                            @if ($paymentQuote['seats'])
+                                · {{ $paymentQuote['seats'] }} siège(s)
+                            @endif
+                            · tarif {{ fmt_money($paymentQuote['unit_price']) }} {{ $payment_currency }}/mois
+                            · consommé {{ fmt_money($paymentQuote['amount_used']) }}
+                            @if ($paymentQuote['remainder'] > 0)
+                                · reliquat solde {{ fmt_money($paymentQuote['remainder']) }}
+                            @endif
+                        @endif
+                    </div>
+                @endif
+
                 <div class="page-actions" style="margin-top:12px;">
                     <button type="button" class="btn btn-secondary" wire:click="$set('showPaymentPanel', false)">Annuler</button>
                     <button type="button" class="btn btn-primary" wire:click="recordPayment" wire:loading.attr="disabled">Enregistrer le paiement</button>
@@ -187,7 +214,7 @@
             <div class="cc-card__body">
                 <p class="cc-billing__hint">
                     Solde : <strong>{{ fmt_money($tenant->balance) }} {{ $tenant->balance_currency }}</strong>
-                    · Plan : {{ fmt_money($subscription->plan->price) }} {{ $subscription->plan->currency }}/mois
+                    · Tarif : {{ $planRateLabel ?? ($subscription->plan?->rateLabel($tenant) ?? '—') }}
                 </p>
                 <div class="form-grid">
                     <div class="field">

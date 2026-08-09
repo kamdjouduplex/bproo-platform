@@ -9,8 +9,8 @@
                 <thead>
                     <tr>
                         <th>Nom</th>
-                        <th>Slug</th>
-                        <th>Prix</th>
+                        <th>Mode</th>
+                        <th>Tarif</th>
                         <th>Période</th>
                         <th>Actif</th>
                         <th>Actions</th>
@@ -19,9 +19,16 @@
                 <tbody>
                     @forelse ($plans as $plan)
                         <tr>
-                            <td>{{ $plan->name }}</td>
-                            <td><code>{{ $plan->slug }}</code></td>
-                            <td>{{ fmt_money($plan->price) }} {{ $plan->currency }}</td>
+                            <td>
+                                {{ $plan->name }}
+                                <div style="font-size:11px;color:#64748b;"><code>{{ $plan->slug }}</code></div>
+                            </td>
+                            <td>
+                                <span class="badge badge-secondary">
+                                    {{ $plan->isPerSeat() ? 'Par utilisateur' : 'Forfait' }}
+                                </span>
+                            </td>
+                            <td>{{ $plan->rateLabel() }}</td>
                             <td>{{ $plan->billing_interval === 'yearly' ? 'Annuel' : 'Mensuel' }}</td>
                             <td>
                                 @if ($plan->is_active)

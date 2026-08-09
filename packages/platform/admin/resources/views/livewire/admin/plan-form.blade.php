@@ -24,10 +24,35 @@
                 <label class="field-label">Description</label>
                 <textarea class="input" rows="2" placeholder="Optionnel" wire:model="description"></textarea>
             </div>
-            <div class="field">
-                <label class="field-label">Prix</label>
-                <input class="input" type="number" min="0" step="0.01" wire:model="price">
+
+            <div class="field" style="grid-column: 1 / -1;">
+                <label class="field-label">Mode de facturation</label>
+                <select class="input" wire:model.live="billing_mode">
+                    @foreach(\App\Models\Plan::billingModes() as $value => $label)
+                        <option value="{{ $value }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+                <span class="field-hint">
+                    @if ($billing_mode === 'per_seat')
+                        Tarif = prix/utilisateur × sièges du client (plafond utilisateurs). Les plans flat existants restent inchangés.
+                    @else
+                        Forfait fixe par entreprise et par mois (comportement historique).
+                    @endif
+                </span>
             </div>
+
+            @if ($billing_mode === 'per_seat')
+                <div class="field">
+                    <label class="field-label">Prix par utilisateur / mois</label>
+                    <input class="input" type="number" min="0" step="0.01" wire:model="price_per_user" placeholder="5000">
+                </div>
+            @else
+                <div class="field">
+                    <label class="field-label">Prix forfait / mois</label>
+                    <input class="input" type="number" min="0" step="0.01" wire:model="price">
+                </div>
+            @endif
+
             <div class="field">
                 <label class="field-label">Devise</label>
                 <input class="input" placeholder="XOF" wire:model="currency" maxlength="3">
@@ -46,7 +71,7 @@
             </div>
             <label class="field-toggle">
                 <input type="checkbox" wire:model="is_active">
-                Plan actif (proposable aux vendeurs)
+                Plan actif (proposable aux clients)
             </label>
         </div>
         <div class="page-actions">

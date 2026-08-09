@@ -19,6 +19,8 @@ class TenantSubscription extends Component
     public string $payment_reference = '';
     public string $payment_notes = '';
     public ?int $payment_plan_id = null;
+    /** Explicit prepaid months (optional). Empty = auto from amount ÷ monthly rate. */
+    public string $payment_months = '';
 
     public int $apply_balance_months = 1;
     public ?int $new_plan_id = null;
@@ -60,14 +62,18 @@ class TenantSubscription extends Component
 
     public function recordPayment(): void
     {
-        $this->validate([
+        $rules = [
             'payment_amount' => 'required|numeric|min:0',
             'payment_currency' => 'required|string|max:5',
             'payment_method' => 'required|string|max:50',
             'payment_reference' => 'nullable|string|max:255',
             'payment_notes' => 'nullable|string|max:1000',
             'payment_plan_id' => 'nullable|exists:plans,id',
-        ]);
+        ];
+        if (trim((string) $this->payment_months) !== '') {
+            $rules['payment_months'] = 'integer|min:1|max:120';
+        }
+        $this->validate($rules);
 
         if ((float) $this->payment_amount <= 0 && ! $this->payment_plan_id) {
             notify()->error('Montant requis ou sélectionnez un plan à appliquer.');
@@ -75,8 +81,10 @@ class TenantSubscription extends Component
             return;
         }
 
+        $months = trim((string) $this->payment_months) === '' ? null : (int) $this->payment_months;
+
         try {
-            app(SubscriptionService::class)->recordPayment(
+            $payment = app(SubscriptionService::class)->recordPayment(
                 $this->tenant,
                 (float) $this->payment_amount,
                 $this->payment_currency,
@@ -85,7 +93,8 @@ class TenantSubscription extends Component
                 $this->payment_notes ?: null,
                 auth()->id(),
                 $this->payment_plan_id,
-                $this->tenant->currentSubscription()?->id
+                $this->tenant->currentSubscription()?->id,
+                $months
             );
         } catch (\Throwable $e) {
             notify()->error($e->getMessage());
@@ -93,17 +102,31 @@ class TenantSubscription extends Component
             return;
         }
 
-        notify()->success(
-            $this->payment_plan_id
-                ? 'Paiement enregistré et appliqué à l’abonnement.'
-                : 'Paiement enregistré sur le solde.'
-        );
+        $this->tenant->refresh();
+        $sub = $this->tenant->currentSubscription();
+        if ($this->payment_plan_id && $sub?->current_period_end) {
+            $msg = 'Paiement enregistré. Accès jusqu’au '.$sub->current_period_end->format('d/m/Y');
+            if ($payment->months_applied) {
+                $msg .= ' ('.$payment->months_applied.' mois';
+                if ($payment->seats_billed) {
+                    $msg .= ', '.$payment->seats_billed.' siège(s)';
+                }
+                $msg .= ').';
+            }
+            notify()->success($msg);
+        } else {
+            notify()->success(
+                $this->payment_plan_id
+                    ? 'Paiement enregistré et appliqué à l’abonnement.'
+                    : 'Paiement enregistré sur le solde.'
+            );
+        }
 
         $this->payment_amount = '';
+        $this->payment_months = '';
         $this->payment_reference = '';
         $this->payment_notes = '';
         $this->showPaymentPanel = false;
-        $this->tenant->refresh();
         $this->redirect(route('system.tenants.subscription', $this->tenant->code), navigate: true);
     }
 
@@ -248,10 +271,13 @@ class TenantSubscription extends Component
         $monthlyRate = null;
         $daysRemaining = null;
         $periodProgress = null;
+        $planRateLabel = null;
         if ($subscription?->plan) {
-            $monthlyRate = $subscription->plan->billing_interval === 'yearly'
-                ? ((float) $subscription->plan->price / 12)
-                : (float) $subscription->plan->price;
+            $plan = $subscription->plan;
+            $monthlyRate = $subscription->unit_price !== null
+                ? (float) $subscription->unit_price
+                : $plan->monthlyRateFor($this->tenant, $subscription->seats_billed);
+            $planRateLabel = $plan->rateLabel($this->tenant);
             if ($subscription->current_period_end) {
                 $daysRemaining = (int) now()->startOfDay()->diffInDays($subscription->current_period_end, false);
             }
@@ -262,12 +288,32 @@ class TenantSubscription extends Component
             }
         }
 
+        $paymentQuote = null;
+        if ($this->payment_plan_id && is_numeric($this->payment_amount) && (float) $this->payment_amount > 0) {
+            try {
+                $plan = $plans->firstWhere('id', (int) $this->payment_plan_id) ?: Plan::find($this->payment_plan_id);
+                if ($plan) {
+                    $forced = trim($this->payment_months) === '' ? null : (int) $this->payment_months;
+                    $paymentQuote = app(SubscriptionService::class)->quotePlanPayment(
+                        $this->tenant,
+                        $plan,
+                        (float) $this->payment_amount,
+                        $forced
+                    );
+                }
+            } catch (\Throwable $e) {
+                $paymentQuote = ['error' => $e->getMessage()];
+            }
+        }
+
         return view('livewire.admin.tenant-subscription', [
             'subscription' => $subscription,
             'subscriptions' => $subscriptions,
             'plans' => $plans,
             'payments' => $payments,
             'balanceTransactions' => $balanceTransactions,
+            'paymentQuote' => $paymentQuote,
+            'planRateLabel' => $planRateLabel,
             'kpis' => [
                 'total_paid' => $totalPaid,
                 'paid_month' => $paidThisMonth,
@@ -282,7 +328,7 @@ class TenantSubscription extends Component
             'methodLabels' => TenantPayment::methods(),
         ])->layout('layouts.app', [
             'title' => 'Facturation',
-            'subtitle' => $this->tenant->name . ' · ' . $this->tenant->code,
+            'subtitle' => $this->tenant->name.' · '.$this->tenant->code,
         ]);
     }
 }
