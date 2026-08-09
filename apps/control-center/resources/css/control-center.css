@@ -244,6 +244,98 @@
     position: relative;
 }
 
+.cc-topbar__bell-wrap {
+    position: relative;
+}
+
+.cc-bell-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: #dc2626;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 18px;
+    text-align: center;
+}
+
+.cc-bell-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: min(360px, 92vw);
+    background: #fff;
+    border: 1px solid var(--cc-line, #e2e8f0);
+    border-radius: 12px;
+    box-shadow: 0 16px 40px rgba(15, 23, 42, 0.14);
+    z-index: 80;
+    overflow: hidden;
+}
+
+.cc-bell-panel__head {
+    padding: 12px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    border-bottom: 1px solid var(--cc-line, #e2e8f0);
+    background: #f8fafc;
+}
+
+.cc-bell-panel__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 280px;
+    overflow: auto;
+}
+
+.cc-bell-panel__list a {
+    display: block;
+    padding: 10px 14px;
+    text-decoration: none;
+    color: inherit;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.cc-bell-panel__list a:hover {
+    background: #fef2f2;
+}
+
+.cc-bell-panel__list strong {
+    display: block;
+    font-size: 13px;
+    color: #991b1b;
+}
+
+.cc-bell-panel__list span {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    color: #7f1d1d;
+}
+
+.cc-bell-panel__empty {
+    padding: 16px 14px;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.cc-bell-panel__footer {
+    display: block;
+    padding: 10px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+    color: #0f172a;
+    background: #f8fafc;
+    border-top: 1px solid var(--cc-line, #e2e8f0);
+    text-decoration: none;
+}
+
 .cc-user__meta {
     text-align: right;
     line-height: 1.2;

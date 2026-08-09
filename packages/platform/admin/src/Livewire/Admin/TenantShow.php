@@ -15,15 +15,15 @@ class TenantShow extends Component
     public function mount(Tenant $tenant): void
     {
         $this->tenant = $tenant;
-        $this->metrics = [
-            'users_count' => $tenant->users_count,
-            'modules_enabled_count' => $tenant->modules_enabled_count,
-            'db_ok' => null,
-            'error' => null,
-            'last_tenant_activity_at' => $tenant->last_tenant_activity_at,
-            'users_limit_exceeded' => (bool) $tenant->users_limit_exceeded_at,
-            'users_limit_newly_exceeded' => false,
-        ];
+        // Always pull live seat count when opening the fiche
+        $this->metrics = app(CompanyIntelligenceService::class)->refresh($this->tenant, true);
+        $this->tenant->refresh();
+
+        if (! empty($this->metrics['users_limit_newly_exceeded'])) {
+            notify()->warning(
+                "Plafond utilisateurs dépassé : {$this->tenant->users_count}/{$this->tenant->max_users} sièges actifs pour « {$this->tenant->code} »."
+            );
+        }
     }
 
     public function refreshMetrics(): void
@@ -31,13 +31,9 @@ class TenantShow extends Component
         $this->metrics = app(CompanyIntelligenceService::class)->refresh($this->tenant, true);
         $this->tenant->refresh();
 
-        if (! empty($this->metrics['users_limit_newly_exceeded'])) {
+        if (! empty($this->metrics['users_limit_exceeded'])) {
             notify()->warning(
-                "Alerte : « {$this->tenant->code} » a dépassé son plafond ({$this->tenant->users_count}/{$this->tenant->max_users} utilisateurs)."
-            );
-        } elseif (! empty($this->metrics['users_limit_exceeded'])) {
-            notify()->info(
-                "Plafond toujours dépassé : {$this->tenant->users_count}/{$this->tenant->max_users} utilisateurs."
+                "Plafond dépassé : {$this->tenant->users_count}/{$this->tenant->max_users} utilisateurs actifs."
             );
         } else {
             notify()->success('Indicateurs actualisés.');
@@ -68,6 +64,7 @@ class TenantShow extends Component
             'enabledModules' => $this->tenant->modules->where('pivot.enabled', true)->values(),
             'typeLabel' => $this->tenant->type_label,
             'loginUrl' => $this->tenant->app_login_url,
+            'limitExceeded' => $this->tenant->isUsersLimitExceeded(),
         ])->layout('layouts.app', [
             'title' => $this->tenant->name,
             'subtitle' => 'Fiche entreprise · '.$this->tenant->code,

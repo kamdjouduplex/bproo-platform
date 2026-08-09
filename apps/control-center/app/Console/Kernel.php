@@ -15,8 +15,8 @@ class Kernel extends ConsoleKernel
         // Suspend overdue tenant subscriptions on the 5th of each month at 00:05
         $schedule->command('subscription:suspend-overdue')->monthlyOn(5, '00:05');
 
-        // Detect tenants that exceeded their max_users quota
-        $schedule->command('tenants:refresh-metrics')->hourly();
+        // Detect tenants that exceeded their max_users quota (pricing / seats)
+        $schedule->command('tenants:refresh-metrics')->everyFifteenMinutes();
     }
 
     /**

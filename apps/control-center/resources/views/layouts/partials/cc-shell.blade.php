@@ -150,9 +150,32 @@
                 <option value="fr">FR</option>
                 <option value="en">EN</option>
             </select>
-            <button type="button" class="cc-icon-btn cc-topbar__bell" aria-label="Notifications">
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0v1a3 3 0 1 1-6 0v-1m6 0H9"/></svg>
-            </button>
+            <div class="cc-topbar__bell-wrap" x-data="{ open: false }" @click.outside="open = false">
+                <button type="button" class="cc-icon-btn cc-topbar__bell" aria-label="Notifications" @click="open = !open">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 1 0-12 0v3.2a2 2 0 0 1-.6 1.4L4 17h5m6 0v1a3 3 0 1 1-6 0v-1m6 0H9"/></svg>
+                    @if (!empty($seatAlerts) && $seatAlerts->isNotEmpty())
+                        <span class="cc-bell-badge">{{ $seatAlerts->count() }}</span>
+                    @endif
+                </button>
+                <div class="cc-bell-panel" x-show="open" x-cloak x-transition.opacity>
+                    <div class="cc-bell-panel__head">Alertes sièges</div>
+                    @if (!empty($seatAlerts) && $seatAlerts->isNotEmpty())
+                        <ul class="cc-bell-panel__list">
+                            @foreach ($seatAlerts as $alertTenant)
+                                <li>
+                                    <a href="{{ route('system.tenants.users', $alertTenant) }}">
+                                        <strong>{{ $alertTenant->name }}</strong>
+                                        <span>{{ $alertTenant->usersQuotaLabel() }} — plafond dépassé</span>
+                                    </a>
+                                </li>
+                            @endforeach
+                        </ul>
+                    @else
+                        <div class="cc-bell-panel__empty">Aucune alerte de plafond.</div>
+                    @endif
+                    <a class="cc-bell-panel__footer" href="{{ route('system.tenants', ['seats' => 'exceeded']) }}">Voir les clients concernés</a>
+                </div>
+            </div>
             @if(auth()->check())
                 <div class="cc-user">
                     <div class="cc-user__meta">

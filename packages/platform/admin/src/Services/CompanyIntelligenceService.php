@@ -12,8 +12,11 @@ class CompanyIntelligenceService
     /**
      * Refresh cached metrics for one company (tenant DB fan-out).
      *
+     * users_count = billable seats (active users when is_active exists).
+     *
      * @return array{
      *   users_count: int|null,
+     *   users_total: int|null,
      *   modules_enabled_count: int,
      *   db_ok: bool,
      *   error: ?string,
@@ -24,8 +27,11 @@ class CompanyIntelligenceService
      */
     public function refresh(Tenant $tenant, bool $persist = true): array
     {
+        $tenant->refresh();
+
         $modulesEnabled = (int) $tenant->modules()->wherePivot('enabled', true)->count();
         $usersCount = null;
+        $usersTotal = null;
         $dbOk = false;
         $error = null;
         $lastActivity = null;
@@ -39,7 +45,15 @@ class CompanyIntelligenceService
             $dbOk = true;
 
             if (Schema::connection('tenant')->hasTable('users')) {
-                $usersCount = (int) DB::connection('tenant')->table('users')->count();
+                $usersTotal = (int) DB::connection('tenant')->table('users')->count();
+                if (Schema::connection('tenant')->hasColumn('users', 'is_active')) {
+                    // Billable seats = active accounts only
+                    $usersCount = (int) DB::connection('tenant')->table('users')
+                        ->where('is_active', true)
+                        ->count();
+                } else {
+                    $usersCount = $usersTotal;
+                }
             }
 
             if (Schema::connection('tenant')->hasTable('sessions')) {
@@ -76,6 +90,7 @@ class CompanyIntelligenceService
                 Log::warning('Tenant exceeded max_users quota', [
                     'tenant' => $tenant->code,
                     'users_count' => $usersCount,
+                    'users_total' => $usersTotal,
                     'max_users' => $tenant->max_users,
                 ]);
             }
@@ -83,6 +98,7 @@ class CompanyIntelligenceService
 
         return [
             'users_count' => $usersCount,
+            'users_total' => $usersTotal,
             'modules_enabled_count' => $modulesEnabled,
             'db_ok' => $dbOk,
             'error' => $error,
@@ -93,8 +109,6 @@ class CompanyIntelligenceService
     }
 
     /**
-     * Refresh metrics for all completed tenants (best-effort).
-     *
      * @return array{refreshed: int, newly_exceeded: list<string>}
      */
     public function refreshAll(?int $limit = null): array
@@ -124,13 +138,24 @@ class CompanyIntelligenceService
     }
 
     /**
+     * Tenants over their seat quota (flag or live cached count).
+     *
      * @return \Illuminate\Support\Collection<int, Tenant>
      */
     public function tenantsExceedingUsersLimit()
     {
         return Tenant::query()
-            ->whereNotNull('users_limit_exceeded_at')
+            ->where(function ($q) {
+                $q->whereNotNull('users_limit_exceeded_at')
+                    ->orWhere(function ($inner) {
+                        $inner->whereNotNull('max_users')
+                            ->where('max_users', '>', 0)
+                            ->whereNotNull('users_count')
+                            ->whereColumn('users_count', '>', 'max_users');
+                    });
+            })
             ->orderByDesc('users_limit_exceeded_at')
+            ->orderByDesc('users_count')
             ->get();
     }
 }

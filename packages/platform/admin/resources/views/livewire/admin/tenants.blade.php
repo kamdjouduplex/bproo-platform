@@ -98,14 +98,14 @@
                                     @unless ($tenant->is_active)
                                         · <span style="color:#b45309;">inactif</span>
                                     @endunless
-                                    @if ($tenant->users_limit_exceeded_at)
-                                        · <span style="color:#b91c1c;font-weight:600;">plafond dépassé</span>
+                                    @if ($tenant->isUsersLimitExceeded() || $tenant->users_limit_exceeded_at)
+                                        · <span style="color:#b91c1c;font-weight:700;">plafond dépassé</span>
                                     @endif
                                 </div>
                             </td>
                             <td><span class="badge badge-secondary">{{ $tenant->type_label }}</span></td>
                             <td>
-                                <strong @if($tenant->users_limit_exceeded_at) style="color:#b91c1c;" @endif>
+                                <strong @if($tenant->isUsersLimitExceeded() || $tenant->users_limit_exceeded_at) style="color:#b91c1c;" @endif>
                                     {{ $tenant->usersQuotaLabel() }}
                                 </strong>
                             </td>

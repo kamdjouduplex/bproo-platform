@@ -27,6 +27,14 @@ class Tenants extends Component
 
     protected $paginationTheme = 'cc';
 
+    public function mount(): void
+    {
+        $seats = request()->query('seats');
+        if (in_array($seats, ['exceeded', 'limited'], true)) {
+            $this->seats = $seats;
+        }
+    }
+
     public function updatingSearch(): void
     {
         $this->resetPage();

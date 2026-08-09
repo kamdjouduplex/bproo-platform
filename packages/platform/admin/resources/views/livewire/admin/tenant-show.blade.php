@@ -1,15 +1,15 @@
 <div class="page-body">
-    @if ($tenant->users_limit_exceeded_at)
+    @if ($limitExceeded || $tenant->users_limit_exceeded_at)
         <div class="cc-card" style="margin-bottom:16px;padding:14px 16px;border-left:4px solid #dc2626;background:#fef2f2;">
-            <strong style="color:#b91c1c;">Plafond utilisateurs dépassé</strong>
+            <strong style="color:#b91c1c;">⚠ Plafond utilisateurs dépassé — action commerciale requise</strong>
             <p style="margin:6px 0 0;color:#7f1d1d;">
                 {{ $tenant->name }} ({{ $tenant->code }}) a
-                <strong>{{ $tenant->users_count ?? '—' }}</strong> utilisateurs pour un plafond de
+                <strong>{{ $tenant->users_count ?? '—' }}</strong> utilisateur(s) actif(s) pour un plafond de
                 <strong>{{ $tenant->max_users }}</strong>.
-                Contactez le client pour régulariser, ou augmentez le plafond / désactivez l’accès.
+                Contactez le client pour régulariser la facturation (coût / siège / mois), augmentez le plafond, ou désactivez des comptes.
             </p>
             <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
-                <a class="btn btn-primary btn-sm" href="{{ route('system.tenants.users', $tenant) }}">Voir les utilisateurs</a>
+                <a class="btn btn-primary btn-sm" href="{{ route('system.tenants.users', $tenant) }}">Gérer les utilisateurs</a>
                 <a class="btn btn-secondary btn-sm" href="{{ route('system.tenants.edit', $tenant) }}">Modifier le plafond</a>
             </div>
         </div>
@@ -17,8 +17,8 @@
 
     <section class="dashboard-kpis" style="margin-bottom:16px;">
         <div class="dashboard-kpi">
-            <div class="dashboard-kpi__label">Utilisateurs</div>
-            <div class="dashboard-kpi__value" @if($tenant->users_limit_exceeded_at) style="color:#b91c1c;" @endif>
+            <div class="dashboard-kpi__label">Sièges actifs</div>
+            <div class="dashboard-kpi__value" @if($limitExceeded) style="color:#b91c1c;" @endif>
                 {{ $tenant->usersQuotaLabel() }}
             </div>
             <div class="dashboard-kpi__meta">

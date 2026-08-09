@@ -253,16 +253,21 @@ class TenantForm extends Component
 
         $tenant->save();
 
-        if (! $tenant->hasUsersLimit()) {
-            if ($tenant->users_limit_exceeded_at) {
-                $tenant->forceFill(['users_limit_exceeded_at' => null])->save();
+        // Recompute seat exceedance from live DB after max_users change
+        try {
+            app(\App\Services\CompanyIntelligenceService::class)->refresh($tenant, true);
+        } catch (\Throwable) {
+            if (! $tenant->hasUsersLimit()) {
+                if ($tenant->users_limit_exceeded_at) {
+                    $tenant->forceFill(['users_limit_exceeded_at' => null])->save();
+                }
+            } elseif ($tenant->users_count !== null) {
+                $tenant->forceFill([
+                    'users_limit_exceeded_at' => $tenant->isUsersLimitExceeded()
+                        ? ($tenant->users_limit_exceeded_at ?? now())
+                        : null,
+                ])->save();
             }
-        } elseif ($tenant->users_count !== null) {
-            $tenant->forceFill([
-                'users_limit_exceeded_at' => $tenant->isUsersLimitExceeded()
-                    ? ($tenant->users_limit_exceeded_at ?? now())
-                    : null,
-            ])->save();
         }
 
         \Illuminate\Support\Facades\Log::info('Tenant saved', [
