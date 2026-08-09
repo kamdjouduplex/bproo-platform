@@ -11,7 +11,7 @@
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <input class="input input-sm" type="date" wire:model.live="date" style="width: 160px;">
                 <button type="button" class="btn btn-secondary btn-sm" wire:click="setToday">Aujourd'hui</button>
-                <a class="btn btn-primary btn-sm" target="_blank"
+                <a class="btn btn-primary btn-sm"
                    href="{{ route('tenant.sales.daily-report.print', ['tenant' => $tenantCode, 'date' => $date]) }}">
                     Imprimer
                 </a>
