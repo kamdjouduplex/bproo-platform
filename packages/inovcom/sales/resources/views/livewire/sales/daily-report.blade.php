@@ -25,7 +25,7 @@
         </div>
         <p style="margin: 0; color: #64748b; font-size: 13px;">
             {{ $salesCount }} vente(s) le {{ \Illuminate\Support\Carbon::parse($date)->format('d/m/Y') }}.
-            Totaux séparés par devise.
+            Totaux séparés par devise (aucune conversion).
         </p>
     </section>
 

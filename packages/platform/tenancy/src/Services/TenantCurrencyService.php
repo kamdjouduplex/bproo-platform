@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Schema;
 
 /**
  * Shared multi-currency for all product apps + Control Center.
- * Catalog lives in landlord DB; tenants enable 1..N currencies.
+ * No FX conversion: each currency is accounted separately.
  */
 class TenantCurrencyService
 {
@@ -45,9 +45,7 @@ class TenantCurrencyService
     }
 
     /**
-     * Enabled currencies for a tenant (falls back to single setting currency).
-     *
-     * @return Collection<int, array{code:string,name:string,symbol:?string,is_default:bool,exchange_rate_to_default:float}>
+     * @return Collection<int, array{code:string,name:string,symbol:?string,is_default:bool}>
      */
     public function enabledFor(Tenant $tenant): Collection
     {
@@ -66,7 +64,6 @@ class TenantCurrencyService
                     'name' => $row->currency?->name ?? $row->currency_code,
                     'symbol' => $row->currency?->symbol,
                     'is_default' => (bool) $row->is_default,
-                    'exchange_rate_to_default' => (float) $row->exchange_rate_to_default,
                 ])->values();
             }
         }
@@ -78,7 +75,6 @@ class TenantCurrencyService
             'name' => $code,
             'symbol' => null,
             'is_default' => true,
-            'exchange_rate_to_default' => 1.0,
         ]]);
     }
 
@@ -90,45 +86,12 @@ class TenantCurrencyService
         return strtoupper((string) ($default['code'] ?? config('inovcom.default_currency', 'XOF')));
     }
 
-    public function rateToDefault(Tenant $tenant, string $currencyCode): float
-    {
-        $code = strtoupper($currencyCode);
-        $row = $this->enabledFor($tenant)->firstWhere('code', $code);
-        if (! $row) {
-            return 1.0;
-        }
-
-        $rate = (float) ($row['exchange_rate_to_default'] ?? 1);
-
-        return $rate > 0 ? $rate : 1.0;
-    }
-
     /**
-     * Convert an amount from one enabled currency to another via the default.
-     */
-    public function convert(Tenant $tenant, float $amount, string $fromCode, string $toCode): float
-    {
-        $from = strtoupper($fromCode);
-        $to = strtoupper($toCode);
-        if ($from === $to) {
-            return round($amount, 2);
-        }
-
-        $inDefault = $amount * $this->rateToDefault($tenant, $from);
-        $toRate = $this->rateToDefault($tenant, $to);
-
-        return round($toRate > 0 ? ($inDefault / $toRate) : $inDefault, 2);
-    }
-
-    /**
-     * Replace enabled currencies for a tenant.
-     *
-     * @param  list<array{code:string,is_default?:bool,exchange_rate_to_default?:float|string}>  $rows
+     * @param  list<array{code:string,is_default?:bool}>  $rows
      */
     public function syncEnabled(Tenant $tenant, array $rows): void
     {
         if (! Schema::hasTable('tenant_currencies') || ! Schema::hasTable('platform_currencies')) {
-            // Legacy: only settings key
             $default = collect($rows)->firstWhere('is_default', true) ?? ($rows[0] ?? null);
             if ($default) {
                 $tenant->setSetting('currency', strtoupper((string) $default['code']));
@@ -146,7 +109,6 @@ class TenantCurrencyService
             $normalized[$code] = [
                 'code' => $code,
                 'is_default' => (bool) ($row['is_default'] ?? false),
-                'exchange_rate_to_default' => max(0.000001, (float) ($row['exchange_rate_to_default'] ?? 1)),
             ];
         }
 
@@ -156,15 +118,10 @@ class TenantCurrencyService
 
         $defaults = collect($normalized)->where('is_default', true);
         if ($defaults->count() !== 1) {
-            // Force first as default
             $first = array_key_first($normalized);
             foreach ($normalized as $c => $_) {
                 $normalized[$c]['is_default'] = ($c === $first);
             }
-            $normalized[$first]['exchange_rate_to_default'] = 1;
-        } else {
-            $defaultCode = $defaults->keys()->first();
-            $normalized[$defaultCode]['exchange_rate_to_default'] = 1;
         }
 
         DB::transaction(function () use ($tenant, $normalized) {
@@ -175,7 +132,7 @@ class TenantCurrencyService
                     'currency_code' => $row['code'],
                     'is_default' => $row['is_default'],
                     'is_enabled' => true,
-                    'exchange_rate_to_default' => $row['exchange_rate_to_default'],
+                    'exchange_rate_to_default' => 1,
                 ]);
             }
 
@@ -184,9 +141,6 @@ class TenantCurrencyService
         });
     }
 
-    /**
-     * Ensure tenant has at least its settings currency enabled (after provision / migrate).
-     */
     public function ensureDefaultRow(Tenant $tenant): void
     {
         if (! Schema::hasTable('tenant_currencies') || ! Schema::hasTable('platform_currencies')) {
@@ -205,7 +159,6 @@ class TenantCurrencyService
         $this->syncEnabled($tenant, [[
             'code' => $code,
             'is_default' => true,
-            'exchange_rate_to_default' => 1,
         ]]);
     }
 }

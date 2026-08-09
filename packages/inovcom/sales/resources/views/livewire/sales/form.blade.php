@@ -244,27 +244,40 @@
         @php
             $cur = $this->currencyLabel;
             $multiCurrency = count($enabledCurrencies) > 1;
+            $usesCatalog = $this->usesCatalogPrices;
         @endphp
         <form wire:submit.prevent="save">
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
                 {{-- Left: Cart and Items --}}
                 <div>
                     <section class="card">
-                        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom: 8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom: 12px;">
                             <h2 class="card-title" style="margin:0;">Recherche d'article</h2>
                             @if ($multiCurrency)
-                                <label style="display:flex; align-items:center; gap:8px; font-size:13px;">
-                                    <span>Devise vente</span>
-                                    <select class="input input-sm" wire:model.live="sale_currency" style="width: auto; min-width: 110px;">
+                                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+                                    <span style="font-size:12px; color:#64748b; font-weight:600;">Devise de cette vente</span>
+                                    <div style="display:inline-flex; border:1px solid #cbd5e1; border-radius:8px; overflow:hidden;">
                                         @foreach ($enabledCurrencies as $ec)
-                                            <option value="{{ $ec['code'] }}">{{ $ec['code'] }}</option>
+                                            <button
+                                                type="button"
+                                                wire:click="$set('sale_currency', '{{ $ec['code'] }}')"
+                                                style="padding:8px 14px; border:0; cursor:pointer; font-weight:700; font-size:13px; {{ $sale_currency === $ec['code'] ? 'background:#2563eb;color:#fff;' : 'background:#fff;color:#334155;' }}"
+                                            >
+                                                {{ $ec['code'] }}
+                                            </button>
                                         @endforeach
-                                    </select>
-                                </label>
+                                    </div>
+                                </div>
                             @else
                                 <span style="font-size:12px; color:#64748b;">Devise : <strong>{{ $cur }}</strong></span>
                             @endif
                         </div>
+                        @if ($multiCurrency && ! $usesCatalog)
+                            <div style="margin-bottom:12px; padding:10px 12px; border-radius:8px; background:#fff7ed; border:1px solid #fdba74; color:#9a3412; font-size:13px;">
+                                Vente en <strong>{{ $sale_currency }}</strong> : les prix catalogue ({{ $default_currency }}) ne s’appliquent pas.
+                                Saisissez les montants directement en {{ $cur }} — aucune conversion.
+                            </div>
+                        @endif
                         <input class="input" 
                                wire:model.live.debounce.150ms="itemSearch" 
                                placeholder="{{ item_search_placeholder() }}" 
@@ -311,6 +324,9 @@
                                                 </div>
                                                 <div style="font-size: 11px; color: #999;">
                                                     / {{ $variant['unit_name'] ?? 'pc' }}
+                                                    @if (! $usesCatalog)
+                                                        <br><span style="color:#c2410c;">prix à saisir en {{ $cur }}</span>
+                                                    @endif
                                                 </div>
                                             </div>
                                         </div>
@@ -564,16 +580,16 @@
                                 — <strong>Alloué:</strong> {{ fmt_money($this->totalAllocated) }} {{ $cur }}
                                 — <strong>Restant:</strong> <span style="{{ $this->remaining < 0 ? 'color: red;' : ($this->remaining > 0 ? 'color: #b45309;' : 'color: green;') }}">{{ fmt_money($this->remaining) }} {{ $cur }}</span>
                             @endif
+                            @if ($multiCurrency)
+                                <div style="margin-top:6px; color:#64748b;">Paiements entièrement en {{ $sale_currency }} (pas de mélange / conversion).</div>
+                            @endif
                         </div>
                         <div class="table-scroll">
                             <table style="font-size: 12px;">
                                 <thead>
                                     <tr>
                                         <th style="font-size: 12px;">Méthode</th>
-                                        <th style="font-size: 12px;">Montant</th>
-                                        @if ($multiCurrency)
-                                            <th style="font-size: 12px;">Devise</th>
-                                        @endif
+                                        <th style="font-size: 12px;">Montant ({{ $cur }})</th>
                                         <th style="font-size: 12px;">Réf. transaction (Orange/MTN)</th>
                                         <th></th>
                                     </tr>
@@ -591,15 +607,6 @@
                                             <td>
                                                 <input type="number" class="input input-sm" wire:model.live="payment_rows.{{ $index }}.amount" min="0" step="0.01" placeholder="0" style="width: 120px;">
                                             </td>
-                                            @if ($multiCurrency)
-                                                <td>
-                                                    <select class="input input-sm" wire:model.live="payment_rows.{{ $index }}.currency_code" style="min-width: 90px;">
-                                                        @foreach ($enabledCurrencies as $ec)
-                                                            <option value="{{ $ec['code'] }}">{{ $ec['code'] }}</option>
-                                                        @endforeach
-                                                    </select>
-                                                </td>
-                                            @endif
                                             <td>
                                                 @if (in_array($row['method'] ?? '', ['orange_money', 'mtn_money'], true))
                                                     <input type="text" class="input input-sm" wire:model="payment_rows.{{ $index }}.transaction_reference" placeholder="N° transaction" style="width: 140px;">

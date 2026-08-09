@@ -34,10 +34,10 @@ class SalesForm extends Component
     public string $discount_percent = '';
     public bool $showDiscount = false;
 
-    /** Sale currency (one of tenant enabled currencies). Catalog prices are in default currency. */
+    /** Sale currency (one of tenant enabled currencies). Catalog prices apply only in default currency. */
     public string $sale_currency = 'XOF';
 
-    /** @var list<array{code:string,name:string,symbol:?string,is_default:bool,exchange_rate_to_default:float}> */
+    /** @var list<array{code:string,name:string,symbol:?string,is_default:bool}> */
     public array $enabledCurrencies = [];
 
     public string $default_currency = 'XOF';
@@ -77,6 +77,10 @@ class SalesForm extends Component
 
     public function canModifyPrice(): bool
     {
+        // Non-default currency sales require manual prices (no FX from catalog).
+        if (! $this->usesCatalogPrices) {
+            return true;
+        }
         $user = Auth::guard('tenant')->user();
         return $user && $user->hasPermission('sales.modify_price');
     }
@@ -138,7 +142,7 @@ class SalesForm extends Component
     {
         $sum = 0;
         foreach ($this->payment_rows as $row) {
-            $sum += $this->paymentAmountInSaleCurrency($row);
+            $sum += (float) ($row['amount'] ?? 0);
         }
 
         return round($sum, 2);
@@ -154,7 +158,7 @@ class SalesForm extends Component
         $sum = 0;
         foreach ($this->payment_rows as $row) {
             if (($row['method'] ?? '') === 'credit') {
-                $sum += $this->paymentAmountInSaleCurrency($row);
+                $sum += (float) ($row['amount'] ?? 0);
             }
         }
 
@@ -164,6 +168,11 @@ class SalesForm extends Component
     public function getCurrencyLabelProperty(): string
     {
         return TenantCurrencyService::label($this->sale_currency);
+    }
+
+    public function getUsesCatalogPricesProperty(): bool
+    {
+        return strtoupper($this->sale_currency) === strtoupper($this->default_currency);
     }
 
     public function updatedSaleCurrency(?string $value = null): void
@@ -176,71 +185,28 @@ class SalesForm extends Component
             return;
         }
         $this->sale_currency = $code;
-        $this->repriceCartForSaleCurrency();
-        foreach ($this->payment_rows as $i => $row) {
-            if (empty($row['currency_code']) || count($this->payment_rows) === 1) {
-                $this->payment_rows[$i]['currency_code'] = $this->sale_currency;
-            }
+        $this->applyCatalogPricesForSaleCurrency();
+        foreach ($this->payment_rows as $i => $_) {
+            $this->payment_rows[$i]['currency_code'] = $this->sale_currency;
         }
         $this->syncDefaultCashPayment();
     }
 
-    protected function paymentAmountInSaleCurrency(array $row): float
+    /**
+     * Catalog prices are defined in the default currency only — never convert.
+     * When selling in another currency, keep entered prices; restore catalog prices when back to default.
+     */
+    protected function applyCatalogPricesForSaleCurrency(): void
     {
-        $amount = (float) ($row['amount'] ?? 0);
-        $from = strtoupper((string) ($row['currency_code'] ?? $this->sale_currency));
-        if ($from === '' || $from === strtoupper($this->sale_currency)) {
-            return $amount;
-        }
-        $tenant = app(TenantManager::class)->tenant();
-        if (! $tenant) {
-            return $amount;
-        }
-
-        return app(TenantCurrencyService::class)->convert($tenant, $amount, $from, $this->sale_currency);
-    }
-
-    protected function convertFromDefault(float $amountInDefault): float
-    {
-        $tenant = app(TenantManager::class)->tenant();
-        if (! $tenant || strtoupper($this->sale_currency) === strtoupper($this->default_currency)) {
-            return round($amountInDefault, 2);
-        }
-
-        return app(TenantCurrencyService::class)->convert(
-            $tenant,
-            $amountInDefault,
-            $this->default_currency,
-            $this->sale_currency
-        );
-    }
-
-    protected function convertToDefault(float $amountInSaleCurrency): float
-    {
-        $tenant = app(TenantManager::class)->tenant();
-        if (! $tenant || strtoupper($this->sale_currency) === strtoupper($this->default_currency)) {
-            return round($amountInSaleCurrency, 2);
-        }
-
-        return app(TenantCurrencyService::class)->convert(
-            $tenant,
-            $amountInSaleCurrency,
-            $this->sale_currency,
-            $this->default_currency
-        );
-    }
-
-    protected function repriceCartForSaleCurrency(): void
-    {
+        $useCatalog = $this->usesCatalogPrices;
         foreach ($this->cart as $i => $item) {
-            $base = isset($item['base_unit_price'])
-                ? (float) $item['base_unit_price']
-                : (float) ($item['unit_price'] ?? 0);
-            $this->cart[$i]['base_unit_price'] = (string) $base;
-            $price = $this->convertFromDefault($base);
-            $this->cart[$i]['unit_price'] = (string) $price;
-            $qty = (float) ($item['quantity'] ?? 0);
-            $this->cart[$i]['line_total'] = (string) round($qty * $price, 2);
+            if ($useCatalog && isset($item['base_unit_price'])) {
+                $price = (float) $item['base_unit_price'];
+                $this->cart[$i]['unit_price'] = (string) $price;
+                $qty = (float) ($item['quantity'] ?? 0);
+                $this->cart[$i]['line_total'] = (string) round($qty * $price, 2);
+            }
+            // Non-default currency: leave unit_price as cashier-entered (no FX).
         }
     }
 
@@ -253,7 +219,6 @@ class SalesForm extends Component
                 'name' => 'XOF',
                 'symbol' => null,
                 'is_default' => true,
-                'exchange_rate_to_default' => 1.0,
             ]];
             $this->default_currency = 'XOF';
             $this->sale_currency = 'XOF';
@@ -436,7 +401,8 @@ class SalesForm extends Component
         $unitName = $variant['unit_name'] ?? 'pc';
         $conversionFactor = (string) ($variant['conversion_factor'] ?? 1);
         $basePrice = (float) ($variant['price'] ?? '0');
-        $price = $this->convertFromDefault($basePrice);
+        // Catalog price only when sale currency = default. Otherwise cashier enters price (no FX).
+        $price = $this->usesCatalogPrices ? $basePrice : 0.0;
         $meta = is_array($item?->metadata ?? null) ? $item->metadata : [];
         $requiresPrescription = ! empty($meta['requires_prescription']);
 
@@ -618,8 +584,9 @@ class SalesForm extends Component
             return;
         }
         $this->cart[$index]['unit_price'] = (string) $price;
-        // Manual override: treat entered price as sale-currency; keep base for currency switches.
-        $this->cart[$index]['base_unit_price'] = (string) $this->convertToDefault($price);
+        if ($this->usesCatalogPrices) {
+            $this->cart[$index]['base_unit_price'] = (string) $price;
+        }
         $qty = (float) ($this->cart[$index]['quantity'] ?? 1);
         $this->cart[$index]['line_total'] = (string) round($qty * $price, 2);
         $this->syncDefaultCashPayment();
@@ -1497,14 +1464,23 @@ class SalesForm extends Component
         }
 
         if ($creditAmount > 0 && $this->client_id) {
+            // Client credit ledger is in the default currency only (no FX conversion).
+            if (! $this->usesCatalogPrices) {
+                session()->flash(
+                    'error',
+                    'Le crédit client n’est disponible qu’en devise par défaut ('.$this->default_currency.'). '
+                    .'Enregistrez la vente en '.$this->default_currency.' ou encaissez sans crédit.'
+                );
+
+                return;
+            }
             $clientsApi = app(ClientsApi::class);
-            $creditInDefault = $this->convertToDefault($creditAmount);
-            if (!$clientsApi->canMakePurchase((int) $this->client_id, $creditInDefault)) {
+            if (!$clientsApi->canMakePurchase((int) $this->client_id, $creditAmount)) {
                 $client = Client::on('tenant')->find($this->client_id);
                 $limit = $client ? (float) $client->credit_limit : 0;
                 $balance = $client ? (float) $client->current_balance : 0;
                 $defLabel = TenantCurrencyService::label($this->default_currency);
-                session()->flash('error', 'Limite de crédit dépassée. Solde actuel : ' . fmt_money($balance) . ' ' . $defLabel . ', limite : ' . fmt_money($limit) . ' ' . $defLabel . '. Crédit demandé : ' . fmt_money($creditInDefault) . ' ' . $defLabel . '.');
+                session()->flash('error', 'Limite de crédit dépassée. Solde actuel : ' . fmt_money($balance) . ' ' . $defLabel . ', limite : ' . fmt_money($limit) . ' ' . $defLabel . '. Crédit demandé : ' . fmt_money($creditAmount) . ' ' . $defLabel . '.');
                 return;
             }
         }
@@ -1557,13 +1533,14 @@ class SalesForm extends Component
                 $sale->discount_percent = !empty($this->discount_percent) ? (float) $this->discount_percent : null;
                 $sale->total = $this->total;
                 if (Schema::connection('tenant')->hasColumn('sales', 'currency_code')) {
-                    $tenant = app(TenantManager::class)->tenant();
-                    $rate = $tenant
-                        ? app(TenantCurrencyService::class)->rateToDefault($tenant, $this->sale_currency)
-                        : 1.0;
                     $sale->currency_code = strtoupper($this->sale_currency);
-                    $sale->exchange_rate_to_default = $rate;
-                    $sale->total_in_default = $this->convertToDefault((float) $this->total);
+                    if (Schema::connection('tenant')->hasColumn('sales', 'exchange_rate_to_default')) {
+                        $sale->exchange_rate_to_default = 1;
+                    }
+                    if (Schema::connection('tenant')->hasColumn('sales', 'total_in_default')) {
+                        // No FX: only filled when sale is in default currency.
+                        $sale->total_in_default = $this->usesCatalogPrices ? (float) $this->total : null;
+                    }
                 }
                 $sale->created_by = auth('tenant')->id();
                 if (Schema::connection('tenant')->hasColumn('sales', 'store_id')) {
@@ -1593,20 +1570,13 @@ class SalesForm extends Component
         $tillCollected = 0.0;
         $cashPosted = 0.0;
         $cashFailed = 0.0;
-        $tenant = app(TenantManager::class)->tenant();
-        $currencySvc = app(TenantCurrencyService::class);
+        $saleCurrency = strtoupper($this->sale_currency);
         foreach ($this->payment_rows as $row) {
             $amount = (float) ($row['amount'] ?? 0);
             if ($amount <= 0) {
                 continue;
             }
             $method = $row['method'] ?? 'cash';
-            $payCurrency = strtoupper((string) ($row['currency_code'] ?? $this->sale_currency));
-            $payRate = $tenant ? $currencySvc->rateToDefault($tenant, $payCurrency) : 1.0;
-            $amountInDefault = $tenant
-                ? $currencySvc->convert($tenant, $amount, $payCurrency, $this->default_currency)
-                : $amount;
-            $amountInSale = $this->paymentAmountInSaleCurrency($row);
 
             $payment = new Payment();
             $payment->sale_id = $sale->id;
@@ -1615,24 +1585,27 @@ class SalesForm extends Component
             $payment->transaction_reference = trim($row['transaction_reference'] ?? '');
             $payment->amount = $amount;
             if (Schema::connection('tenant')->hasColumn('payments', 'currency_code')) {
-                $payment->currency_code = $payCurrency;
-                $payment->exchange_rate_to_default = $payRate;
-                $payment->amount_in_default = $amountInDefault;
+                // Payment always in the sale currency — no mixed FX on one ticket.
+                $payment->currency_code = $saleCurrency;
+                if (Schema::connection('tenant')->hasColumn('payments', 'exchange_rate_to_default')) {
+                    $payment->exchange_rate_to_default = 1;
+                }
+                if (Schema::connection('tenant')->hasColumn('payments', 'amount_in_default')) {
+                    $payment->amount_in_default = $this->usesCatalogPrices ? $amount : null;
+                }
             }
             $payment->received_by = $userId;
             $payment->save();
 
-            // Everything except credit impacts till accounting.
             if ($method !== 'credit') {
-                $tillCollected += $amountInSale;
+                $tillCollected += $amount;
             }
 
-            // Auto-capture caisse : seules les espèces alimentent le tiroir physique.
             if ($method === 'cash') {
                 $posted = \App\Support\CashLedger::recordIn(
                     \App\Support\CashLedger::SALE_CASH_IN,
-                    $amountInDefault,
-                    'Encaissement vente ' . $sale->sale_number . ' (' . TenantCurrencyService::label($payCurrency) . ')',
+                    $amount,
+                    'Encaissement vente ' . $sale->sale_number . ' (' . $curLabel . ')',
                     'sale',
                     Payment::class,
                     (int) $payment->id,
@@ -1640,37 +1613,35 @@ class SalesForm extends Component
                     [
                         'sale_id' => $sale->id,
                         'client_id' => $sale->client_id,
-                        'currency_code' => $payCurrency,
-                        'amount_original' => $amount,
+                        'currency_code' => $saleCurrency,
                     ],
                     $userId
                 );
                 if ($posted) {
-                    $cashPosted += $amountInDefault;
+                    $cashPosted += $amount;
                 } else {
-                    $cashFailed += $amountInDefault;
+                    $cashFailed += $amount;
                 }
             }
 
-            if ($method === 'credit' && $this->client_id) {
+            if ($method === 'credit' && $this->client_id && $this->usesCatalogPrices) {
                 $client = Client::on('tenant')->find($this->client_id);
                 if ($client) {
-                    $client->current_balance += $amountInDefault;
+                    $client->current_balance += $amount;
                     $client->save();
                 }
             }
         }
 
-        $defLabel = TenantCurrencyService::label($this->default_currency);
         $successMsg = 'Vente enregistrée: ' . $saleNumber . ' (' . $curLabel . ')';
         if ($cashPosted > 0) {
-            $successMsg .= ' — ' . fmt_money($cashPosted) . ' ' . $defLabel . ' ajoutés à la caisse.';
+            $successMsg .= ' — ' . fmt_money($cashPosted) . ' ' . $curLabel . ' ajoutés à la caisse.';
         }
         session()->flash('success', $successMsg);
         if ($cashFailed > 0) {
             session()->flash(
                 'error',
-                'Attention : ' . fmt_money($cashFailed) . ' ' . $defLabel . ' en espèces n\'ont pas pu être enregistrés en caisse. Vérifiez que le module Caisse est actif et qu\'une session est ouverte.'
+                'Attention : ' . fmt_money($cashFailed) . ' ' . $curLabel . ' en espèces n\'ont pas pu être enregistrés en caisse. Vérifiez que le module Caisse est actif et qu\'une session est ouverte.'
             );
         }
         $this->redirect(route('tenant.sales.show', [$sale->id, 'tenant' => $this->tenantCode()]), navigate: true);
