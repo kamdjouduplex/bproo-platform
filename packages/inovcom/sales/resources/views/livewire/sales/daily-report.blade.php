@@ -7,7 +7,7 @@
 <div class="page-body">
     <section class="card" style="margin-bottom: 16px;">
         <div class="table-toolbar" style="flex-wrap: wrap; gap: 12px;">
-            <div class="table-title">Médicaments / articles vendus</div>
+            <div class="table-title">Rapport journalier</div>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <input class="input input-sm" type="date" wire:model.live="date" style="width: 160px;">
                 <button type="button" class="btn btn-secondary btn-sm" wire:click="setToday">Aujourd'hui</button>
@@ -24,7 +24,7 @@
             </div>
         </div>
         <p style="margin: 0; color: #64748b; font-size: 13px;">
-            {{ $salesCount }} vente(s) le {{ \Illuminate\Support\Carbon::parse($date)->format('d/m/Y') }}.
+            {{ $salesCount }} vente(s) · {{ $detailLines->count() }} ligne(s) article le {{ \Illuminate\Support\Carbon::parse($date)->format('d/m/Y') }}.
             Totaux séparés par devise (aucune conversion).
         </p>
     </section>
@@ -48,36 +48,70 @@
         @endif
     </section>
 
-    <section class="card app-table-card">
+    <section class="card app-table-card" style="margin-bottom: 16px;">
         <div class="table-toolbar">
-            <div class="table-title">Détail articles</div>
+            <div class="table-title">1. Liste des ventes</div>
         </div>
         <div class="table-scroll">
             <table>
                 <thead>
                     <tr>
-                        <th>Article</th>
-                        <th>Réf.</th>
-                        <th>Qté</th>
+                        <th>N° vente</th>
+                        <th>Client</th>
+                        <th>Vendeur</th>
                         <th>Devise</th>
-                        <th>Montant</th>
+                        <th>Total</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach ($lines as $line)
+                    @forelse ($sales as $sale)
+                        @php $code = strtoupper((string) ($sale->currency_code ?: $defaultCurrency)); @endphp
                         <tr>
+                            <td><strong>{{ $sale->sale_number }}</strong></td>
+                            <td>{{ $sale->client?->name ?? 'Client occasionnel' }}</td>
+                            <td>{{ $sale->creator?->name ?? '—' }}</td>
+                            <td>{{ \App\Services\TenantCurrencyService::label($code) }}</td>
+                            <td><strong>{{ fmt_money($sale->total) }}</strong></td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="5">Aucune vente pour cette date.</td></tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="card app-table-card">
+        <div class="table-toolbar">
+            <div class="table-title">2. Détail des articles</div>
+        </div>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>N° vente</th>
+                        <th>Article</th>
+                        <th>Réf.</th>
+                        <th>Qté</th>
+                        <th>P.U.</th>
+                        <th>Montant</th>
+                        <th>Devise</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($detailLines as $line)
+                        <tr>
+                            <td><strong>{{ $line['sale_number'] }}</strong></td>
                             <td>{{ $line['item_name'] }}</td>
                             <td>{{ $line['item_sku'] ?: '—' }}</td>
                             <td>{{ fmt_num($line['quantity']) }}</td>
+                            <td>{{ fmt_money($line['unit_price']) }}</td>
+                            <td><strong>{{ fmt_money($line['line_total']) }}</strong></td>
                             <td>{{ $line['currency_label'] }}</td>
-                            <td><strong>{{ fmt_money($line['amount']) }}</strong></td>
                         </tr>
-                    @endforeach
-                    @if ($lines->isEmpty())
-                        <tr>
-                            <td colspan="5">Aucun article vendu pour cette date.</td>
-                        </tr>
-                    @endif
+                    @empty
+                        <tr><td colspan="7">Aucun article vendu pour cette date.</td></tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>

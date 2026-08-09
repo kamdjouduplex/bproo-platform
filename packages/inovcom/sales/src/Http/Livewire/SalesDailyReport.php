@@ -5,7 +5,6 @@ namespace InovCom\Sales\Http\Livewire;
 use App\Services\TenantCurrencyService;
 use App\Services\TenantManager;
 use InovCom\Sales\Models\Sale;
-use InovCom\Sales\Models\SaleLine;
 use Illuminate\Support\Facades\Schema;
 use Livewire\Component;
 
@@ -24,7 +23,7 @@ class SalesDailyReport extends Component
     }
 
     /**
-     * @return array{lines: \Illuminate\Support\Collection, totalsByCurrency: array<string,float>, salesCount: int, defaultCurrency: string}
+     * @return array<string, mixed>
      */
     protected function reportData(): array
     {
@@ -35,7 +34,9 @@ class SalesDailyReport extends Component
 
         $sales = Sale::query()
             ->whereDate('sale_date', $this->date)
-            ->get(['id', 'currency_code', 'total']);
+            ->with(['lines', 'client', 'creator'])
+            ->orderBy('id')
+            ->get();
 
         $totalsByCurrency = [];
         foreach ($sales as $sale) {
@@ -43,38 +44,26 @@ class SalesDailyReport extends Component
             $totalsByCurrency[$code] = ($totalsByCurrency[$code] ?? 0) + (float) $sale->total;
         }
 
-        $saleIds = $sales->pluck('id')->all();
-        $lines = collect();
-        if ($saleIds !== []) {
-            $lines = SaleLine::query()
-                ->whereIn('sale_id', $saleIds)
-                ->with('sale:id,sale_number,currency_code,sale_date')
-                ->orderBy('item_name')
-                ->get()
-                ->groupBy(function (SaleLine $line) use ($defaultCurrency) {
-                    $code = strtoupper((string) ($line->sale?->currency_code ?: $defaultCurrency));
-
-                    return $line->item_id.'|'.$line->item_name.'|'.$code;
-                })
-                ->map(function ($group) use ($defaultCurrency) {
-                    $first = $group->first();
-                    $code = strtoupper((string) ($first->sale?->currency_code ?: $defaultCurrency));
-
-                    return [
-                        'item_name' => $first->item_name,
-                        'item_sku' => $first->item_sku,
-                        'currency_code' => $code,
-                        'currency_label' => TenantCurrencyService::label($code),
-                        'quantity' => round($group->sum(fn ($l) => (float) $l->quantity), 3),
-                        'amount' => round($group->sum(fn ($l) => (float) $l->line_total), 2),
-                    ];
-                })
-                ->sortBy(['item_name', 'currency_code'])
-                ->values();
+        $detailLines = collect();
+        foreach ($sales as $sale) {
+            $code = strtoupper((string) ($sale->currency_code ?: $defaultCurrency));
+            foreach ($sale->lines as $line) {
+                $detailLines->push([
+                    'sale_number' => $sale->sale_number,
+                    'item_name' => $line->item_name,
+                    'item_sku' => $line->item_sku,
+                    'quantity' => (float) $line->quantity,
+                    'unit_price' => (float) $line->unit_price,
+                    'line_total' => (float) $line->line_total,
+                    'currency_code' => $code,
+                    'currency_label' => TenantCurrencyService::label($code),
+                ]);
+            }
         }
 
         return [
-            'lines' => $lines,
+            'sales' => $sales,
+            'detailLines' => $detailLines,
             'totalsByCurrency' => $totalsByCurrency,
             'salesCount' => $sales->count(),
             'defaultCurrency' => $defaultCurrency,
@@ -89,7 +78,7 @@ class SalesDailyReport extends Component
         return view('inovcom-sales::livewire.sales.daily-report', $data)
             ->layout('layouts.app', [
                 'title' => 'Rapport ventes du jour',
-                'subtitle' => 'Médicaments / articles vendus',
+                'subtitle' => 'Liste des ventes et détail articles',
             ]);
     }
 }

@@ -7,7 +7,6 @@ use App\Services\TenantCurrencyService;
 use App\Services\TenantManager;
 use App\Support\PrintDocument;
 use InovCom\Sales\Models\Sale;
-use InovCom\Sales\Models\SaleLine;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -24,7 +23,7 @@ class DailySalesPrintController
 
         $sales = Sale::query()
             ->whereDate('sale_date', $date)
-            ->with(['lines', 'payments', 'client'])
+            ->with(['lines', 'client', 'creator'])
             ->orderBy('id')
             ->get();
 
@@ -34,33 +33,21 @@ class DailySalesPrintController
             $totalsByCurrency[$code] = ($totalsByCurrency[$code] ?? 0) + (float) $sale->total;
         }
 
-        $saleIds = $sales->pluck('id')->all();
-        $aggregated = collect();
-        if ($saleIds !== []) {
-            $aggregated = SaleLine::query()
-                ->whereIn('sale_id', $saleIds)
-                ->with('sale:id,currency_code')
-                ->get()
-                ->groupBy(function (SaleLine $line) use ($defaultCurrency) {
-                    $code = strtoupper((string) ($line->sale?->currency_code ?: $defaultCurrency));
-
-                    return $line->item_id.'|'.$line->item_name.'|'.$code;
-                })
-                ->map(function ($group) use ($defaultCurrency) {
-                    $first = $group->first();
-                    $code = strtoupper((string) ($first->sale?->currency_code ?: $defaultCurrency));
-
-                    return [
-                        'item_name' => $first->item_name,
-                        'item_sku' => $first->item_sku,
-                        'currency_code' => $code,
-                        'currency_label' => TenantCurrencyService::label($code),
-                        'quantity' => round($group->sum(fn ($l) => (float) $l->quantity), 3),
-                        'amount' => round($group->sum(fn ($l) => (float) $l->line_total), 2),
-                    ];
-                })
-                ->sortBy(['item_name', 'currency_code'])
-                ->values();
+        $detailLines = collect();
+        foreach ($sales as $sale) {
+            $code = strtoupper((string) ($sale->currency_code ?: $defaultCurrency));
+            foreach ($sale->lines as $line) {
+                $detailLines->push([
+                    'sale_number' => $sale->sale_number,
+                    'item_name' => $line->item_name,
+                    'item_sku' => $line->item_sku,
+                    'quantity' => (float) $line->quantity,
+                    'unit_price' => (float) $line->unit_price,
+                    'line_total' => (float) $line->line_total,
+                    'currency_code' => $code,
+                    'currency_label' => TenantCurrencyService::label($code),
+                ]);
+            }
         }
 
         $printContext = PrintDocument::context(
@@ -73,7 +60,7 @@ class DailySalesPrintController
         return view('inovcom-sales::print.daily-report', array_merge([
             'date' => $date,
             'sales' => $sales,
-            'lines' => $aggregated,
+            'detailLines' => $detailLines,
             'totalsByCurrency' => $totalsByCurrency,
             'settings' => $settings,
             'defaultCurrency' => $defaultCurrency,
