@@ -3,6 +3,8 @@
 namespace InovCom\Sales\Http\Livewire;
 
 use App\Services\StoreContextService;
+use App\Services\TenantCurrencyService;
+use App\Services\TenantManager;
 use InovCom\Clients\Models\Client;
 use InovCom\Items\Models\Item;
 use InovCom\Items\Services\ItemSetService;
@@ -31,6 +33,14 @@ class SalesForm extends Component
     public string $discount_amount = '0';
     public string $discount_percent = '';
     public bool $showDiscount = false;
+
+    /** Sale currency (one of tenant enabled currencies). Catalog prices are in default currency. */
+    public string $sale_currency = 'XOF';
+
+    /** @var list<array{code:string,name:string,symbol:?string,is_default:bool,exchange_rate_to_default:float}> */
+    public array $enabledCurrencies = [];
+
+    public string $default_currency = 'XOF';
 
     /** POS ordonnance modal (only when prescriptions module + Rx products in cart). */
     public bool $showRxModal = false;
@@ -83,6 +93,7 @@ class SalesForm extends Component
         $this->payment_rows[] = [
             'method' => 'cash',
             'amount' => '0',
+            'currency_code' => $this->sale_currency,
             'transaction_reference' => '',
         ];
     }
@@ -102,6 +113,7 @@ class SalesForm extends Component
         $this->payment_rows[] = [
             'method' => $method,
             'amount' => (string) round($remaining, 2),
+            'currency_code' => $this->sale_currency,
             'transaction_reference' => '',
         ];
     }
@@ -119,14 +131,16 @@ class SalesForm extends Component
             return;
         }
         $this->payment_rows[0]['amount'] = (string) round($this->total, 2);
+        $this->payment_rows[0]['currency_code'] = $this->sale_currency;
     }
 
     public function getTotalAllocatedProperty(): float
     {
         $sum = 0;
         foreach ($this->payment_rows as $row) {
-            $sum += (float) ($row['amount'] ?? 0);
+            $sum += $this->paymentAmountInSaleCurrency($row);
         }
+
         return round($sum, 2);
     }
 
@@ -140,14 +154,127 @@ class SalesForm extends Component
         $sum = 0;
         foreach ($this->payment_rows as $row) {
             if (($row['method'] ?? '') === 'credit') {
-                $sum += (float) ($row['amount'] ?? 0);
+                $sum += $this->paymentAmountInSaleCurrency($row);
             }
         }
+
         return round($sum, 2);
+    }
+
+    public function getCurrencyLabelProperty(): string
+    {
+        return TenantCurrencyService::label($this->sale_currency);
+    }
+
+    public function updatedSaleCurrency(?string $value = null): void
+    {
+        $code = strtoupper((string) ($value ?: $this->sale_currency));
+        $allowed = collect($this->enabledCurrencies)->pluck('code')->all();
+        if ($allowed !== [] && ! in_array($code, $allowed, true)) {
+            $this->sale_currency = $this->default_currency;
+
+            return;
+        }
+        $this->sale_currency = $code;
+        $this->repriceCartForSaleCurrency();
+        foreach ($this->payment_rows as $i => $row) {
+            if (empty($row['currency_code']) || count($this->payment_rows) === 1) {
+                $this->payment_rows[$i]['currency_code'] = $this->sale_currency;
+            }
+        }
+        $this->syncDefaultCashPayment();
+    }
+
+    protected function paymentAmountInSaleCurrency(array $row): float
+    {
+        $amount = (float) ($row['amount'] ?? 0);
+        $from = strtoupper((string) ($row['currency_code'] ?? $this->sale_currency));
+        if ($from === '' || $from === strtoupper($this->sale_currency)) {
+            return $amount;
+        }
+        $tenant = app(TenantManager::class)->tenant();
+        if (! $tenant) {
+            return $amount;
+        }
+
+        return app(TenantCurrencyService::class)->convert($tenant, $amount, $from, $this->sale_currency);
+    }
+
+    protected function convertFromDefault(float $amountInDefault): float
+    {
+        $tenant = app(TenantManager::class)->tenant();
+        if (! $tenant || strtoupper($this->sale_currency) === strtoupper($this->default_currency)) {
+            return round($amountInDefault, 2);
+        }
+
+        return app(TenantCurrencyService::class)->convert(
+            $tenant,
+            $amountInDefault,
+            $this->default_currency,
+            $this->sale_currency
+        );
+    }
+
+    protected function convertToDefault(float $amountInSaleCurrency): float
+    {
+        $tenant = app(TenantManager::class)->tenant();
+        if (! $tenant || strtoupper($this->sale_currency) === strtoupper($this->default_currency)) {
+            return round($amountInSaleCurrency, 2);
+        }
+
+        return app(TenantCurrencyService::class)->convert(
+            $tenant,
+            $amountInSaleCurrency,
+            $this->sale_currency,
+            $this->default_currency
+        );
+    }
+
+    protected function repriceCartForSaleCurrency(): void
+    {
+        foreach ($this->cart as $i => $item) {
+            $base = isset($item['base_unit_price'])
+                ? (float) $item['base_unit_price']
+                : (float) ($item['unit_price'] ?? 0);
+            $this->cart[$i]['base_unit_price'] = (string) $base;
+            $price = $this->convertFromDefault($base);
+            $this->cart[$i]['unit_price'] = (string) $price;
+            $qty = (float) ($item['quantity'] ?? 0);
+            $this->cart[$i]['line_total'] = (string) round($qty * $price, 2);
+        }
+    }
+
+    protected function bootCurrencies(): void
+    {
+        $tenant = app(TenantManager::class)->tenant();
+        if (! $tenant) {
+            $this->enabledCurrencies = [[
+                'code' => 'XOF',
+                'name' => 'XOF',
+                'symbol' => null,
+                'is_default' => true,
+                'exchange_rate_to_default' => 1.0,
+            ]];
+            $this->default_currency = 'XOF';
+            $this->sale_currency = 'XOF';
+
+            return;
+        }
+
+        $svc = app(TenantCurrencyService::class);
+        $svc->ensureDefaultRow($tenant);
+        $this->enabledCurrencies = $svc->enabledFor($tenant)->all();
+        $this->default_currency = $svc->defaultCode($tenant);
+        $codes = collect($this->enabledCurrencies)->pluck('code')->all();
+        if ($this->sale_currency === '' || ! in_array($this->sale_currency, $codes, true)) {
+            $this->sale_currency = $this->default_currency;
+        }
     }
 
     public function mount(?Sale $sale = null): void
     {
+        $this->bootCurrencies();
+
         if ($sale) {
             $this->saleId = $sale->id;
             $this->client_id = $sale->client_id;
@@ -157,6 +284,9 @@ class SalesForm extends Component
             $this->discount_amount = (string) $sale->discount_amount;
             $this->discount_percent = $sale->discount_percent ? (string) $sale->discount_percent : '';
             $this->showDiscount = $sale->discount_amount > 0 || $sale->discount_percent > 0;
+            if (! empty($sale->currency_code)) {
+                $this->sale_currency = strtoupper((string) $sale->currency_code);
+            }
 
             foreach ($sale->lines as $line) {
                 $this->cart[] = [
@@ -168,6 +298,7 @@ class SalesForm extends Component
                     'conversion_factor' => (string) ($line->conversion_factor ?? 1),
                     'quantity' => (string) $line->quantity,
                     'unit_price' => (string) $line->unit_price,
+                    'base_unit_price' => (string) $line->unit_price,
                     'line_total' => (string) $line->line_total,
                 ];
             }
@@ -190,8 +321,9 @@ class SalesForm extends Component
                 $this->discount_percent = (string) ($payload['discount_percent'] ?? '');
                 $this->showDiscount = (bool) ($payload['showDiscount'] ?? false);
                 $this->cart = $payload['cart'] ?? [];
+                $this->sale_currency = strtoupper((string) ($payload['sale_currency'] ?? $this->default_currency));
                 $this->payment_rows = $payload['payment_rows'] ?? [
-                    ['method' => 'cash', 'amount' => '0', 'transaction_reference' => ''],
+                    ['method' => 'cash', 'amount' => '0', 'currency_code' => $this->sale_currency, 'transaction_reference' => ''],
                 ];
                 $this->prescription_id = isset($payload['prescription_id']) ? (int) $payload['prescription_id'] : null;
                 if ($this->prescription_id) {
@@ -208,7 +340,7 @@ class SalesForm extends Component
 
         if (empty($this->payment_rows)) {
             $this->payment_rows = [
-                ['method' => 'cash', 'amount' => '0', 'transaction_reference' => ''],
+                ['method' => 'cash', 'amount' => '0', 'currency_code' => $this->sale_currency, 'transaction_reference' => ''],
             ];
             $this->syncDefaultCashPayment();
         }
@@ -303,7 +435,8 @@ class SalesForm extends Component
         $itemSku = $variant['sku'] ?? null;
         $unitName = $variant['unit_name'] ?? 'pc';
         $conversionFactor = (string) ($variant['conversion_factor'] ?? 1);
-        $price = (string) ($variant['price'] ?? '0');
+        $basePrice = (float) ($variant['price'] ?? '0');
+        $price = $this->convertFromDefault($basePrice);
         $meta = is_array($item?->metadata ?? null) ? $item->metadata : [];
         $requiresPrescription = ! empty($meta['requires_prescription']);
 
@@ -322,8 +455,9 @@ class SalesForm extends Component
                 'unit_name' => $unitName,
                 'conversion_factor' => $conversionFactor,
                 'quantity' => '1',
-                'unit_price' => $price,
-                'line_total' => $price,
+                'base_unit_price' => (string) $basePrice,
+                'unit_price' => (string) $price,
+                'line_total' => (string) $price,
                 'is_set' => ! empty($variant['is_set']),
                 'requires_prescription' => $requiresPrescription,
                 'batch_tracked_flag' => ! empty($meta['batch_tracked']),
@@ -484,6 +618,8 @@ class SalesForm extends Component
             return;
         }
         $this->cart[$index]['unit_price'] = (string) $price;
+        // Manual override: treat entered price as sale-currency; keep base for currency switches.
+        $this->cart[$index]['base_unit_price'] = (string) $this->convertToDefault($price);
         $qty = (float) ($this->cart[$index]['quantity'] ?? 1);
         $this->cart[$index]['line_total'] = (string) round($qty * $price, 2);
         $this->syncDefaultCashPayment();
@@ -559,6 +695,7 @@ class SalesForm extends Component
             'discount_percent' => $this->discount_percent,
             'showDiscount' => $this->showDiscount,
             'payment_rows' => $this->payment_rows,
+            'sale_currency' => $this->sale_currency,
             'total' => $this->total,
         ];
 
@@ -607,8 +744,9 @@ class SalesForm extends Component
         $this->cart = [];
         $this->itemSearch = '';
         $this->searchResults = [];
+        $this->sale_currency = $this->default_currency;
         $this->payment_rows = [
-            ['method' => 'cash', 'amount' => '0', 'transaction_reference' => ''],
+            ['method' => 'cash', 'amount' => '0', 'currency_code' => $this->sale_currency, 'transaction_reference' => ''],
         ];
         $this->syncDefaultCashPayment();
     }
@@ -1346,8 +1484,9 @@ class SalesForm extends Component
 
         $totalDue = round($this->total, 2);
         $totalAllocated = $this->totalAllocated;
+        $curLabel = $this->currencyLabel;
         if (abs($totalAllocated - $totalDue) > 0.01) {
-            session()->flash('error', 'La somme des paiements (' . fmt_money($totalAllocated) . ' FCFA) doit être égale au total dû (' . fmt_money($totalDue) . ' FCFA).');
+            session()->flash('error', 'La somme des paiements (' . fmt_money($totalAllocated) . ' ' . $curLabel . ') doit être égale au total dû (' . fmt_money($totalDue) . ' ' . $curLabel . ').');
             return;
         }
 
@@ -1359,11 +1498,13 @@ class SalesForm extends Component
 
         if ($creditAmount > 0 && $this->client_id) {
             $clientsApi = app(ClientsApi::class);
-            if (!$clientsApi->canMakePurchase((int) $this->client_id, $creditAmount)) {
+            $creditInDefault = $this->convertToDefault($creditAmount);
+            if (!$clientsApi->canMakePurchase((int) $this->client_id, $creditInDefault)) {
                 $client = Client::on('tenant')->find($this->client_id);
                 $limit = $client ? (float) $client->credit_limit : 0;
                 $balance = $client ? (float) $client->current_balance : 0;
-                session()->flash('error', 'Limite de crédit dépassée. Solde actuel : ' . fmt_money($balance) . ' FCFA, limite : ' . fmt_money($limit) . ' FCFA. Crédit demandé : ' . fmt_money($creditAmount) . ' FCFA.');
+                $defLabel = TenantCurrencyService::label($this->default_currency);
+                session()->flash('error', 'Limite de crédit dépassée. Solde actuel : ' . fmt_money($balance) . ' ' . $defLabel . ', limite : ' . fmt_money($limit) . ' ' . $defLabel . '. Crédit demandé : ' . fmt_money($creditInDefault) . ' ' . $defLabel . '.');
                 return;
             }
         }
@@ -1415,6 +1556,15 @@ class SalesForm extends Component
                 $sale->discount_amount = $this->discount;
                 $sale->discount_percent = !empty($this->discount_percent) ? (float) $this->discount_percent : null;
                 $sale->total = $this->total;
+                if (Schema::connection('tenant')->hasColumn('sales', 'currency_code')) {
+                    $tenant = app(TenantManager::class)->tenant();
+                    $rate = $tenant
+                        ? app(TenantCurrencyService::class)->rateToDefault($tenant, $this->sale_currency)
+                        : 1.0;
+                    $sale->currency_code = strtoupper($this->sale_currency);
+                    $sale->exchange_rate_to_default = $rate;
+                    $sale->total_in_default = $this->convertToDefault((float) $this->total);
+                }
                 $sale->created_by = auth('tenant')->id();
                 if (Schema::connection('tenant')->hasColumn('sales', 'store_id')) {
                     $sale->store_id = app(StoreContextService::class)->currentStoreId();
@@ -1443,64 +1593,84 @@ class SalesForm extends Component
         $tillCollected = 0.0;
         $cashPosted = 0.0;
         $cashFailed = 0.0;
+        $tenant = app(TenantManager::class)->tenant();
+        $currencySvc = app(TenantCurrencyService::class);
         foreach ($this->payment_rows as $row) {
             $amount = (float) ($row['amount'] ?? 0);
             if ($amount <= 0) {
                 continue;
             }
             $method = $row['method'] ?? 'cash';
+            $payCurrency = strtoupper((string) ($row['currency_code'] ?? $this->sale_currency));
+            $payRate = $tenant ? $currencySvc->rateToDefault($tenant, $payCurrency) : 1.0;
+            $amountInDefault = $tenant
+                ? $currencySvc->convert($tenant, $amount, $payCurrency, $this->default_currency)
+                : $amount;
+            $amountInSale = $this->paymentAmountInSaleCurrency($row);
+
             $payment = new Payment();
             $payment->sale_id = $sale->id;
             $payment->method = $method;
             $payment->mobile_money_provider = in_array($method, ['orange_money', 'mtn_money'], true) ? $method : null;
             $payment->transaction_reference = trim($row['transaction_reference'] ?? '');
             $payment->amount = $amount;
+            if (Schema::connection('tenant')->hasColumn('payments', 'currency_code')) {
+                $payment->currency_code = $payCurrency;
+                $payment->exchange_rate_to_default = $payRate;
+                $payment->amount_in_default = $amountInDefault;
+            }
             $payment->received_by = $userId;
             $payment->save();
 
             // Everything except credit impacts till accounting.
             if ($method !== 'credit') {
-                $tillCollected += $amount;
+                $tillCollected += $amountInSale;
             }
 
             // Auto-capture caisse : seules les espèces alimentent le tiroir physique.
             if ($method === 'cash') {
                 $posted = \App\Support\CashLedger::recordIn(
                     \App\Support\CashLedger::SALE_CASH_IN,
-                    $amount,
-                    'Encaissement vente ' . $sale->sale_number,
+                    $amountInDefault,
+                    'Encaissement vente ' . $sale->sale_number . ' (' . TenantCurrencyService::label($payCurrency) . ')',
                     'sale',
                     Payment::class,
                     (int) $payment->id,
                     $sale->sale_number,
-                    ['sale_id' => $sale->id, 'client_id' => $sale->client_id],
+                    [
+                        'sale_id' => $sale->id,
+                        'client_id' => $sale->client_id,
+                        'currency_code' => $payCurrency,
+                        'amount_original' => $amount,
+                    ],
                     $userId
                 );
                 if ($posted) {
-                    $cashPosted += $amount;
+                    $cashPosted += $amountInDefault;
                 } else {
-                    $cashFailed += $amount;
+                    $cashFailed += $amountInDefault;
                 }
             }
 
             if ($method === 'credit' && $this->client_id) {
                 $client = Client::on('tenant')->find($this->client_id);
                 if ($client) {
-                    $client->current_balance += $amount;
+                    $client->current_balance += $amountInDefault;
                     $client->save();
                 }
             }
         }
 
-        $successMsg = 'Vente enregistrée: ' . $saleNumber;
+        $defLabel = TenantCurrencyService::label($this->default_currency);
+        $successMsg = 'Vente enregistrée: ' . $saleNumber . ' (' . $curLabel . ')';
         if ($cashPosted > 0) {
-            $successMsg .= ' — ' . fmt_money($cashPosted) . ' FCFA ajoutés à la caisse.';
+            $successMsg .= ' — ' . fmt_money($cashPosted) . ' ' . $defLabel . ' ajoutés à la caisse.';
         }
         session()->flash('success', $successMsg);
         if ($cashFailed > 0) {
             session()->flash(
                 'error',
-                'Attention : ' . fmt_money($cashFailed) . ' FCFA en espèces n\'ont pas pu être enregistrés en caisse. Vérifiez que le module Caisse est actif et qu\'une session est ouverte.'
+                'Attention : ' . fmt_money($cashFailed) . ' ' . $defLabel . ' en espèces n\'ont pas pu être enregistrés en caisse. Vérifiez que le module Caisse est actif et qu\'une session est ouverte.'
             );
         }
         $this->redirect(route('tenant.sales.show', [$sale->id, 'tenant' => $this->tenantCode()]), navigate: true);

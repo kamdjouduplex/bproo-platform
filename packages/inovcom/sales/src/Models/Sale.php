@@ -15,6 +15,9 @@ class Sale extends TenantModel
         'discount_amount',
         'discount_percent',
         'total',
+        'currency_code',
+        'exchange_rate_to_default',
+        'total_in_default',
         'notes',
         'store_id',
         'created_by',
@@ -26,7 +29,14 @@ class Sale extends TenantModel
         'discount_amount' => 'decimal:2',
         'discount_percent' => 'decimal:2',
         'total' => 'decimal:2',
+        'exchange_rate_to_default' => 'decimal:6',
+        'total_in_default' => 'decimal:2',
     ];
+
+    public function currencyLabel(): string
+    {
+        return \App\Services\TenantCurrencyService::label($this->currency_code);
+    }
 
     public function lines()
     {

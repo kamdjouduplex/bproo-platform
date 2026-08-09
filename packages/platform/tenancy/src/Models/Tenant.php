@@ -68,6 +68,11 @@ class Tenant extends Model
         return $this->hasMany(TenantSetting::class);
     }
 
+    public function currencies()
+    {
+        return $this->hasMany(TenantCurrency::class);
+    }
+
     /**
      * Subscriptions (current and history). One active subscription per tenant at a time.
      */

@@ -17,6 +17,11 @@ class TenancyServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $views = __DIR__.'/../../resources/views';
+        if (is_dir($views)) {
+            $this->loadViewsFrom($views, 'platform-tenancy');
+        }
+
         Route::middleware('api')
             ->group(__DIR__.'/../../routes/internal.php');
     }

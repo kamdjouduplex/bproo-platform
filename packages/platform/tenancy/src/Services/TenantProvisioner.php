@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Module;
 use App\Models\Tenant;
+use App\Services\TenantCurrencyService;
 use InovCom\Users\Models\Role;
 use InovCom\Users\Models\User;
 use Illuminate\Support\Facades\Artisan;
@@ -223,6 +224,12 @@ class TenantProvisioner
         $tenant->setSetting('timezone', config('inovcom.default_timezone', 'Africa/Douala'));
         $tenant->setSetting('tax_rate', '0');
         $tenant->setSetting('invoice_prefix', 'INV');
+
+        try {
+            app(TenantCurrencyService::class)->ensureDefaultRow($tenant);
+        } catch (\Throwable) {
+            // Catalog tables may not exist yet on older landlords; settings currency still works.
+        }
     }
 
     private function createAdminUser(Tenant $tenant, string $name, string $email, string $password): void

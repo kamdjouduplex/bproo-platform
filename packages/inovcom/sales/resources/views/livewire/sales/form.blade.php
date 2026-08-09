@@ -60,6 +60,9 @@
                     }
                 }
             }
+            $saleCur = $sale
+                ? (\App\Services\TenantCurrencyService::label($sale->currency_code ?: null) ?: 'FCFA')
+                : 'FCFA';
         @endphp
         <section class="card">
             <h2 class="card-title">Vente: {{ $sale->sale_number }}</h2>
@@ -77,12 +80,15 @@
                     @endif
                 </div>
                 <div>
-                    <p><strong>Sous-total:</strong> {{ fmt_money($sale->subtotal) }} FCFA</p>
-                    <p><strong>Remise:</strong> {{ fmt_money($sale->discount_amount) }} FCFA</p>
-                    <p><strong>Total:</strong> <strong>{{ fmt_money($sale->total) }} FCFA</strong></p>
+                    <p><strong>Sous-total:</strong> {{ fmt_money($sale->subtotal) }} {{ $saleCur }}</p>
+                    <p><strong>Remise:</strong> {{ fmt_money($sale->discount_amount) }} {{ $saleCur }}</p>
+                    <p><strong>Total:</strong> <strong>{{ fmt_money($sale->total) }} {{ $saleCur }}</strong></p>
+                    @if ($sale->currency_code)
+                        <p><strong>Devise:</strong> {{ $sale->currency_code }}</p>
+                    @endif
                     @if ($sale->totalReturned() > 0)
-                        <p><strong>Retours :</strong> −{{ fmt_money($sale->totalReturned()) }} FCFA</p>
-                        <p><strong>Net :</strong> <strong>{{ fmt_money($sale->netTotal()) }} FCFA</strong></p>
+                        <p><strong>Retours :</strong> −{{ fmt_money($sale->totalReturned()) }} {{ $saleCur }}</p>
+                        <p><strong>Net :</strong> <strong>{{ fmt_money($sale->netTotal()) }} {{ $saleCur }}</strong></p>
                     @endif
                     @if ($sale->isFullyReturned())
                         <p><span class="badge" style="background:#fef3c7;color:#92400e;">Vente intégralement retournée</span></p>
@@ -106,8 +112,8 @@
                             <tr>
                                 <td><x-item-label :reference="$line->item_sku" :name="$line->item_name" /></td>
                                 <td>{{ fmt_num($line->quantity) }}</td>
-                                <td>{{ fmt_money($line->unit_price) }} FCFA</td>
-                                <td>{{ fmt_money($line->line_total) }} FCFA</td>
+                                <td>{{ fmt_money($line->unit_price) }} {{ $saleCur }}</td>
+                                <td>{{ fmt_money($line->line_total) }} {{ $saleCur }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -158,7 +164,7 @@
                             @foreach ($sale->payments as $payment)
                                 <tr>
                                     <td>{{ $payment->method_label }}</td>
-                                    <td>{{ fmt_money($payment->amount) }} FCFA</td>
+                                    <td>{{ fmt_money($payment->amount) }} {{ \App\Services\TenantCurrencyService::label($payment->currency_code ?: $sale->currency_code) ?: $saleCur }}</td>
                                     <td>{{ $payment->transaction_reference ?? '-' }}</td>
                                     <td>{{ $payment->created_at->format('d/m/Y H:i') }}</td>
                                 </tr>
@@ -187,7 +193,7 @@
                                     <td>{{ $ret->return_number }}</td>
                                     <td>{{ $ret->return_date->format('d/m/Y') }}</td>
                                     <td>{{ \InovCom\Sales\Models\SaleReturn::typeLabel($ret->type) }}</td>
-                                    <td>{{ fmt_money($ret->total_refund) }} FCFA</td>
+                                    <td>{{ fmt_money($ret->total_refund) }} {{ $saleCur }}</td>
                                     <td>
                                         <a class="btn btn-secondary btn-sm" href="{{ route('tenant.sales.returns.show', ['saleReturn' => $ret->id, 'tenant' => $tenantCode]) }}">Voir</a>
                                     </td>
@@ -235,12 +241,30 @@
         </section>
     @else
         {{-- POS Interface --}}
+        @php
+            $cur = $this->currencyLabel;
+            $multiCurrency = count($enabledCurrencies) > 1;
+        @endphp
         <form wire:submit.prevent="save">
             <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px;">
                 {{-- Left: Cart and Items --}}
                 <div>
                     <section class="card">
-                        <h2 class="card-title">Recherche d'article</h2>
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom: 8px;">
+                            <h2 class="card-title" style="margin:0;">Recherche d'article</h2>
+                            @if ($multiCurrency)
+                                <label style="display:flex; align-items:center; gap:8px; font-size:13px;">
+                                    <span>Devise vente</span>
+                                    <select class="input input-sm" wire:model.live="sale_currency" style="width: auto; min-width: 110px;">
+                                        @foreach ($enabledCurrencies as $ec)
+                                            <option value="{{ $ec['code'] }}">{{ $ec['code'] }}</option>
+                                        @endforeach
+                                    </select>
+                                </label>
+                            @else
+                                <span style="font-size:12px; color:#64748b;">Devise : <strong>{{ $cur }}</strong></span>
+                            @endif
+                        </div>
                         <input class="input" 
                                wire:model.live.debounce.150ms="itemSearch" 
                                placeholder="{{ item_search_placeholder() }}" 
@@ -283,7 +307,7 @@
                                             </div>
                                             <div style="text-align: right; margin-left: 16px;">
                                                 <div style="font-weight: 600; color: #2563eb;">
-                                                    {{ fmt_money((float)($variant['price'] ?? 0)) }} FCFA
+                                                    {{ fmt_money((float)($variant['price'] ?? 0)) }} {{ \App\Services\TenantCurrencyService::label($default_currency) }}
                                                 </div>
                                                 <div style="font-size: 11px; color: #999;">
                                                     / {{ $variant['unit_name'] ?? 'pc' }}
@@ -371,12 +395,12 @@
                                                                wire:change="updateCartPrice({{ $index }}, $event.target.value)"
                                                                min="0" 
                                                                step="0.01" 
-                                                               style="width: 100px;"> FCFA
+                                                               style="width: 100px;"> {{ $cur }}
                                                     @else
-                                                        {{ fmt_money((float)($item['unit_price'] ?? 0)) }} FCFA
+                                                        {{ fmt_money((float)($item['unit_price'] ?? 0)) }} {{ $cur }}
                                                     @endif
                                                 </td>
-                                                <td>{{ fmt_money((float)($item['line_total'] ?? 0)) }} FCFA</td>
+                                                <td>{{ fmt_money((float)($item['line_total'] ?? 0)) }} {{ $cur }}</td>
                                                 <td>
                                                     <button type="button" class="btn btn-secondary btn-sm" wire:click="removeFromCart({{ $index }})">×</button>
                                                 </td>
@@ -516,17 +540,17 @@
                         <div style="margin-top: 20px; padding: 16px; background: #f5f5f5; border-radius: 4px;">
                             <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                                 <span>Sous-total:</span>
-                                <strong>{{ fmt_money($this->subtotal) }} FCFA</strong>
+                                <strong>{{ fmt_money($this->subtotal) }} {{ $cur }}</strong>
                             </div>
                             @if ($this->discount > 0)
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
                                     <span>Remise:</span>
-                                    <strong>-{{ fmt_money($this->discount) }} FCFA</strong>
+                                    <strong>-{{ fmt_money($this->discount) }} {{ $cur }}</strong>
                                 </div>
                             @endif
                             <div style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 2px solid #333; font-size: 18px;">
                                 <span><strong>TOTAL:</strong></span>
-                                <strong>{{ fmt_money($this->total) }} FCFA</strong>
+                                <strong>{{ fmt_money($this->total) }} {{ $cur }}</strong>
                             </div>
                         </div>
                     </section>
@@ -535,10 +559,10 @@
                         <h2 class="card-title">Paiement</h2>
 
                         <div style="margin-bottom: 12px; padding: 10px 12px; background: #f0f9ff; border-radius: 4px; font-size: 12px;">
-                            <strong>Total à payer:</strong> {{ fmt_money($this->total) }} FCFA
+                            <strong>Total à payer:</strong> {{ fmt_money($this->total) }} {{ $cur }}
                             @if ($this->total > 0)
-                                — <strong>Alloué:</strong> {{ fmt_money($this->totalAllocated) }} FCFA
-                                — <strong>Restant:</strong> <span style="{{ $this->remaining < 0 ? 'color: red;' : ($this->remaining > 0 ? 'color: #b45309;' : 'color: green;') }}">{{ fmt_money($this->remaining) }} FCFA</span>
+                                — <strong>Alloué:</strong> {{ fmt_money($this->totalAllocated) }} {{ $cur }}
+                                — <strong>Restant:</strong> <span style="{{ $this->remaining < 0 ? 'color: red;' : ($this->remaining > 0 ? 'color: #b45309;' : 'color: green;') }}">{{ fmt_money($this->remaining) }} {{ $cur }}</span>
                             @endif
                         </div>
                         <div class="table-scroll">
@@ -546,7 +570,10 @@
                                 <thead>
                                     <tr>
                                         <th style="font-size: 12px;">Méthode</th>
-                                        <th style="font-size: 12px;">Montant (FCFA)</th>
+                                        <th style="font-size: 12px;">Montant</th>
+                                        @if ($multiCurrency)
+                                            <th style="font-size: 12px;">Devise</th>
+                                        @endif
                                         <th style="font-size: 12px;">Réf. transaction (Orange/MTN)</th>
                                         <th></th>
                                     </tr>
@@ -564,6 +591,15 @@
                                             <td>
                                                 <input type="number" class="input input-sm" wire:model.live="payment_rows.{{ $index }}.amount" min="0" step="0.01" placeholder="0" style="width: 120px;">
                                             </td>
+                                            @if ($multiCurrency)
+                                                <td>
+                                                    <select class="input input-sm" wire:model.live="payment_rows.{{ $index }}.currency_code" style="min-width: 90px;">
+                                                        @foreach ($enabledCurrencies as $ec)
+                                                            <option value="{{ $ec['code'] }}">{{ $ec['code'] }}</option>
+                                                        @endforeach
+                                                    </select>
+                                                </td>
+                                            @endif
                                             <td>
                                                 @if (in_array($row['method'] ?? '', ['orange_money', 'mtn_money'], true))
                                                     <input type="text" class="input input-sm" wire:model="payment_rows.{{ $index }}.transaction_reference" placeholder="N° transaction" style="width: 140px;">
@@ -592,7 +628,7 @@
                             @endif
                         </div>
                         @if ($this->creditAmount > 0 && !$client_id)
-                            <p style="margin-top: 12px; color: #b45309;">⚠ Sélectionnez un client pour la partie crédit ({{ fmt_money($this->creditAmount) }} FCFA).</p>
+                            <p style="margin-top: 12px; color: #b45309;">⚠ Sélectionnez un client pour la partie crédit ({{ fmt_money($this->creditAmount) }} {{ $cur }}).</p>
                         @endif
                     </section>
 

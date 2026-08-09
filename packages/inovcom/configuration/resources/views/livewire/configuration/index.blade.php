@@ -63,14 +63,12 @@
                 @error('login_welcome_message') <span class="text-error">{{ $message }}</span> @enderror
             </div>
             <div>
-                <label class="label">Devise</label>
-                <select class="input" wire:model="currency">
-                    <option value="XOF">XOF (FCFA)</option>
-                    <option value="XAF">XAF</option>
-                    <option value="EUR">EUR</option>
-                    <option value="USD">USD</option>
-                </select>
-                @error('currency') <span class="text-error">{{ $message }}</span> @enderror
+                @include('platform-tenancy::partials.currency-config', [
+                    'currencyCatalog' => $currencyCatalog,
+                    'enabled_currency_codes' => $enabled_currency_codes,
+                    'default_currency_code' => $default_currency_code,
+                    'wireKey' => 'cfg',
+                ])
             </div>
             <div>
                 <label class="label">Langue</label>

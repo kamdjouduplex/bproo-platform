@@ -47,6 +47,10 @@
                 @if (\Illuminate\Support\Facades\Route::has('tenant.sales.returns.index'))
                     <a class="btn btn-secondary" href="{{ route('tenant.sales.returns.index', ['tenant' => $tenantCode]) }}">Retours</a>
                 @endif
+                <a class="btn btn-secondary" href="{{ route('tenant.sales.daily-report', ['tenant' => $tenantCode]) }}">Rapport du jour</a>
+                @if (\Illuminate\Support\Facades\Route::has('tenant.stock.index'))
+                    <a class="btn btn-secondary" href="{{ route('tenant.stock.index', ['tenant' => $tenantCode]) }}">Stock (imprimer)</a>
+                @endif
                 <a class="btn btn-primary" href="{{ route('tenant.sales.create', ['tenant' => $tenantCode]) }}">Nouvelle vente</a>
             </div>
         </div>
@@ -81,9 +85,9 @@
                                     <span class="badge badge-info">Gros</span>
                                 @endif
                             </td>
-                            <td>{{ fmt_money($sale->subtotal) }} FCFA</td>
-                            <td>{{ fmt_money($sale->discount_amount) }} FCFA</td>
-                            <td><strong>{{ fmt_money($sale->total) }} FCFA</strong></td>
+                            <td>{{ fmt_money($sale->subtotal) }} {{ \App\Services\TenantCurrencyService::label($sale->currency_code) ?: 'FCFA' }}</td>
+                            <td>{{ fmt_money($sale->discount_amount) }} {{ \App\Services\TenantCurrencyService::label($sale->currency_code) ?: 'FCFA' }}</td>
+                            <td><strong>{{ fmt_money($sale->total) }} {{ \App\Services\TenantCurrencyService::label($sale->currency_code) ?: 'FCFA' }}</strong></td>
                             <td>
                                 @if ($sale->isFullyPaid())
                                     <span class="badge badge-success">Payé</span>

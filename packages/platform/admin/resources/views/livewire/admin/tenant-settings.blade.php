@@ -2,10 +2,13 @@
     <section class="card">
         <h2 class="card-title">Paramètres généraux</h2>
         <div class="form-grid">
-            <div class="field">
-                <label class="field-label">Devise</label>
-                <input class="input" wire:model="currency" placeholder="XOF">
-            </div>
+            @include('platform-tenancy::partials.currency-config', [
+                'currencyCatalog' => $currencyCatalog,
+                'enabled_currency_codes' => $enabled_currency_codes,
+                'default_currency_code' => $default_currency_code,
+                'labelClass' => 'field-label',
+                'wireKey' => 'cc',
+            ])
             <div class="field">
                 <label class="field-label">Langue</label>
                 <select class="input" wire:model="locale">

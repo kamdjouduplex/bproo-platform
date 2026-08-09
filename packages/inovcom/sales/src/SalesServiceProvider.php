@@ -4,10 +4,12 @@ namespace InovCom\Sales;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use InovCom\Sales\Http\Controllers\DailySalesPrintController;
 use InovCom\Sales\Http\Controllers\SalePrintController;
 use InovCom\Sales\Http\Livewire\SaleReturnForm;
 use InovCom\Sales\Http\Livewire\SaleReturnShow;
 use InovCom\Sales\Http\Livewire\SaleReturnsIndex;
+use InovCom\Sales\Http\Livewire\SalesDailyReport;
 use InovCom\Sales\Http\Livewire\SalesIndex;
 use InovCom\Sales\Http\Livewire\SalesForm;
 use InovCom\Sales\Models\Sale;
@@ -44,6 +46,7 @@ class SalesServiceProvider extends ServiceProvider
 
         Livewire::component('inovcom-sales.sales-index', SalesIndex::class);
         Livewire::component('inovcom-sales.sales-form', SalesForm::class);
+        Livewire::component('inovcom-sales.sales-daily-report', SalesDailyReport::class);
         Livewire::component('inovcom-sales.sale-return-form', SaleReturnForm::class);
         Livewire::component('inovcom-sales.sale-return-show', SaleReturnShow::class);
         Livewire::component('inovcom-sales.sale-returns-index', SaleReturnsIndex::class);
@@ -62,6 +65,12 @@ class SalesServiceProvider extends ServiceProvider
                 Route::get('/sales', SalesIndex::class)
                     ->middleware(['module:sales'])
                     ->name('tenant.sales.index');
+                Route::get('/sales/daily-report', SalesDailyReport::class)
+                    ->middleware(['module:sales'])
+                    ->name('tenant.sales.daily-report');
+                Route::get('/sales/daily-report/print', DailySalesPrintController::class)
+                    ->middleware(['module:sales'])
+                    ->name('tenant.sales.daily-report.print');
                 Route::get('/sales/create', SalesForm::class)
                     ->middleware(['module:sales'])
                     ->name('tenant.sales.create');

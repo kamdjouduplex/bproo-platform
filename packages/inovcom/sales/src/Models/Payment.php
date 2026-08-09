@@ -21,13 +21,23 @@ class Payment extends TenantModel
         'mobile_money_provider',
         'transaction_reference',
         'amount',
+        'currency_code',
+        'exchange_rate_to_default',
+        'amount_in_default',
         'notes',
         'received_by',
     ];
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'exchange_rate_to_default' => 'decimal:6',
+        'amount_in_default' => 'decimal:2',
     ];
+
+    public function currencyLabel(): string
+    {
+        return \App\Services\TenantCurrencyService::label($this->currency_code);
+    }
 
     public function sale()
     {

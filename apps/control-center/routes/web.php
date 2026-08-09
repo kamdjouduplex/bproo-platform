@@ -12,6 +12,7 @@ use App\Livewire\Admin\ModuleShow;
 use App\Livewire\Admin\OpportunitiesIndex;
 use App\Livewire\Admin\PlanForm;
 use App\Livewire\Admin\Plans;
+use App\Livewire\Admin\PlatformCurrencies;
 use App\Livewire\Admin\ProspectForm;
 use App\Livewire\Admin\ProspectsIndex;
 use App\Livewire\Admin\TenantHealth;
@@ -82,6 +83,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/plans', Plans::class)->name('system.plans');
         Route::get('/plans/create', PlanForm::class)->name('system.plans.create');
         Route::get('/plans/{plan}/edit', PlanForm::class)->name('system.plans.edit');
+        Route::get('/currencies', PlatformCurrencies::class)->name('system.currencies');
         Route::get('/module-events', ModuleEvents::class)->name('system.module.events');
         Route::get('/module-events/export', ModuleEventsExportController::class)->name('system.module.events.export');
     });

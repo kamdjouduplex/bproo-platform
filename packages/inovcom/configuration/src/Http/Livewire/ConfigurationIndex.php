@@ -2,6 +2,7 @@
 
 namespace InovCom\Configuration\Http\Livewire;
 
+use App\Livewire\Concerns\ConfiguresTenantCurrencies;
 use App\Services\TenantBrandingService;
 use App\Services\TenantManager;
 use App\Support\TenantSettingsApplier;
@@ -14,6 +15,7 @@ use Livewire\WithFileUploads;
 class ConfigurationIndex extends Component
 {
     use WithFileUploads;
+    use ConfiguresTenantCurrencies;
 
     public $logoUpload;
 
@@ -61,7 +63,7 @@ class ConfigurationIndex extends Component
     {
         $tenant = app(TenantManager::class)->tenant();
         if ($tenant) {
-            $this->currency = (string) $tenant->getSetting('currency', 'XOF');
+            $this->loadTenantCurrencies($tenant);
             $this->locale = (string) $tenant->getSetting('locale', 'fr');
             $this->timezone = (string) $tenant->getSetting('timezone', config('inovcom.default_timezone', 'Africa/Douala'));
             $this->tax_rate = (string) $tenant->getSetting('tax_rate', '0');
@@ -177,7 +179,9 @@ class ConfigurationIndex extends Component
     public function save(): void
     {
         $data = $this->validate([
-            'currency' => 'required|string|max:10',
+            'enabled_currency_codes' => 'required|array|min:1',
+            'enabled_currency_codes.*' => 'string|size:3',
+            'default_currency_code' => 'required|string|size:3',
             'locale' => 'required|string|max:10',
             'timezone' => 'required|timezone:all',
             'tax_rate' => 'required|numeric|min:0',
@@ -209,7 +213,18 @@ class ConfigurationIndex extends Component
             return;
         }
 
-        $tenant->setSetting('currency', $data['currency']);
+        if (! in_array(strtoupper($data['default_currency_code']), array_map('strtoupper', $this->enabled_currency_codes), true)) {
+            $this->addError('default_currency_code', 'La devise par défaut doit être parmi les devises activées.');
+            return;
+        }
+
+        try {
+            $this->persistTenantCurrencies($tenant);
+        } catch (\InvalidArgumentException $e) {
+            notify()->error($e->getMessage());
+            return;
+        }
+
         $tenant->setSetting('locale', $data['locale']);
         $tenant->setSetting('timezone', $data['timezone']);
         $tenant->setSetting('tax_rate', $data['tax_rate']);
@@ -531,6 +546,7 @@ class ConfigurationIndex extends Component
             ])
             ->with([
                 'uploadMaxKb' => $this->uploadMaxKilobytes(),
+                'currencyCatalog' => $this->currencyCatalogForView(),
             ]);
     }
 }
