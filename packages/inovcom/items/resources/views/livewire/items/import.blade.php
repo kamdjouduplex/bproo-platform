@@ -8,8 +8,9 @@
     <section class="card" style="margin-bottom: 16px;">
         <h2 class="card-title" style="margin-bottom: 8px;">Importer des {{ $catalogNoun['plural'] }}</h2>
         <p style="margin: 0 0 14px; color: #64748b; font-size: 14px; line-height: 1.5; max-width: 46rem;">
-            Préparez le catalogue client (Word / Excel) dans le modèle ci-dessous, puis chargez le fichier.
-            Colonnes minimales : <strong>name</strong> (PRODUITS). Recommandé : <strong>quantity</strong>, <strong>cost</strong> (P.U), <strong>price</strong> (P.V.U), <strong>expiry_date</strong> (DATE DE P).
+            Importez comme un <strong>inventaire Excel</strong> : noms, prix et quantités du fichier sont appliqués tels quels.
+            La colonne <strong>quantity</strong> (Qté) devient le stock vendable (avec lot en pharmacie). Colonnes minimales :
+            <strong>name</strong> (PRODUITS). Recommandé : quantity, cost (P.U), price (P.V.U), expiry_date (DATE DE P).
         </p>
 
         <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom: 18px;">
@@ -48,7 +49,7 @@
                 <tbody>
                     <tr><td><code>name</code></td><td>PRODUITS — obligatoire</td></tr>
                     <tr><td><code>sku</code></td><td>Référence (auto si vide)</td></tr>
-                    <tr><td><code>quantity</code></td><td>Qté / stock initial</td></tr>
+                    <tr><td><code>quantity</code></td><td>Qté — inventaire (stock absolu après import)</td></tr>
                     <tr><td><code>cost</code></td><td>P.U — prix d’achat</td></tr>
                     <tr><td><code>price</code></td><td>P.V.U — prix de vente</td></tr>
                     <tr><td><code>expiry_date</code></td><td>DATE DE P — péremption (AAAA-MM-JJ)</td></tr>
@@ -74,10 +75,10 @@
                         type="button"
                         class="btn btn-primary btn-sm"
                         wire:click="commitImport"
-                        wire:confirm="Importer {{ $okCount }} ligne(s) valide(s) dans le catalogue ?"
+                        wire:confirm="Appliquer l’inventaire pour {{ $okCount }} ligne(s) (création / mise à jour + stock) ?"
                         @disabled($okCount === 0)
                     >
-                        Importer les lignes OK
+                        Appliquer l’inventaire
                     </button>
                 </div>
             </div>
@@ -101,6 +102,7 @@
                         <tr>
                             <th>Ligne</th>
                             <th>Statut</th>
+                            <th>Action</th>
                             <th>Produit</th>
                             <th>Qté</th>
                             <th>P.U</th>
@@ -120,6 +122,15 @@
                                         <span class="badge badge-secondary">Ignoré</span>
                                     @else
                                         <span class="badge badge-danger">Erreur</span>
+                                    @endif
+                                </td>
+                                <td style="font-size:12px; color:#64748b;">
+                                    @if (($row['action'] ?? '') === 'update')
+                                        Mise à jour
+                                    @elseif (($row['action'] ?? '') === 'create')
+                                        Création
+                                    @else
+                                        —
                                     @endif
                                 </td>
                                 <td>{{ $row['name'] ?? '—' }}</td>

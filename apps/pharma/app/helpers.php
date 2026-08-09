@@ -74,29 +74,29 @@ if (!function_exists('fmt_num_plain')) {
 }
 
 if (!function_exists('item_primary_label')) {
-    /** Libellé principal article : la référence prime sur la désignation. */
+    /** Pharmacie : la désignation (nom) prime sur la référence. */
     function item_primary_label(?string $reference, ?string $name, string $fallback = '—'): string
     {
         $ref = trim((string) ($reference ?? ''));
         $label = trim((string) ($name ?? ''));
 
-        if ($ref !== '') {
-            return $ref;
+        if ($label !== '') {
+            return $label;
         }
 
-        return $label !== '' ? $label : $fallback;
+        return $ref !== '' ? $ref : $fallback;
     }
 }
 
 if (!function_exists('item_secondary_label')) {
-    /** Sous-titre article (désignation quand la référence est affichée en principal). */
+    /** Pharmacie : sous-titre = référence quand la désignation est en principal. */
     function item_secondary_label(?string $reference, ?string $name): ?string
     {
         $ref = trim((string) ($reference ?? ''));
         $label = trim((string) ($name ?? ''));
 
-        if ($ref !== '' && $label !== '' && strcasecmp($ref, $label) !== 0) {
-            return $label;
+        if ($label !== '' && $ref !== '' && strcasecmp($ref, $label) !== 0) {
+            return $ref;
         }
 
         return null;
@@ -104,7 +104,7 @@ if (!function_exists('item_secondary_label')) {
 }
 
 if (!function_exists('item_display')) {
-    /** Affichage complet : référence — désignation (référence en priorité). */
+    /** Affichage complet pharmacie : désignation — référence. */
     function item_display(?string $reference, ?string $name, string $fallback = '—'): string
     {
         $primary = item_primary_label($reference, $name, '');
@@ -125,7 +125,7 @@ if (!function_exists('item_display')) {
 if (!function_exists('item_search_placeholder')) {
     function item_search_placeholder(bool $includeBarcode = true, ?string $extra = null): string
     {
-        $parts = ['référence', 'désignation'];
+        $parts = ['désignation', 'référence'];
         if ($includeBarcode) {
             $parts[] = 'code-barres';
         }

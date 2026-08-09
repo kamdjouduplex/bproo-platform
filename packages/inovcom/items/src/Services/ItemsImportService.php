@@ -5,13 +5,17 @@ namespace InovCom\Items\Services;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use InovCom\Batches\Models\Batch;
 use InovCom\Items\Models\Item;
 use InovCom\Items\Models\ItemUnitPrice;
 use InovCom\Items\Models\Unit;
 use InovCom\Kernel\Contracts\BatchesApi;
+use InovCom\Stock\Services\StockService;
 
 /**
- * Import catalogue rows from spreadsheet (no FX). Creates items + optional stock/lots.
+ * Import catalogue + inventaire depuis Excel/CSV.
+ * Les valeurs du fichier (nom, prix, quantités) sont appliquées telles quelles.
+ * La quantité = stock inventorié (absolu), prêt pour la vente.
  */
 class ItemsImportService
 {
@@ -19,7 +23,7 @@ class ItemsImportService
     private const HEADER_ALIASES = [
         'name' => ['name', 'produits', 'produit', 'designation', 'medicament', 'article', 'libelle'],
         'sku' => ['sku', 'reference', 'ref', 'code', 'code_article'],
-        'quantity' => ['quantity', 'qte', 'qty', 'quantite', 'stock'],
+        'quantity' => ['quantity', 'qte', 'qty', 'quantite', 'stock', 'stock_actuel', 'inventaire'],
         'cost' => ['cost', 'pu', 'p_u', 'prix_achat', 'prixachat', 'cout', 'pa'],
         'price' => ['price', 'pvu', 'p_v_u', 'pv_u', 'prix_vente', 'prixvente', 'pv'],
         'purchase_total' => ['purchase_total', 'pt', 'p_t', 'total_achat'],
@@ -78,8 +82,8 @@ class ItemsImportService
                 'quantity' => 10,
                 'cost' => 1102,
                 'price' => 3500,
-                'expiry_date' => '',
-                'batch_number' => '',
+                'expiry_date' => '2028-06-30',
+                'batch_number' => 'LOT-002',
                 'unit' => 'Flacon',
                 'barcode' => '',
             ],
@@ -87,8 +91,6 @@ class ItemsImportService
     }
 
     /**
-     * Parse file into normalized row maps + validation status (no DB writes).
-     *
      * @return array{rows: list<array<string,mixed>>, mapping: array<string,int>, errors: list<string>}
      */
     public function parse(string $path, string $extension): array
@@ -114,11 +116,34 @@ class ItemsImportService
 
         $rows = [];
         $errors = [];
+        $seenNames = [];
+        $seenSkus = [];
+
         foreach ($matrix as $index => $line) {
-            $excelRow = $index + 2; // 1-based + header
+            $excelRow = $index + 2;
             $parsed = $this->parseDataRow($line, $mapping, $excelRow);
+
+            if (($parsed['status'] ?? '') === 'ok') {
+                $nameKey = mb_strtolower((string) $parsed['name']);
+                $skuKey = mb_strtolower((string) ($parsed['sku'] ?? ''));
+                if (isset($seenNames[$nameKey])) {
+                    $parsed['status'] = 'error';
+                    $parsed['messages'][] = 'Nom en double dans le fichier (ligne '.$seenNames[$nameKey].').';
+                } else {
+                    $seenNames[$nameKey] = $excelRow;
+                }
+                if ($skuKey !== '') {
+                    if (isset($seenSkus[$skuKey])) {
+                        $parsed['status'] = 'error';
+                        $parsed['messages'][] = 'SKU en double dans le fichier (ligne '.$seenSkus[$skuKey].').';
+                    } else {
+                        $seenSkus[$skuKey] = $excelRow;
+                    }
+                }
+            }
+
             $rows[] = $parsed;
-            if ($parsed['status'] === 'error') {
+            if (($parsed['status'] ?? '') === 'error') {
                 foreach ($parsed['messages'] as $msg) {
                     $errors[] = "Ligne {$excelRow} : {$msg}";
                 }
@@ -129,38 +154,38 @@ class ItemsImportService
     }
 
     /**
-     * Persist validated rows.
-     *
      * @param  list<array<string,mixed>>  $rows
-     * @return array{created:int, skipped:int, stocked:int, errors:list<string>}
+     * @return array{created:int, updated:int, stocked:int, skipped:int, errors:list<string>}
      */
     public function import(array $rows, ?int $userId = null): array
     {
         $created = 0;
-        $skipped = 0;
+        $updated = 0;
         $stocked = 0;
+        $skipped = 0;
         $errors = [];
 
         foreach ($rows as $row) {
-            if (($row['status'] ?? '') === 'error') {
-                $skipped++;
-                continue;
-            }
-            if (($row['status'] ?? '') === 'skip') {
+            if (($row['status'] ?? '') !== 'ok') {
                 $skipped++;
                 continue;
             }
 
             try {
-                DB::connection('tenant')->transaction(function () use ($row, $userId, &$created, &$stocked) {
-                    $item = $this->createItem($row);
-                    $created++;
+                DB::connection('tenant')->transaction(function () use ($row, $userId, &$created, &$updated, &$stocked) {
+                    [$item, $wasCreated] = $this->upsertItem($row);
+                    if ($wasCreated) {
+                        $created++;
+                    } else {
+                        $updated++;
+                    }
 
                     $qty = (float) ($row['quantity'] ?? 0);
-                    if ($qty > 0) {
-                        $this->seedStock($item, $row, $qty, $userId);
-                        $stocked++;
+                    if ($qty < 0) {
+                        $qty = 0;
                     }
+                    $this->applyInventory($item, $row, $qty, $userId);
+                    $stocked++;
                 });
             } catch (\Throwable $e) {
                 $errors[] = '« '.($row['name'] ?? '?').' » : '.$e->getMessage();
@@ -168,7 +193,7 @@ class ItemsImportService
             }
         }
 
-        return compact('created', 'skipped', 'stocked', 'errors');
+        return compact('created', 'updated', 'stocked', 'skipped', 'errors');
     }
 
     /**
@@ -214,9 +239,8 @@ class ItemsImportService
             if (! isset($mapping[$field])) {
                 return null;
             }
-            $idx = $mapping[$field];
 
-            return $line[$idx] ?? null;
+            return $line[$mapping[$field]] ?? null;
         };
 
         $name = trim((string) ($get('name') ?? ''));
@@ -263,18 +287,16 @@ class ItemsImportService
             $messages[] = 'Date de péremption invalide (utilisez AAAA-MM-JJ ou JJ/MM/AAAA).';
             $status = 'error';
         }
-        if ($sku !== '' && Item::on('tenant')->where('sku', $sku)->exists()) {
-            $messages[] = "Référence SKU « {$sku} » déjà utilisée.";
-            $status = 'error';
-        }
-        if (Item::on('tenant')->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])->exists()) {
-            $messages[] = 'Un article avec ce nom existe déjà (ignoré si vous confirmez uniquement les lignes OK, ou corrigez).';
-            // soft warning — still allow if user wants duplicate names? Better mark error to avoid duplicates
-            $status = 'error';
+
+        $existing = $this->findExistingItem($sku, $name);
+        $action = $existing ? 'update' : 'create';
+        if ($existing) {
+            $messages[] = 'Existant → inventaire / prix mis à jour.';
         }
 
         return [
             'status' => $status,
+            'action' => $action,
             'excel_row' => $excelRow,
             'messages' => $messages,
             'name' => $name,
@@ -286,7 +308,45 @@ class ItemsImportService
             'batch_number' => $batch,
             'unit' => $unit,
             'barcode' => $barcode,
+            'existing_id' => $existing?->id,
         ];
+    }
+
+    private function findExistingItem(string $sku, string $name): ?Item
+    {
+        if ($sku !== '') {
+            $bySku = Item::query()->where('sku', $sku)->first();
+            if ($bySku) {
+                return $bySku;
+            }
+        }
+
+        return Item::query()
+            ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
+            ->first();
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array{0: Item, 1: bool} [item, wasCreated]
+     */
+    private function upsertItem(array $row): array
+    {
+        $existing = null;
+        if (! empty($row['existing_id'])) {
+            $existing = Item::query()->find((int) $row['existing_id']);
+        }
+        if (! $existing) {
+            $existing = $this->findExistingItem((string) ($row['sku'] ?? ''), (string) $row['name']);
+        }
+
+        if ($existing) {
+            $this->syncItemFromRow($existing, $row);
+
+            return [$existing->fresh(['unitPrices']), false];
+        }
+
+        return [$this->createItem($row), true];
     }
 
     /**
@@ -300,25 +360,10 @@ class ItemsImportService
             $sku = $this->nextSku();
         }
 
-        $meta = [];
-        if (items_is_pharmacy_catalog()) {
-            $meta = [
-                'batch_tracked' => true,
-                'requires_prescription' => false,
-                'is_set' => false,
-                'dci' => 'À compléter',
-                'dosage' => '—',
-                'pharma_form' => '—',
-                'therapeutic_family' => '',
-                'manufacturer' => '',
-                'storage_temp' => '',
-            ];
-        } elseif (! empty($row['expiry_date']) || ! empty($row['batch_number']) || (float) ($row['quantity'] ?? 0) > 0) {
-            $meta['batch_tracked'] = Schema::connection('tenant')->hasTable('batches');
-        }
+        $meta = $this->pharmacyOrBatchMeta((string) $row['name'], $row);
 
-        $item = Item::on('tenant')->create([
-            'name' => $row['name'],
+        $item = Item::query()->create([
+            'name' => (string) $row['name'],
             'sku' => $sku,
             'barcode' => ($row['barcode'] ?? '') !== '' ? $row['barcode'] : null,
             'description' => null,
@@ -331,7 +376,7 @@ class ItemsImportService
             'metadata' => $meta ?: null,
         ]);
 
-        ItemUnitPrice::on('tenant')->create([
+        ItemUnitPrice::query()->create([
             'item_id' => $item->id,
             'unit_id' => $unit->id,
             'conversion_factor' => 1,
@@ -340,53 +385,161 @@ class ItemsImportService
             'is_default' => true,
         ]);
 
-        return $item;
+        return $item->fresh(['unitPrices']);
+    }
+
+    /**
+     * Keep catalogue fields aligned with the file (source of truth for this inventaire).
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function syncItemFromRow(Item $item, array $row): void
+    {
+        $unit = $this->resolveUnit((string) ($row['unit'] ?? ''));
+        $sku = trim((string) ($row['sku'] ?? ''));
+        if ($sku !== '' && $sku !== $item->sku) {
+            if (! Item::query()->where('sku', $sku)->where('id', '!=', $item->id)->exists()) {
+                $item->sku = $sku;
+            }
+        }
+
+        $meta = is_array($item->metadata) ? $item->metadata : [];
+        $meta = array_merge($meta, $this->pharmacyOrBatchMeta((string) $row['name'], $row, $meta));
+
+        $item->fill([
+            'name' => (string) $row['name'],
+            'barcode' => ($row['barcode'] ?? '') !== '' ? $row['barcode'] : $item->barcode,
+            'unit_id' => $unit->id,
+            'price' => (float) $row['price'],
+            'cost' => (float) $row['cost'],
+            'is_active' => true,
+            'metadata' => $meta,
+        ]);
+        $item->save();
+
+        $defaultPrice = $item->unitPrices()->where('is_default', true)->first()
+            ?? $item->unitPrices()->orderBy('id')->first();
+
+        if ($defaultPrice) {
+            $defaultPrice->update([
+                'unit_id' => $unit->id,
+                'price' => (float) $row['price'],
+                'cost' => (float) $row['cost'],
+                'conversion_factor' => 1,
+                'is_default' => true,
+            ]);
+        } else {
+            ItemUnitPrice::query()->create([
+                'item_id' => $item->id,
+                'unit_id' => $unit->id,
+                'conversion_factor' => 1,
+                'price' => (float) $row['price'],
+                'cost' => (float) $row['cost'],
+                'is_default' => true,
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<string, mixed>  $existingMeta
+     * @return array<string, mixed>
+     */
+    private function pharmacyOrBatchMeta(string $name, array $row, array $existingMeta = []): array
+    {
+        $meta = $existingMeta;
+        $batchesAvailable = Schema::connection('tenant')->hasTable('batches');
+
+        if (items_is_pharmacy_catalog()) {
+            $meta['batch_tracked'] = true;
+            $meta['requires_prescription'] = (bool) ($meta['requires_prescription'] ?? false);
+            $meta['is_set'] = (bool) ($meta['is_set'] ?? false);
+            // Keep provided designation intact as DCI seed (no generic placeholder overwrite if already set)
+            if (empty($meta['dci'])) {
+                $meta['dci'] = $name;
+            }
+            if (empty($meta['dosage'])) {
+                $meta['dosage'] = '—';
+            }
+            if (empty($meta['pharma_form'])) {
+                $meta['pharma_form'] = '—';
+            }
+        } elseif ($batchesAvailable && (
+            ! empty($row['expiry_date']) || ! empty($row['batch_number']) || (float) ($row['quantity'] ?? 0) > 0
+        )) {
+            $meta['batch_tracked'] = true;
+        }
+
+        return $meta;
+    }
+
+    /**
+     * Inventaire : stock absolu + lot de vente (pharmacie) pour que POS puisse vendre.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function applyInventory(Item $item, array $row, float $qty, ?int $userId): void
+    {
+        $qty = max(0, $qty);
+        $meta = is_array($item->metadata) ? $item->metadata : [];
+        $tracked = ! empty($meta['batch_tracked']) || items_is_pharmacy_catalog();
+        $batchesOk = app()->bound(BatchesApi::class)
+            && app(BatchesApi::class)->isAvailable()
+            && class_exists(Batch::class);
+
+        if ($batchesOk && $tracked) {
+            $this->syncOpeningBatch($item, $row, $qty);
+        }
+
+        if (Schema::connection('tenant')->hasTable('stock_levels') && class_exists(StockService::class)) {
+            app(StockService::class)->adjustStock(
+                (int) $item->id,
+                $qty,
+                'Inventaire import Excel',
+                $userId
+            );
+        }
     }
 
     /**
      * @param  array<string, mixed>  $row
      */
-    private function seedStock(Item $item, array $row, float $qty, ?int $userId): void
+    private function syncOpeningBatch(Item $item, array $row, float $qty): void
     {
-        $expiry = ! empty($row['expiry_date']) ? Carbon::parse($row['expiry_date'])->startOfDay() : null;
         $batchNumber = trim((string) ($row['batch_number'] ?? ''));
-        $useBatches = app()->bound(BatchesApi::class)
-            && app(BatchesApi::class)->isAvailable()
-            && Schema::connection('tenant')->hasTable('batches');
-
-        $meta = is_array($item->metadata) ? $item->metadata : [];
-        $tracked = ! empty($meta['batch_tracked']);
-
-        if ($useBatches && ($tracked || $expiry || $batchNumber !== '')) {
-            if ($batchNumber === '') {
-                $batchNumber = 'INIT-'.$item->id.'-'.now()->format('Ymd');
-            }
-            if (! $expiry) {
-                // Far-future placeholder when qty given without expiry (editable later)
-                $expiry = Carbon::parse('2099-12-31');
-            }
-            app(BatchesApi::class)->recordReceipt(
-                (int) $item->id,
-                $batchNumber,
-                $expiry,
-                $qty,
-                'items_import',
-                (int) $item->id
-            );
-
-            return;
+        if ($batchNumber === '') {
+            $batchNumber = 'INV-'.$item->id;
         }
 
-        if (Schema::connection('tenant')->hasTable('stock_levels') && class_exists(\InovCom\Stock\Services\StockService::class)) {
-            app(\InovCom\Stock\Services\StockService::class)->addStock(
-                (int) $item->id,
-                $qty,
-                'adjustment',
-                'items_import',
-                (int) $item->id,
-                'Import catalogue initial',
-                $userId
-            );
+        $expiry = ! empty($row['expiry_date'])
+            ? Carbon::parse((string) $row['expiry_date'])->startOfDay()
+            : Carbon::parse('2099-12-31')->startOfDay();
+
+        // Inventaire : un seul lot porte la quantité du fichier (les autres sont à 0).
+        Batch::query()
+            ->where('item_id', $item->id)
+            ->where('batch_number', '!=', $batchNumber)
+            ->update(['quantity' => 0]);
+
+        $batch = Batch::query()
+            ->where('item_id', $item->id)
+            ->where('batch_number', $batchNumber)
+            ->first();
+
+        if ($batch) {
+            $batch->expiry_date = $expiry;
+            $batch->quantity = $qty;
+            $batch->save();
+        } else {
+            Batch::query()->create([
+                'item_id' => $item->id,
+                'batch_number' => $batchNumber,
+                'expiry_date' => $expiry,
+                'quantity' => $qty,
+                'received_at' => now(),
+                'reference_type' => 'items_import',
+                'reference_id' => $item->id,
+            ]);
         }
     }
 
@@ -397,7 +550,7 @@ class ItemsImportService
             $label = 'Pièce';
         }
 
-        $existing = Unit::on('tenant')
+        $existing = Unit::query()
             ->where(function ($q) use ($label) {
                 $q->whereRaw('LOWER(name) = ?', [mb_strtolower($label)])
                     ->orWhereRaw('LOWER(abbreviation) = ?', [mb_strtolower($label)]);
@@ -410,7 +563,7 @@ class ItemsImportService
 
         $abbr = mb_strlen($label) <= 6 ? $label : mb_substr($label, 0, 6);
 
-        return Unit::on('tenant')->create([
+        return Unit::query()->create([
             'name' => $label,
             'abbreviation' => $abbr,
             'is_active' => true,
@@ -420,7 +573,7 @@ class ItemsImportService
     private function nextSku(): string
     {
         $prefix = items_catalog_noun()['sku_prefix'];
-        $last = Item::on('tenant')
+        $last = Item::query()
             ->where('sku', 'like', $prefix.'-%')
             ->orderByDesc('id')
             ->value('sku');
@@ -430,11 +583,10 @@ class ItemsImportService
             $nextNumber = (int) $m[1] + 1;
         }
 
-        // Avoid race collisions within same import batch
         do {
             $sku = $prefix.'-'.str_pad((string) $nextNumber, 6, '0', STR_PAD_LEFT);
             $nextNumber++;
-        } while (Item::on('tenant')->where('sku', $sku)->exists());
+        } while (Item::query()->where('sku', $sku)->exists());
 
         return $sku;
     }

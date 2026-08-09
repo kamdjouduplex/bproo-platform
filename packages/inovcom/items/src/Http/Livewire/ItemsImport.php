@@ -124,13 +124,16 @@ class ItemsImport extends Component
         $result = app(ItemsImportService::class)->import($okRows, auth('tenant')->id());
 
         $msg = $result['created'].' créé(s)';
+        if (($result['updated'] ?? 0) > 0) {
+            $msg .= ', '.$result['updated'].' mis à jour';
+        }
         if ($result['stocked'] > 0) {
-            $msg .= ', '.$result['stocked'].' avec stock';
+            $msg .= ', '.$result['stocked'].' inventorié(s)';
         }
         if ($result['skipped'] > 0) {
             $msg .= ', '.$result['skipped'].' ignoré(s)';
         }
-        notify()->success('Import terminé : '.$msg.'.');
+        notify()->success('Import inventaire terminé : '.$msg.'.');
 
         if ($result['errors'] !== []) {
             notify()->error(implode(' | ', array_slice($result['errors'], 0, 3)));
@@ -196,18 +199,19 @@ class ItemsImport extends Component
         $legend->setTitle('Aide');
         $lines = [
             ['Colonne', 'Obligatoire', 'Description', 'Alias acceptés (FR)'],
-            ['name', 'Oui', 'Nom du produit / médicament', 'PRODUITS, produit, désignation'],
+            ['name', 'Oui', 'Nom du produit / médicament (inchangé à l’import)', 'PRODUITS, produit, désignation'],
             ['sku', 'Non', 'Référence unique (auto MED-###### si vide)', 'reference, code'],
-            ['quantity', 'Non', 'Stock initial (Qté)', 'Qté, qte, quantite'],
+            ['quantity', 'Non', 'Inventaire : stock absolu après import (Qté)', 'Qté, qte, quantite, stock'],
             ['cost', 'Non', 'Prix d’achat unitaire (P.U)', 'P.U, PU, prix_achat'],
             ['price', 'Non*', 'Prix de vente unitaire (P.V.U) — 0 si vide', 'P.V.U, PVU, prix_vente'],
-            ['expiry_date', 'Non', 'Date de péremption', 'DATE DE P, date_peremption (AAAA-MM-JJ)'],
-            ['batch_number', 'Non', 'Numéro de lot', 'LOT, lot, n_lot'],
+            ['expiry_date', 'Non', 'Date de péremption (lot de vente)', 'DATE DE P, date_peremption (AAAA-MM-JJ)'],
+            ['batch_number', 'Non', 'Numéro de lot (sinon INV-{id})', 'LOT, lot, n_lot'],
             ['unit', 'Non', 'Unité (créée si absente)', 'unité, Boîte, Flacon…'],
             ['barcode', 'Non', 'Code-barres', 'code_barres, EAN'],
             ['', '', '', ''],
             ['Notes', '', 'P.T et P.V.T du tableau Word ne sont pas nécessaires (calculables).', ''],
-            ['', '', 'Une ligne = un article. Pas de conversion de devise.', ''],
+            ['', '', 'Inventaire Excel : la quantité devient le stock vendable (lots inclus en pharmacie).', ''],
+            ['', '', 'Réimport : met à jour prix + stock sans altérer le sens des données fichier.', ''],
             ['', '', 'Conservez la ligne d’en-têtes. Formats : .xlsx / .xls / .csv', ''],
         ];
         foreach ($lines as $r => $cols) {
