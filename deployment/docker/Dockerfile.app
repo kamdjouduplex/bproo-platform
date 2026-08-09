@@ -15,7 +15,9 @@ COPY ${APP_DIR}/composer.json ${APP_DIR}/composer.lock ./
 COPY packages /packages
 # Copy path packages into vendor/ (symlinks break when layers are copied)
 ENV COMPOSER_MIRROR_PATH_REPOS=1
-RUN composer install --no-dev --prefer-dist --no-interaction --no-scripts --no-autoloader --no-security-blocking
+# composer:2 image has no gd; runtime app stage installs gd (needed by phpspreadsheet).
+RUN composer install --no-dev --prefer-dist --no-interaction --no-scripts --no-autoloader --no-security-blocking \
+    --ignore-platform-req=ext-gd
 
 FROM node:20-alpine AS frontend
 ARG APP_DIR
