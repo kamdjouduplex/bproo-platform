@@ -12,8 +12,14 @@
             font-size: 11px;
             color: #111827;
             margin: 0;
-            padding: 22px 26px;
+            padding: 0;
             line-height: 1.35;
+        }
+        /* page-setup force body padding:0 en print — marges via ce wrapper */
+        .report-page {
+            padding: 18mm 16mm 16mm;
+            max-width: 210mm;
+            margin: 0 auto;
         }
         .doc-header {
             display: flex;
@@ -83,13 +89,17 @@
         }
         @media print {
             .no-print { display: none !important; }
-            body { padding: 10mm 12mm; }
+            .report-page { padding: 14mm 16mm 16mm !important; }
             thead { display: table-header-group; }
             tr { page-break-inside: avoid; }
+        }
+        @media screen {
+            .report-page { padding: 22px 26px 28px; }
         }
     </style>
 </head>
 <body>
+    <div class="report-page">
     <div class="no-print" style="margin-bottom: 14px; display:flex; gap:10px; align-items:center;">
         <button onclick="window.print()">Imprimer</button>
         <a href="{{ route('tenant.sales.daily-report', ['tenant' => request('tenant'), 'date' => $date]) }}">Retour</a>
@@ -180,6 +190,7 @@
 
     <div class="footer-note">
         Le N° de vente est repris sur chaque ligne article. Totaux par devise sans conversion.
+    </div>
     </div>
 
     @include('partials.print.auto-print')
