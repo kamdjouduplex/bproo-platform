@@ -17,7 +17,7 @@
         }
         /* page-setup force body padding:0 en print — marges via ce wrapper */
         .report-page {
-            padding: 18mm 16mm 16mm;
+            padding: 10mm 10mm 10mm;
             max-width: 210mm;
             margin: 0 auto;
         }
@@ -56,9 +56,10 @@
             margin: 18px 0 8px;
             padding-bottom: 4px;
             border-bottom: 1px solid #e5e7eb;
+            text-align: left;
         }
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 6px 7px; vertical-align: top; }
+        th, td { padding: 6px 7px; vertical-align: top; text-align: left; }
         thead th {
             background: #111827;
             color: #fff;
@@ -67,6 +68,7 @@
             text-transform: uppercase;
             letter-spacing: 0.04em;
             border: none;
+            text-align: left;
         }
         tbody td {
             border-bottom: 1px solid #e5e7eb;
@@ -86,15 +88,16 @@
             border-top: 1px solid #e5e7eb;
             color: #6b7280;
             font-size: 10px;
+            text-align: left;
         }
         @media print {
             .no-print { display: none !important; }
-            .report-page { padding: 14mm 16mm 16mm !important; }
+            .report-page { padding: 8mm 10mm 10mm !important; }
             thead { display: table-header-group; }
             tr { page-break-inside: avoid; }
         }
         @media screen {
-            .report-page { padding: 22px 26px 28px; }
+            .report-page { padding: 16px 18px 20px; }
         }
     </style>
 </head>
