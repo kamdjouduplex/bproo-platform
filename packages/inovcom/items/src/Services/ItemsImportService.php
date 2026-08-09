@@ -91,13 +91,13 @@ class ItemsImportService
     }
 
     /**
-     * @return array{rows: list<array<string,mixed>>, mapping: array<string,int>, errors: list<string>}
+     * @return array{rows: list<array<string,mixed>>, mapping: array<string,int>, errors: list<string>, warnings: list<string>}
      */
     public function parse(string $path, string $extension): array
     {
         $matrix = $this->reader->read($path, $extension);
         if ($matrix === []) {
-            return ['rows' => [], 'mapping' => [], 'errors' => ['Fichier vide.']];
+            return ['rows' => [], 'mapping' => [], 'errors' => ['Fichier vide.'], 'warnings' => []];
         }
 
         $headerRow = array_shift($matrix);
@@ -111,11 +111,13 @@ class ItemsImportService
                     'Colonne obligatoire « name » (ou PRODUITS / désignation) introuvable. '
                     .'Téléchargez le modèle et conservez la première ligne d’en-têtes.',
                 ],
+                'warnings' => [],
             ];
         }
 
         $rows = [];
         $errors = [];
+        $warnings = [];
         $seenNames = [];
         $seenSkus = [];
 
@@ -123,19 +125,24 @@ class ItemsImportService
             $excelRow = $index + 2;
             $parsed = $this->parseDataRow($line, $mapping, $excelRow);
 
-            if (($parsed['status'] ?? '') === 'ok') {
+            if (in_array(($parsed['status'] ?? ''), ['ok', 'warning'], true)) {
                 $nameKey = mb_strtolower((string) $parsed['name']);
                 $skuKey = mb_strtolower((string) ($parsed['sku'] ?? ''));
                 if (isset($seenNames[$nameKey])) {
-                    $parsed['status'] = 'error';
-                    $parsed['messages'][] = 'Nom en double dans le fichier (ligne '.$seenNames[$nameKey].').';
+                    // Même désignation = même article : lignes fusionnées à l’import (lots / qtés cumulés).
+                    $parsed['status'] = 'warning';
+                    $parsed['action'] = 'merge';
+                    $parsed['messages'][] = 'Nom déjà présent (ligne '.$seenNames[$nameKey].') → fusion inventaire (données conservées).';
+                    $warnings[] = "Ligne {$excelRow} : nom déjà présent ligne {$seenNames[$nameKey]} (fusion).";
                 } else {
                     $seenNames[$nameKey] = $excelRow;
                 }
                 if ($skuKey !== '') {
                     if (isset($seenSkus[$skuKey])) {
-                        $parsed['status'] = 'error';
-                        $parsed['messages'][] = 'SKU en double dans le fichier (ligne '.$seenSkus[$skuKey].').';
+                        $parsed['status'] = 'warning';
+                        $parsed['action'] = 'merge';
+                        $parsed['messages'][] = 'SKU déjà présent (ligne '.$seenSkus[$skuKey].') → fusion inventaire.';
+                        $warnings[] = "Ligne {$excelRow} : SKU déjà présent ligne {$seenSkus[$skuKey]} (fusion).";
                     } else {
                         $seenSkus[$skuKey] = $excelRow;
                     }
@@ -150,14 +157,14 @@ class ItemsImportService
             }
         }
 
-        return compact('rows', 'mapping', 'errors');
+        return compact('rows', 'mapping', 'errors', 'warnings');
     }
 
     /**
      * @param  list<array<string,mixed>>  $rows
      * @return array{created:int, updated:int, stocked:int, skipped:int, errors:list<string>}
      */
-    public function import(array $rows, ?int $userId = null): array
+    public function import(array $rows, ?int $userId = null, bool $includeErrors = false): array
     {
         $created = 0;
         $updated = 0;
@@ -165,35 +172,92 @@ class ItemsImportService
         $skipped = 0;
         $errors = [];
 
+        $importable = [];
         foreach ($rows as $row) {
-            if (($row['status'] ?? '') !== 'ok') {
+            $status = $row['status'] ?? '';
+            if ($status === 'skip') {
                 $skipped++;
                 continue;
             }
+            if ($status === 'error' && ! $includeErrors) {
+                $skipped++;
+                continue;
+            }
+            if (trim((string) ($row['name'] ?? '')) === '') {
+                $skipped++;
+                continue;
+            }
+            $importable[] = $row;
+        }
 
+        foreach ($this->groupRowsForImport($importable) as $group) {
+            $primary = $group[0];
             try {
-                DB::connection('tenant')->transaction(function () use ($row, $userId, &$created, &$updated, &$stocked) {
-                    [$item, $wasCreated] = $this->upsertItem($row);
+                DB::connection('tenant')->transaction(function () use ($group, $primary, $userId, &$created, &$updated, &$stocked) {
+                    [$item, $wasCreated] = $this->upsertItem($primary);
                     if ($wasCreated) {
                         $created++;
                     } else {
                         $updated++;
                     }
 
-                    $qty = (float) ($row['quantity'] ?? 0);
-                    if ($qty < 0) {
-                        $qty = 0;
-                    }
-                    $this->applyInventory($item, $row, $qty, $userId);
+                    $this->applyInventoryFromRows($item, $group, $userId);
                     $stocked++;
                 });
             } catch (\Throwable $e) {
-                $errors[] = '« '.($row['name'] ?? '?').' » : '.$e->getMessage();
-                $skipped++;
+                $errors[] = '« '.($primary['name'] ?? '?').' » : '.$e->getMessage();
+                $skipped += count($group);
             }
         }
 
         return compact('created', 'updated', 'stocked', 'skipped', 'errors');
+    }
+
+    /**
+     * Group duplicate designations / SKUs so one catalogue item gets all lots & summed qty.
+     * Names and prices from the file are kept (first row = designation, last row wins on prices if they differ).
+     *
+     * @param  list<array<string,mixed>>  $rows
+     * @return list<list<array<string,mixed>>>
+     */
+    private function groupRowsForImport(array $rows): array
+    {
+        $groups = [];
+        $order = [];
+
+        foreach ($rows as $row) {
+            $sku = trim((string) ($row['sku'] ?? ''));
+            $name = (string) ($row['name'] ?? '');
+            $key = $sku !== ''
+                ? 'sku:'.mb_strtolower($sku)
+                : 'name:'.mb_strtolower($name);
+
+            if (! isset($groups[$key])) {
+                $groups[$key] = [];
+                $order[] = $key;
+            }
+            $groups[$key][] = $row;
+        }
+
+        $out = [];
+        foreach ($order as $key) {
+            $group = $groups[$key];
+            // Keep exact designation from first occurrence; use last non-empty commercial data for prices.
+            $primary = $group[0];
+            $last = $group[array_key_last($group)];
+            $primary['price'] = $last['price'] ?? $primary['price'];
+            $primary['cost'] = $last['cost'] ?? $primary['cost'];
+            if (trim((string) ($last['unit'] ?? '')) !== '') {
+                $primary['unit'] = $last['unit'];
+            }
+            if (trim((string) ($last['barcode'] ?? '')) !== '') {
+                $primary['barcode'] = $last['barcode'];
+            }
+            $group[0] = $primary;
+            $out[] = $group;
+        }
+
+        return $out;
     }
 
     /**
@@ -276,16 +340,19 @@ class ItemsImportService
             $quantity = 0.0;
         }
         if ($quantity < 0) {
-            $messages[] = 'Quantité négative.';
-            $status = 'error';
+            $messages[] = 'Quantité négative → 0.';
+            $quantity = 0.0;
+            $status = 'warning';
         }
         if ($price < 0 || $cost < 0) {
-            $messages[] = 'Prix négatif.';
-            $status = 'error';
+            $messages[] = 'Prix négatif → 0.';
+            $price = max(0.0, $price);
+            $cost = max(0.0, $cost);
+            $status = 'warning';
         }
         if ($expiryRaw !== null && $expiryRaw !== '' && $expiry === null) {
-            $messages[] = 'Date de péremption invalide (utilisez AAAA-MM-JJ ou JJ/MM/AAAA).';
-            $status = 'error';
+            $messages[] = 'Date de péremption invalide → ignorée (lot sans date stricte).';
+            $status = 'warning';
         }
 
         $existing = $this->findExistingItem($sku, $name);
@@ -474,13 +541,17 @@ class ItemsImportService
     }
 
     /**
-     * Inventaire : stock absolu + lot de vente (pharmacie) pour que POS puisse vendre.
+     * Inventaire multi-lignes : somme des qtés + un lot par ligne (données fichier intactes).
      *
-     * @param  array<string, mixed>  $row
+     * @param  list<array<string, mixed>>  $rows
      */
-    private function applyInventory(Item $item, array $row, float $qty, ?int $userId): void
+    private function applyInventoryFromRows(Item $item, array $rows, ?int $userId): void
     {
-        $qty = max(0, $qty);
+        $totalQty = 0.0;
+        foreach ($rows as $row) {
+            $totalQty += max(0, (float) ($row['quantity'] ?? 0));
+        }
+
         $meta = is_array($item->metadata) ? $item->metadata : [];
         $tracked = ! empty($meta['batch_tracked']) || items_is_pharmacy_catalog();
         $batchesOk = app()->bound(BatchesApi::class)
@@ -488,13 +559,13 @@ class ItemsImportService
             && class_exists(Batch::class);
 
         if ($batchesOk && $tracked) {
-            $this->syncOpeningBatch($item, $row, $qty);
+            $this->syncBatchesFromRows($item, $rows);
         }
 
         if (Schema::connection('tenant')->hasTable('stock_levels') && class_exists(StockService::class)) {
             app(StockService::class)->adjustStock(
                 (int) $item->id,
-                $qty,
+                $totalQty,
                 'Inventaire import Excel',
                 $userId
             );
@@ -502,44 +573,59 @@ class ItemsImportService
     }
 
     /**
-     * @param  array<string, mixed>  $row
+     * @param  list<array<string, mixed>>  $rows
      */
-    private function syncOpeningBatch(Item $item, array $row, float $qty): void
+    private function syncBatchesFromRows(Item $item, array $rows): void
     {
-        $batchNumber = trim((string) ($row['batch_number'] ?? ''));
-        if ($batchNumber === '') {
-            $batchNumber = 'INV-'.$item->id;
-        }
-
-        $expiry = ! empty($row['expiry_date'])
-            ? Carbon::parse((string) $row['expiry_date'])->startOfDay()
-            : Carbon::parse('2099-12-31')->startOfDay();
-
-        // Inventaire : un seul lot porte la quantité du fichier (les autres sont à 0).
+        // Remplace l’inventaire lots de cet article par les lignes du fichier.
         Batch::query()
             ->where('item_id', $item->id)
-            ->where('batch_number', '!=', $batchNumber)
             ->update(['quantity' => 0]);
 
-        $batch = Batch::query()
-            ->where('item_id', $item->id)
-            ->where('batch_number', $batchNumber)
-            ->first();
+        $usedNumbers = [];
+        foreach ($rows as $index => $row) {
+            $qty = max(0, (float) ($row['quantity'] ?? 0));
+            $batchNumber = trim((string) ($row['batch_number'] ?? ''));
+            if ($batchNumber === '') {
+                $excelRow = (int) ($row['excel_row'] ?? ($index + 1));
+                $batchNumber = count($rows) === 1
+                    ? 'INV-'.$item->id
+                    : 'INV-'.$item->id.'-'.$excelRow;
+            }
 
-        if ($batch) {
-            $batch->expiry_date = $expiry;
-            $batch->quantity = $qty;
-            $batch->save();
-        } else {
-            Batch::query()->create([
-                'item_id' => $item->id,
-                'batch_number' => $batchNumber,
-                'expiry_date' => $expiry,
-                'quantity' => $qty,
-                'received_at' => now(),
-                'reference_type' => 'items_import',
-                'reference_id' => $item->id,
-            ]);
+            // Évite collision de n° de lot sur plusieurs lignes sans lot distinct.
+            $base = $batchNumber;
+            $suffix = 2;
+            while (isset($usedNumbers[mb_strtolower($batchNumber)])) {
+                $batchNumber = $base.'-'.$suffix;
+                $suffix++;
+            }
+            $usedNumbers[mb_strtolower($batchNumber)] = true;
+
+            $expiry = ! empty($row['expiry_date'])
+                ? Carbon::parse((string) $row['expiry_date'])->startOfDay()
+                : Carbon::parse('2099-12-31')->startOfDay();
+
+            $batch = Batch::query()
+                ->where('item_id', $item->id)
+                ->where('batch_number', $batchNumber)
+                ->first();
+
+            if ($batch) {
+                $batch->expiry_date = $expiry;
+                $batch->quantity = $qty;
+                $batch->save();
+            } else {
+                Batch::query()->create([
+                    'item_id' => $item->id,
+                    'batch_number' => $batchNumber,
+                    'expiry_date' => $expiry,
+                    'quantity' => $qty,
+                    'received_at' => now(),
+                    'reference_type' => 'items_import',
+                    'reference_id' => $item->id,
+                ]);
+            }
         }
     }
 

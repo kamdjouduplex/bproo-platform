@@ -23,6 +23,9 @@ class ItemsImport extends Component
     /** @var list<string> */
     public array $parseErrors = [];
 
+    /** @var list<string> */
+    public array $parseWarnings = [];
+
     public bool $showPreview = false;
 
     public function mount(): void
@@ -83,20 +86,30 @@ class ItemsImport extends Component
             $this->showPreview = false;
             $this->previewRows = [];
             $this->parseErrors = [$e->getMessage()];
+            $this->parseWarnings = [];
 
             return;
         }
 
         $this->previewRows = $parsed['rows'];
         $this->parseErrors = $parsed['errors'];
+        $this->parseWarnings = $parsed['warnings'] ?? [];
         $this->showPreview = true;
 
-        $ok = collect($this->previewRows)->where('status', 'ok')->count();
+        $ok = collect($this->previewRows)->whereIn('status', ['ok', 'warning'])->count();
         $err = collect($this->previewRows)->where('status', 'error')->count();
-        notify()->success("Analyse terminée : {$ok} ligne(s) prête(s), {$err} en erreur.");
+        $warn = collect($this->previewRows)->where('status', 'warning')->count();
+        $msg = "Analyse terminée : {$ok} ligne(s) prête(s)";
+        if ($warn > 0) {
+            $msg .= ", {$warn} avertissement(s)";
+        }
+        if ($err > 0) {
+            $msg .= ", {$err} en erreur";
+        }
+        notify()->success($msg.'.');
     }
 
-    public function commitImport(): void
+    public function commitImport(bool $includeErrors = false): void
     {
         if (! $this->canItem('items.create')) {
             notify()->error('Permission refusée.');
@@ -110,18 +123,24 @@ class ItemsImport extends Component
             return;
         }
 
+        $statuses = $includeErrors ? ['ok', 'warning', 'error'] : ['ok', 'warning'];
         $okRows = array_values(array_filter(
             $this->previewRows,
-            fn ($r) => ($r['status'] ?? '') === 'ok'
+            fn ($r) => in_array(($r['status'] ?? ''), $statuses, true)
+                && trim((string) ($r['name'] ?? '')) !== ''
         ));
 
         if ($okRows === []) {
-            notify()->error('Aucune ligne valide à importer.');
+            notify()->error('Aucune ligne à importer.');
 
             return;
         }
 
-        $result = app(ItemsImportService::class)->import($okRows, auth('tenant')->id());
+        $result = app(ItemsImportService::class)->import(
+            $okRows,
+            auth('tenant')->id(),
+            $includeErrors
+        );
 
         $msg = $result['created'].' créé(s)';
         if (($result['updated'] ?? 0) > 0) {
@@ -143,24 +162,37 @@ class ItemsImport extends Component
         $this->redirect(route('tenant.items.index', ['tenant' => $this->tenantCode()]), navigate: true);
     }
 
+    public function commitImportForce(): void
+    {
+        $this->commitImport(true);
+    }
+
     public function resetImportState(): void
     {
         $this->importFile = null;
         $this->previewRows = [];
         $this->parseErrors = [];
+        $this->parseWarnings = [];
         $this->showPreview = false;
     }
 
     public function render()
     {
         $noun = items_catalog_noun();
-        $okCount = collect($this->previewRows)->where('status', 'ok')->count();
+        $okCount = collect($this->previewRows)->whereIn('status', ['ok', 'warning'])->count();
+        $warningCount = collect($this->previewRows)->where('status', 'warning')->count();
         $errorCount = collect($this->previewRows)->where('status', 'error')->count();
+        $forceCount = collect($this->previewRows)
+            ->filter(fn ($r) => in_array(($r['status'] ?? ''), ['ok', 'warning', 'error'], true)
+                && trim((string) ($r['name'] ?? '')) !== '')
+            ->count();
 
         return view('inovcom-items::livewire.items.import', [
             'catalogNoun' => $noun,
             'okCount' => $okCount,
+            'warningCount' => $warningCount,
             'errorCount' => $errorCount,
+            'forceCount' => $forceCount,
             'headers' => app(ItemsImportService::class)->templateHeaders(),
         ])->layout('layouts.app', [
             'title' => 'Import '.$noun['plural'],

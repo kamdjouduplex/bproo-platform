@@ -9,7 +9,7 @@
         <h2 class="card-title" style="margin-bottom: 8px;">Importer des {{ $catalogNoun['plural'] }}</h2>
         <p style="margin: 0 0 14px; color: #64748b; font-size: 14px; line-height: 1.5; max-width: 46rem;">
             Importez comme un <strong>inventaire Excel</strong> : noms, prix et quantités du fichier sont appliqués tels quels.
-            La colonne <strong>quantity</strong> (Qté) devient le stock vendable (avec lot en pharmacie). Colonnes minimales :
+            Même désignation sur plusieurs lignes = <strong>fusion</strong> (qtés cumulées, lots séparés). Colonnes minimales :
             <strong>name</strong> (PRODUITS). Recommandé : quantity, cost (P.U), price (P.V.U), expiry_date (DATE DE P).
         </p>
 
@@ -69,22 +69,51 @@
             <div class="table-toolbar" style="flex-wrap:wrap; gap:10px;">
                 <div class="table-title">Aperçu</div>
                 <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                    <span class="badge badge-success">{{ $okCount }} OK</span>
+                    <span class="badge badge-success">{{ $okCount }} prête(s)</span>
+                    @if ($warningCount > 0)
+                        <span class="badge" style="background:#fef3c7;color:#92400e;">{{ $warningCount }} avertissement(s)</span>
+                    @endif
                     <span class="badge badge-danger">{{ $errorCount }} erreur(s)</span>
                     <button
                         type="button"
                         class="btn btn-primary btn-sm"
                         wire:click="commitImport"
-                        wire:confirm="Appliquer l’inventaire pour {{ $okCount }} ligne(s) (création / mise à jour + stock) ?"
+                        wire:confirm="Appliquer l’inventaire pour {{ $okCount }} ligne(s) (doublons fusionnés, noms inchangés) ?"
                         @disabled($okCount === 0)
                     >
                         Appliquer l’inventaire
                     </button>
+                    @if ($errorCount > 0)
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-sm"
+                            wire:click="commitImportForce"
+                            wire:confirm="Importer {{ $forceCount }} ligne(s) y compris celles en erreur ?"
+                            @disabled($forceCount === 0)
+                        >
+                            Importer malgré les erreurs
+                        </button>
+                    @endif
                 </div>
             </div>
 
+            @if ($parseWarnings)
+                <div style="margin-bottom:12px; padding:10px 12px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; color:#92400e; font-size:13px;">
+                    <strong style="display:block; margin-bottom:6px;">Avertissements (import autorisé — fusion inventaire)</strong>
+                    <ul style="margin:0; padding-left:18px;">
+                        @foreach (array_slice($parseWarnings, 0, 10) as $warn)
+                            <li>{{ $warn }}</li>
+                        @endforeach
+                        @if (count($parseWarnings) > 10)
+                            <li>… et {{ count($parseWarnings) - 10 }} autre(s)</li>
+                        @endif
+                    </ul>
+                </div>
+            @endif
+
             @if ($parseErrors)
                 <div style="margin-bottom:12px; padding:10px 12px; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; color:#991b1b; font-size:13px;">
+                    <strong style="display:block; margin-bottom:6px;">Erreurs (utilisez « Importer malgré les erreurs » pour forcer)</strong>
                     <ul style="margin:0; padding-left:18px;">
                         @foreach (array_slice($parseErrors, 0, 15) as $err)
                             <li>{{ $err }}</li>
@@ -118,6 +147,8 @@
                                 <td>
                                     @if (($row['status'] ?? '') === 'ok')
                                         <span class="badge badge-success">OK</span>
+                                    @elseif (($row['status'] ?? '') === 'warning')
+                                        <span class="badge" style="background:#fef3c7;color:#92400e;">Avertissement</span>
                                     @elseif (($row['status'] ?? '') === 'skip')
                                         <span class="badge badge-secondary">Ignoré</span>
                                     @else
@@ -127,6 +158,8 @@
                                 <td style="font-size:12px; color:#64748b;">
                                     @if (($row['action'] ?? '') === 'update')
                                         Mise à jour
+                                    @elseif (($row['action'] ?? '') === 'merge')
+                                        Fusion
                                     @elseif (($row['action'] ?? '') === 'create')
                                         Création
                                     @else
