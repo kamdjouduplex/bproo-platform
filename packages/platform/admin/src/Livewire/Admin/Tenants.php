@@ -23,6 +23,7 @@ class Tenants extends Component
     public string $product = '';
     public string $status = ''; // '' | active_sub | suspended | none
     public string $active = '';
+    public string $seats = ''; // '' | exceeded | limited
 
     protected $paginationTheme = 'cc';
 
@@ -46,6 +47,11 @@ class Tenants extends Component
         $this->resetPage();
     }
 
+    public function updatingSeats(): void
+    {
+        $this->resetPage();
+    }
+
     public function delete(int $tenantId): void
     {
         $tenant = Tenant::find($tenantId);
@@ -59,8 +65,29 @@ class Tenants extends Component
 
     public function refreshMetrics(): void
     {
-        $n = app(CompanyIntelligenceService::class)->refreshAll();
+        $result = app(CompanyIntelligenceService::class)->refreshAll();
+        $n = (int) ($result['refreshed'] ?? 0);
+        $exceeded = $result['newly_exceeded'] ?? [];
         notify()->success("Indicateurs actualisés pour {$n} entreprise(s).");
+        if ($exceeded !== []) {
+            notify()->warning('Plafond utilisateurs dépassé : '.implode(', ', $exceeded));
+        }
+    }
+
+    public function toggleActive(int $tenantId): void
+    {
+        $tenant = Tenant::find($tenantId);
+        if (! $tenant) {
+            return;
+        }
+
+        $tenant->is_active = ! $tenant->is_active;
+        $tenant->save();
+        notify()->success(
+            $tenant->is_active
+                ? "Entreprise « {$tenant->code} » réactivée."
+                : "Entreprise « {$tenant->code} » désactivée."
+        );
     }
 
     public function render()
@@ -96,6 +123,12 @@ class Tenants extends Component
             $query->where('tenants.is_active', true);
         } elseif ($this->active === '0') {
             $query->where('tenants.is_active', false);
+        }
+
+        if ($this->seats === 'exceeded') {
+            $query->whereNotNull('tenants.users_limit_exceeded_at');
+        } elseif ($this->seats === 'limited') {
+            $query->whereNotNull('tenants.max_users')->where('tenants.max_users', '>', 0);
         }
 
         if ($this->status === 'active_sub') {
@@ -152,6 +185,7 @@ class Tenants extends Component
                     ->whereIn('id', Subscription::query()->selectRaw('MAX(id)')->groupBy('tenant_id'))
                     ->count(),
                 'from_crm' => PlatformProspect::whereNotNull('converted_tenant_id')->count(),
+                'seats_exceeded' => Tenant::whereNotNull('users_limit_exceeded_at')->count(),
             ],
         ])->layout('layouts.app', [
             'title' => 'Clients',

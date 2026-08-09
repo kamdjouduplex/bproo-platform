@@ -41,6 +41,28 @@
         @endif
     </section>
 
+    @if ($seatsExceeded->isNotEmpty())
+        <section class="cc-card" style="margin:16px 0;padding:16px 18px;border-left:4px solid #dc2626;background:#fef2f2;">
+            <h2 style="margin:0 0 8px;font-size:1rem;color:#b91c1c;">Alertes plafond utilisateurs</h2>
+            <p style="margin:0 0 12px;color:#7f1d1d;font-size:14px;">
+                Ces entreprises ont plus d’utilisateurs que le plafond prévu. Contactez-les pour régulariser.
+            </p>
+            <ul style="margin:0;padding-left:18px;">
+                @foreach ($seatsExceeded as $t)
+                    <li style="margin-bottom:6px;">
+                        <a href="{{ route('system.tenants.show', $t) }}" style="font-weight:600;color:#991b1b;">
+                            {{ $t->name }}
+                        </a>
+                        <code style="margin-left:6px;">{{ $t->code }}</code>
+                        —
+                        <strong>{{ $t->usersQuotaLabel() }}</strong>
+                        <a href="{{ route('system.tenants.users', $t) }}" style="margin-left:8px;">voir users</a>
+                    </li>
+                @endforeach
+            </ul>
+        </section>
+    @endif
+
     <section class="admin-dashboard-quick-links" style="margin-top:8px;">
         <h2 class="admin-dashboard-section-title">Pilotage rapide</h2>
         <div class="grid-cards admin-dashboard-cards">

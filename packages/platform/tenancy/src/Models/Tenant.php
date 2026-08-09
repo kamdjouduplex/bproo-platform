@@ -34,6 +34,8 @@ class Tenant extends Model
         'balance_currency',
         'metrics_cached_at',
         'users_count',
+        'max_users',
+        'users_limit_exceeded_at',
         'modules_enabled_count',
         'last_tenant_activity_at',
     ];
@@ -48,6 +50,10 @@ class Tenant extends Model
         'balance' => 'decimal:2',
         'metrics_cached_at' => 'datetime',
         'last_tenant_activity_at' => 'datetime',
+        'users_limit_exceeded_at' => 'datetime',
+        'max_users' => 'integer',
+        'users_count' => 'integer',
+        'modules_enabled_count' => 'integer',
     ];
 
     public function modules()
@@ -126,6 +132,36 @@ class Tenant extends Model
             ['key' => $key],
             ['value' => $value]
         );
+    }
+
+    public function hasUsersLimit(): bool
+    {
+        return $this->max_users !== null && (int) $this->max_users > 0;
+    }
+
+    public function isUsersLimitExceeded(?int $usersCount = null): bool
+    {
+        if (! $this->hasUsersLimit()) {
+            return false;
+        }
+
+        $count = $usersCount ?? $this->users_count;
+        if ($count === null) {
+            return false;
+        }
+
+        return (int) $count > (int) $this->max_users;
+    }
+
+    public function usersQuotaLabel(): string
+    {
+        $count = $this->users_count;
+        $countLabel = $count === null ? '—' : (string) $count;
+        if (! $this->hasUsersLimit()) {
+            return $countLabel;
+        }
+
+        return $countLabel.' / '.$this->max_users;
     }
 
     public function getRouteKeyName(): string

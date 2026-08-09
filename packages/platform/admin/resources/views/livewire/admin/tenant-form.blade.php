@@ -92,6 +92,12 @@
                 Actif
             </label>
 
+            <div class="field">
+                <label class="field-label">Plafond utilisateurs</label>
+                <input class="input" type="number" min="1" placeholder="Illimité" wire:model="max_users">
+                <span class="field-hint">Nombre max d’utilisateurs dans l’app. Vide = illimité. Une alerte apparaît dans le Control Center en cas de dépassement.</span>
+            </div>
+
             @if ($supportsMultiStore)
                 <label class="field-toggle">
                     <input type="checkbox" wire:model="multi_store_enabled">

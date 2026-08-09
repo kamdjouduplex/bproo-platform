@@ -13,12 +13,22 @@
             <div class="dashboard-kpi__label">Issus du CRM</div>
             <div class="dashboard-kpi__value">{{ $kpis['from_crm'] }}</div>
         </div>
+        @if (($kpis['seats_exceeded'] ?? 0) > 0)
+            <div class="dashboard-kpi dashboard-kpi--benefit">
+                <div class="dashboard-kpi__label">Plafond users dépassé</div>
+                <div class="dashboard-kpi__value dashboard-kpi__value--negative">{{ $kpis['seats_exceeded'] }}</div>
+                <div class="dashboard-kpi__meta">
+                    <button type="button" class="btn btn-secondary btn-sm" wire:click="$set('seats', 'exceeded')">Filtrer</button>
+                </div>
+            </div>
+        @endif
     </section>
 
     <section class="cc-card app-table-card">
         <div class="table-toolbar">
             <div class="table-title">Clients <span style="font-weight:500;color:#64748b;">· {{ $tenants->total() }}</span></div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button type="button" class="btn btn-secondary btn-sm" wire:click="refreshMetrics" wire:loading.attr="disabled">Actualiser users</button>
                 <a class="btn btn-secondary btn-sm" href="{{ route('system.prospects.create') }}">Nouveau prospect</a>
                 <a class="btn btn-primary btn-sm" href="{{ route('system.tenants.create') }}">Nouveau client</a>
             </div>
@@ -50,6 +60,13 @@
                     <option value="0">Inactif</option>
                 </select>
             </div>
+            <div class="field">
+                <select class="input" wire:model.live="seats">
+                    <option value="">Tous plafonds</option>
+                    <option value="limited">Avec plafond</option>
+                    <option value="exceeded">Dépassés</option>
+                </select>
+            </div>
         </div>
         <div class="table-scroll">
             <table>
@@ -57,6 +74,7 @@
                     <tr>
                         <th>Client</th>
                         <th>App</th>
+                        <th>Utilisateurs</th>
                         <th>Abonnement</th>
                         <th>Origine</th>
                         <th>Commercial</th>
@@ -80,9 +98,17 @@
                                     @unless ($tenant->is_active)
                                         · <span style="color:#b45309;">inactif</span>
                                     @endunless
+                                    @if ($tenant->users_limit_exceeded_at)
+                                        · <span style="color:#b91c1c;font-weight:600;">plafond dépassé</span>
+                                    @endif
                                 </div>
                             </td>
                             <td><span class="badge badge-secondary">{{ $tenant->type_label }}</span></td>
+                            <td>
+                                <strong @if($tenant->users_limit_exceeded_at) style="color:#b91c1c;" @endif>
+                                    {{ $tenant->usersQuotaLabel() }}
+                                </strong>
+                            </td>
                             <td>
                                 @if ($sub)
                                     <span class="badge badge-{{ $sub->status_color }}">{{ $statusLabels[$sub->status] ?? $sub->status }}</span>
@@ -102,12 +128,20 @@
                             <td><strong>{{ fmt_money($tenant->total_paid ?? 0) }}</strong></td>
                             <td style="white-space:nowrap;">
                                 <a class="btn btn-secondary btn-sm" href="{{ route('system.tenants.show', $tenant) }}">Fiche</a>
-                                <a class="btn btn-primary btn-sm" href="{{ route('system.tenants.subscription', $tenant) }}">Facturer</a>
+                                <a class="btn btn-secondary btn-sm" href="{{ route('system.tenants.users', $tenant) }}">Users</a>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm {{ $tenant->is_active ? 'btn-secondary' : 'btn-primary' }}"
+                                    wire:click="toggleActive({{ $tenant->id }})"
+                                    wire:confirm="{{ $tenant->is_active ? 'Désactiver cette entreprise ?' : 'Réactiver cette entreprise ?' }}"
+                                >
+                                    {{ $tenant->is_active ? 'Désactiver' : 'Activer' }}
+                                </button>
                             </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="stock-empty">
+                            <td colspan="8" class="stock-empty">
                                 Aucun client.
                                 <a href="{{ route('system.prospects.create') }}">Démarrer un prospect</a>
                             </td>

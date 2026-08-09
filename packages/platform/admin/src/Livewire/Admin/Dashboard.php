@@ -8,6 +8,7 @@ use App\Models\PlatformProspect;
 use App\Models\Subscription;
 use App\Models\Tenant;
 use App\Models\TenantPayment;
+use App\Services\CompanyIntelligenceService;
 use Livewire\Component;
 
 class Dashboard extends Component
@@ -48,6 +49,8 @@ class Dashboard extends Component
             ->limit(8)
             ->get();
 
+        $seatsExceeded = app(CompanyIntelligenceService::class)->tenantsExceedingUsersLimit();
+
         return view('livewire.admin.dashboard')
             ->layout('layouts.app', [
                 'title' => 'Control Center',
@@ -68,6 +71,7 @@ class Dashboard extends Component
                 'productTypes' => config('tenant_types.types', []),
                 'recentEvents' => $recentEvents,
                 'recentProspects' => $recentProspects,
+                'seatsExceeded' => $seatsExceeded,
             ]);
     }
 }

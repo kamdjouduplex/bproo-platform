@@ -20,6 +20,7 @@ use App\Livewire\Admin\TenantModules;
 use App\Livewire\Admin\TenantSettings;
 use App\Livewire\Admin\TenantShow;
 use App\Livewire\Admin\TenantSubscription;
+use App\Livewire\Admin\TenantUsers;
 use App\Livewire\Admin\Tenants;
 use App\Livewire\System\ComingSoon;
 use Illuminate\Support\Facades\Route;
@@ -56,6 +57,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/tenants/create', TenantForm::class)->name('system.tenants.create');
         Route::get('/tenants/modules', TenantModules::class)->name('system.tenant.modules');
         Route::get('/tenants/{tenant}', TenantShow::class)->name('system.tenants.show');
+        Route::get('/tenants/{tenant}/users', TenantUsers::class)->name('system.tenants.users');
         Route::get('/tenants/{tenant}/edit', TenantForm::class)->name('system.tenants.edit');
         Route::get('/tenants/{tenant}/settings', TenantSettings::class)->name('system.tenants.settings');
         Route::get('/tenants/{tenant}/subscription', TenantSubscription::class)->name('system.tenants.subscription');

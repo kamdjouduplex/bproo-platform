@@ -12,7 +12,15 @@ class CompanyIntelligenceService
     /**
      * Refresh cached metrics for one company (tenant DB fan-out).
      *
-     * @return array{users_count: int|null, modules_enabled_count: int, db_ok: bool, error: ?string}
+     * @return array{
+     *   users_count: int|null,
+     *   modules_enabled_count: int,
+     *   db_ok: bool,
+     *   error: ?string,
+     *   last_tenant_activity_at: mixed,
+     *   users_limit_exceeded: bool,
+     *   users_limit_newly_exceeded: bool
+     * }
      */
     public function refresh(Tenant $tenant, bool $persist = true): array
     {
@@ -21,6 +29,7 @@ class CompanyIntelligenceService
         $dbOk = false;
         $error = null;
         $lastActivity = null;
+        $wasExceeded = (bool) $tenant->users_limit_exceeded_at;
 
         try {
             config(['database.connections.tenant' => $tenant->databaseConfig()]);
@@ -49,13 +58,27 @@ class CompanyIntelligenceService
             ]);
         }
 
+        $exceeded = $tenant->isUsersLimitExceeded($usersCount);
+        $newlyExceeded = $exceeded && ! $wasExceeded;
+
         if ($persist) {
             $tenant->forceFill([
                 'users_count' => $usersCount,
                 'modules_enabled_count' => $modulesEnabled,
                 'last_tenant_activity_at' => $lastActivity,
                 'metrics_cached_at' => now(),
+                'users_limit_exceeded_at' => $exceeded
+                    ? ($tenant->users_limit_exceeded_at ?? now())
+                    : null,
             ])->save();
+
+            if ($newlyExceeded) {
+                Log::warning('Tenant exceeded max_users quota', [
+                    'tenant' => $tenant->code,
+                    'users_count' => $usersCount,
+                    'max_users' => $tenant->max_users,
+                ]);
+            }
         }
 
         return [
@@ -64,13 +87,17 @@ class CompanyIntelligenceService
             'db_ok' => $dbOk,
             'error' => $error,
             'last_tenant_activity_at' => $lastActivity,
+            'users_limit_exceeded' => $exceeded,
+            'users_limit_newly_exceeded' => $newlyExceeded,
         ];
     }
 
     /**
      * Refresh metrics for all completed tenants (best-effort).
+     *
+     * @return array{refreshed: int, newly_exceeded: list<string>}
      */
-    public function refreshAll(?int $limit = null): int
+    public function refreshAll(?int $limit = null): array
     {
         $query = Tenant::query()
             ->where('provisioning_status', 'completed')
@@ -81,11 +108,29 @@ class CompanyIntelligenceService
         }
 
         $n = 0;
+        $newlyExceeded = [];
         foreach ($query->cursor() as $tenant) {
-            $this->refresh($tenant, true);
+            $result = $this->refresh($tenant, true);
             $n++;
+            if (! empty($result['users_limit_newly_exceeded'])) {
+                $newlyExceeded[] = $tenant->code;
+            }
         }
 
-        return $n;
+        return [
+            'refreshed' => $n,
+            'newly_exceeded' => $newlyExceeded,
+        ];
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, Tenant>
+     */
+    public function tenantsExceedingUsersLimit()
+    {
+        return Tenant::query()
+            ->whereNotNull('users_limit_exceeded_at')
+            ->orderByDesc('users_limit_exceeded_at')
+            ->get();
     }
 }

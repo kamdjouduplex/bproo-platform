@@ -37,6 +37,8 @@ class TenantForm extends Component
     public string $admin_password = '';
     public ?string $provisioningError = null;
     public bool $showAdvancedDb = false;
+    /** @var int|string|null null / empty = unlimited */
+    public $max_users = null;
 
     public function mount(?Tenant $tenant = null): void
     {
@@ -61,6 +63,7 @@ class TenantForm extends Component
             $this->country = $tenant->country ?? '';
             $this->city = $tenant->city ?? '';
             $this->contact_key_address = $tenant->contact_key_address ?? '';
+            $this->max_users = $tenant->max_users;
 
             return;
         }
@@ -160,6 +163,10 @@ class TenantForm extends Component
             $this->db_name = $this->defaultDbName($this->code);
         }
 
+        if ($this->max_users === '' || $this->max_users === null) {
+            $this->max_users = null;
+        }
+
         $typeKeys = array_keys(config('tenant_types.types', ['erp' => []]));
         $data = $this->validate([
             'name' => 'required|string|max:255',
@@ -178,6 +185,7 @@ class TenantForm extends Component
             'country' => 'nullable|string|max:255',
             'city' => 'nullable|string|max:255',
             'contact_key_address' => 'nullable|string|max:500',
+            'max_users' => 'nullable|integer|min:1|max:100000',
         ]);
 
         if (!$this->tenantId) {
@@ -187,6 +195,8 @@ class TenantForm extends Component
                 'admin_password' => 'required|string|min:6',
             ]);
         }
+
+        $data['max_users'] = $this->max_users === null ? null : (int) $this->max_users;
 
         $rules = [
             'code' => 'unique:tenants,code',
@@ -242,6 +252,18 @@ class TenantForm extends Component
         }
 
         $tenant->save();
+
+        if (! $tenant->hasUsersLimit()) {
+            if ($tenant->users_limit_exceeded_at) {
+                $tenant->forceFill(['users_limit_exceeded_at' => null])->save();
+            }
+        } elseif ($tenant->users_count !== null) {
+            $tenant->forceFill([
+                'users_limit_exceeded_at' => $tenant->isUsersLimitExceeded()
+                    ? ($tenant->users_limit_exceeded_at ?? now())
+                    : null,
+            ])->save();
+        }
 
         \Illuminate\Support\Facades\Log::info('Tenant saved', [
             'tenant_id' => $tenant->id,
