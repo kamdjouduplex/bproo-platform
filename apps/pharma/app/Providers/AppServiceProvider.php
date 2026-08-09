@@ -59,7 +59,8 @@ class AppServiceProvider extends ServiceProvider
 
         config([
             'livewire.temporary_file_upload.disk' => 'local',
-            'livewire.temporary_file_upload.rules' => ['required', 'file', 'image', "max:{$uploadMaxKb}"],
+            // Keep generic: logo uploads validate `image` on the component; Excel import needs non-image files.
+            'livewire.temporary_file_upload.rules' => ['required', 'file', "max:{$uploadMaxKb}"],
         ]);
     }
 

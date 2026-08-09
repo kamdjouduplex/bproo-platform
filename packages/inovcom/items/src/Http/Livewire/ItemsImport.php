@@ -55,15 +55,26 @@ class ItemsImport extends Component
         }
 
         $this->validate([
-            'importFile' => ['required', 'file', 'max:10240', 'mimes:xlsx,xls,csv,txt'],
+            'importFile' => [
+                'required',
+                'file',
+                'max:10240',
+                'mimetypes:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/excel,application/octet-stream,application/zip,text/csv,text/plain,application/csv,text/comma-separated-values',
+            ],
         ], [
             'importFile.required' => 'Choisissez un fichier Excel ou CSV.',
-            'importFile.mimes' => 'Formats acceptés : .xlsx, .xls, .csv',
+            'importFile.file' => 'Choisissez un fichier Excel ou CSV.',
+            'importFile.mimetypes' => 'Formats acceptés : .xlsx, .xls, .csv',
         ]);
 
         $file = $this->importFile;
+        $ext = strtolower($file->getClientOriginalExtension() ?: '');
+        if (! in_array($ext, ['xlsx', 'xls', 'csv', 'txt'], true)) {
+            $this->addError('importFile', 'Formats acceptés : .xlsx, .xls, .csv');
+
+            return;
+        }
         $path = $file->getRealPath();
-        $ext = strtolower($file->getClientOriginalExtension() ?: 'xlsx');
 
         try {
             $parsed = app(ItemsImportService::class)->parse($path, $ext);
