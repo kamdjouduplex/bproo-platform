@@ -2,8 +2,8 @@
 
 namespace App\Livewire\Admin;
 
-use App\Jobs\ProvisionTenantJob;
 use App\Models\Tenant;
+use App\Services\TenantProvisionDispatcher;
 use Illuminate\Support\Facades\DB;
 use Livewire\Component;
 
@@ -71,7 +71,7 @@ class TenantHealth extends Component
             'db_password' => null,
         ]);
 
-        ProvisionTenantJob::dispatch($tenant, '', '', '');
+        app(TenantProvisionDispatcher::class)->dispatch($tenant, '', '', '');
 
         notify()->success("Provisionnement relancé pour « {$code} ». Rafraîchissez dans 1–2 min.");
         $this->refreshStatuses();

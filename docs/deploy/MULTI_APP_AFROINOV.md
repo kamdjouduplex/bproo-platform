@@ -57,6 +57,8 @@ Les 4 apps utilisent les **mêmes** `DB_*` (landlord). C’est comme ça que **a
 
 Il n’y a **pas** de sync magique : c’est la même base landlord.
 
+**Provisionnement multi-apps :** quand vous créez un tenant Pressing / Pharma / ERP depuis Control Center, admin **délègue** le job à l’app produit (`PRODUCT_*_URL` + `TENANT_PROVISION_SECRET`). C’est cette app qui a les packages et migrations du vertical.
+
 ---
 
 ## 3. Infra Docker (ne pas diverger)
@@ -68,6 +70,7 @@ Il n’y a **pas** de sync magique : c’est la même base landlord.
 | Conteneur PostgreSQL | `vps-db-bproo_pg` |
 | Base landlord | `bproo_landlord` |
 | User app | `bproo_app` |
+| Secret provision | `TENANT_PROVISION_SECRET` (identique sur admin + myerp + pharma + pressing) |
 | Réseau Caddy | `proxy_net` (existant) |
 | Proxy | `vps-proxy-caddy-1` |
 | Caddyfile | `/home/kamfo-teuh-01/vps-proxy/Caddyfile` |
@@ -108,9 +111,12 @@ Gardez **ce terminal ouvert** jusqu’à la fin :
 ```bash
 export BPROO_DB_ADMIN_PASS='REMPLACER_mot_de_passe_postgres_fort'
 export BPROO_DB_APP_PASS='REMPLACER_mot_de_passe_app_fort'
+export TENANT_PROVISION_SECRET="$(openssl rand -hex 32)"
 export DEMO_TENANT_CODE='demo'
 export GIT_REPO_URL='https://github.com/VOUS/bproo-platform.git'
 export GIT_BRANCH='main'
+
+echo "TENANT_PROVISION_SECRET=$TENANT_PROVISION_SECRET"   # à garder : même valeur sur les 4 apps
 ```
 
 Vérifier :
@@ -248,6 +254,12 @@ APP_DEBUG=false
 APP_URL=https://myerp.afroinov.com
 FORCE_HTTPS=true
 
+APP_PRODUCT_KEY=erp
+TENANT_PROVISION_SECRET=${TENANT_PROVISION_SECRET}
+PRODUCT_ERP_URL=https://myerp.afroinov.com
+PRODUCT_PHARMA_URL=https://pharma.afroinov.com
+PRODUCT_PRESSING_URL=https://pressing.afroinov.com
+
 LOG_CHANNEL=stack
 LOG_LEVEL=warning
 
@@ -366,6 +378,9 @@ APP_DEBUG=false
 APP_URL=https://admin.afroinov.com
 FORCE_HTTPS=true
 
+APP_PRODUCT_KEY=control-center
+TENANT_PROVISION_SECRET=${TENANT_PROVISION_SECRET}
+
 LOG_CHANNEL=stack
 LOG_LEVEL=warning
 
@@ -475,6 +490,12 @@ APP_DEBUG=false
 APP_URL=https://pharma.afroinov.com
 FORCE_HTTPS=true
 
+APP_PRODUCT_KEY=pharma
+TENANT_PROVISION_SECRET=${TENANT_PROVISION_SECRET}
+PRODUCT_ERP_URL=https://myerp.afroinov.com
+PRODUCT_PHARMA_URL=https://pharma.afroinov.com
+PRODUCT_PRESSING_URL=https://pressing.afroinov.com
+
 LOG_CHANNEL=stack
 LOG_LEVEL=warning
 
@@ -535,6 +556,12 @@ APP_KEY=
 APP_DEBUG=false
 APP_URL=https://pressing.afroinov.com
 FORCE_HTTPS=true
+
+APP_PRODUCT_KEY=pressing
+TENANT_PROVISION_SECRET=${TENANT_PROVISION_SECRET}
+PRODUCT_ERP_URL=https://myerp.afroinov.com
+PRODUCT_PHARMA_URL=https://pharma.afroinov.com
+PRODUCT_PRESSING_URL=https://pressing.afroinov.com
 
 LOG_CHANNEL=stack
 LOG_LEVEL=warning
@@ -668,13 +695,19 @@ Login vendeur :
 https://myerp.afroinov.com/app/login?tenant=demo
 ```
 
-Pour Pharma / Pressing : créer l’entreprise avec le bon **type**, puis `tenant:migrate` depuis **ce** host :
+Pour Pharma / Pressing : créer l’entreprise avec le bon **type** depuis Control Center.
+Le provisionnement est **délégué** automatiquement vers l’app produit (`PRODUCT_*_URL` + `TENANT_PROVISION_SECRET`).
+Les modules / migrations du vertical s’installent sur **ce** host (plus besoin de `tenant:migrate` manuel si le secret est configuré).
+
+Relance manuelle (Santé) ou réparation d’un ancien tenant :
 
 ```bash
 bproo_dc pharma pharma exec app php artisan tenant:migrate CODE
 bproo_dc pressing pressing exec app php artisan tenant:migrate CODE
 ```
 
+> `tenant:migrate` ne couvre que les migrations core / `tenant_modules` déjà publiées.
+> Pour (ré)installer les modules pressing/pharma : utiliser « Modules » dans admin, ou `InstallModuleJob` sur le host produit.
 Vérifier qu’une base tenant a bien été créée :
 
 ```bash

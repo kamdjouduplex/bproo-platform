@@ -3,6 +3,20 @@
 return [
     /*
     |--------------------------------------------------------------------------
+    | This host's product key (erp|pharma|pressing|bat|control-center)
+    |--------------------------------------------------------------------------
+    | When it matches tenant_types.types.{type}.app_key, provisioning runs locally.
+    | Otherwise Control Center (etc.) delegates to PRODUCT_*_URL.
+    */
+    'local_app_key' => env('APP_PRODUCT_KEY'),
+
+    /*
+    | Shared secret for POST /internal/tenants/provision (same value on all apps).
+    */
+    'provision_secret' => env('TENANT_PROVISION_SECRET'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Product apps (tenant "type")
     |--------------------------------------------------------------------------
     | Each company belongs to one product app. That choice controls which

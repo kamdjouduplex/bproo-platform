@@ -3,6 +3,7 @@
 namespace Bproo\Platform\Tenancy;
 
 use App\Services\TenantManager;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 class TenancyServiceProvider extends ServiceProvider
@@ -16,6 +17,7 @@ class TenancyServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        //
+        Route::middleware('api')
+            ->group(__DIR__.'/../../routes/internal.php');
     }
 }

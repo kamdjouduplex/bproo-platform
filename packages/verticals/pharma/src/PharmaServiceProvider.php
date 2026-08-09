@@ -16,7 +16,10 @@ class PharmaServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        //
+        // Always register publish tags (provisioning / artisan must work without tenant context).
+        $this->publishes([
+            __DIR__.'/../database/migrations' => database_path('migrations/tenant_modules'),
+        ], 'bproo-pharma-migrations');
     }
 
     public function boot(): void
@@ -26,10 +29,6 @@ class PharmaServiceProvider extends ServiceProvider
         }
 
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'pharma');
-
-        $this->publishes([
-            __DIR__.'/../database/migrations' => database_path('migrations/tenant_modules'),
-        ], 'bproo-pharma-migrations');
 
         Livewire::component('pharma.hub', PharmaHub::class);
 

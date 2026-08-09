@@ -43,7 +43,10 @@ class PressingServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        //
+        // Always register publish tags (provisioning / artisan must work without tenant context).
+        $this->publishes([
+            __DIR__ . '/../database/migrations' => database_path('migrations/tenant_modules'),
+        ], 'pressing-migrations');
     }
 
     public function boot(): void
@@ -53,10 +56,6 @@ class PressingServiceProvider extends ServiceProvider
         }
 
         $this->loadViewsFrom(__DIR__ . '/../resources/views', 'pressing');
-
-        $this->publishes([
-            __DIR__ . '/../database/migrations' => database_path('migrations/tenant_modules'),
-        ], 'pressing-migrations');
 
         Livewire::component('pressing.agences-index', AgencesIndex::class);
         Livewire::component('pressing.clients-index', ClientsIndex::class);

@@ -165,7 +165,11 @@ class TenantProvisioner
                 try {
                     $registry->install($module->key, $tenant);
                 } catch (\Throwable $e) {
-                    Log::warning("Module {$module->key} install failed during provisioning: " . $e->getMessage());
+                    throw new \RuntimeException(
+                        "Module {$module->key} install failed during provisioning: ".$e->getMessage(),
+                        0,
+                        $e
+                    );
                 }
             }
         }

@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Jobs\ProvisionTenantJob;
 use App\Models\PlatformProspect;
 use App\Models\PlatformProspectActivity;
 use App\Models\Tenant;
@@ -71,7 +70,7 @@ class ProspectConversionService
                 'body' => "Entreprise « {$tenant->code} » créée (app {$type}). Provisionnement lancé.",
             ]);
 
-            ProvisionTenantJob::dispatch($tenant, $adminName, $adminEmail, $adminPassword);
+            app(TenantProvisionDispatcher::class)->dispatch($tenant, $adminName, $adminEmail, $adminPassword);
 
             return $tenant;
         });

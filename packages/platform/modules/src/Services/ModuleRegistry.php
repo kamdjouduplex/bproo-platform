@@ -298,17 +298,33 @@ class ModuleRegistry
         }
 
         Artisan::call('vendor:publish', ['--tag' => $tag, '--force' => true]);
+        $publishOutput = Artisan::output();
+        if (str_contains($publishOutput, 'Unable to locate publishable resources')) {
+            throw new \RuntimeException(
+                "Migration tag [{$tag}] is not available on this host for module [{$moduleKey}]. ".
+                'Provision this tenant on the product app that owns the package (ERP / Pharma / Pressing).'
+            );
+        }
 
         $this->ensureTenantConnection($tenant);
 
         $path = database_path('migrations/tenant_modules');
-        if (!is_dir($path)) {
-            return;
+        if (! is_dir($path)) {
+            throw new \RuntimeException(
+                "No migrations published for tag [{$tag}] (module [{$moduleKey}]). ".
+                'Check that the vertical package is installed and its ServiceProvider registers the tag.'
+            );
         }
-        Artisan::call('migrate', [
+
+        $exit = Artisan::call('migrate', [
             '--database' => 'tenant',
             '--path' => 'database/migrations/tenant_modules',
             '--force' => true,
         ]);
+        if ($exit !== 0) {
+            throw new \RuntimeException(
+                "Migration failed for module [{$moduleKey}] (tag [{$tag}]): ".trim(Artisan::output())
+            );
+        }
     }
 }

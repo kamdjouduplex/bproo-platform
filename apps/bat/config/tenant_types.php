@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'local_app_key' => env('APP_PRODUCT_KEY', 'bat'),
+    'provision_secret' => env('TENANT_PROVISION_SECRET'),
+
     'types' => [
         'erp' => [
             'label' => 'ERP / POS',

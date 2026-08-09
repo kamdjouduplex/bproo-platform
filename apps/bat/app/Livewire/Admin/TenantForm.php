@@ -2,8 +2,8 @@
 
 namespace App\Livewire\Admin;
 
-use App\Jobs\ProvisionTenantJob;
 use App\Models\Tenant;
+use App\Services\TenantProvisionDispatcher;
 use Livewire\Component;
 
 class TenantForm extends Component
@@ -119,8 +119,7 @@ class TenantForm extends Component
         ]);
 
         if (!$this->tenantId) {
-            // Dispatch provisioning job instead of running synchronously
-            ProvisionTenantJob::dispatch(
+            app(TenantProvisionDispatcher::class)->dispatch(
                 $tenant,
                 $this->admin_name,
                 $this->admin_email,

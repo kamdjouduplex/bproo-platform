@@ -2,10 +2,10 @@
 
 namespace App\Livewire\Admin;
 
-use App\Jobs\ProvisionTenantJob;
 use App\Models\PlatformProspect;
 use App\Models\Tenant;
 use App\Services\ProspectConversionService;
+use App\Services\TenantProvisionDispatcher;
 use Illuminate\Support\Str;
 use Livewire\Component;
 
@@ -252,7 +252,7 @@ class TenantForm extends Component
         ]);
 
         if (!$this->tenantId) {
-            ProvisionTenantJob::dispatch(
+            app(TenantProvisionDispatcher::class)->dispatch(
                 $tenant,
                 $this->admin_name,
                 $this->admin_email,

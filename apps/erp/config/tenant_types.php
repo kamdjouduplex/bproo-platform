@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'local_app_key' => env('APP_PRODUCT_KEY', 'erp'),
+    'provision_secret' => env('TENANT_PROVISION_SECRET'),
+
     /*
     |--------------------------------------------------------------------------
     | Product apps (tenant "type")
