@@ -10,7 +10,6 @@
     },
     "autoload": {
         "psr-4": {
-            "App\\Http\\Controllers\\Internal\\": "src/Http/Controllers/Internal/",
             "App\\Http\\Middleware\\": "src/Http/Middleware/",
             "App\\Jobs\\": "src/Jobs/",
             "App\\Models\\": "src/Models/",

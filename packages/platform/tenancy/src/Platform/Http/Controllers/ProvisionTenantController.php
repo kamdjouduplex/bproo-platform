@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Internal;
+namespace Bproo\Platform\Tenancy\Http\Controllers;
 
 use App\Jobs\ProvisionTenantJob;
 use App\Models\Tenant;

@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\Internal\ProvisionTenantController;
 use App\Http\Middleware\VerifyInternalProvisionSecret;
+use Bproo\Platform\Tenancy\Http\Controllers\ProvisionTenantController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/internal/tenants/provision', ProvisionTenantController::class)
