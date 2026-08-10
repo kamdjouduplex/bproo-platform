@@ -147,10 +147,13 @@ class BatchesIndex extends Component
 
         $query = Batch::query()->with('item')
             ->when($this->search !== '', function ($q) {
-                $q->whereHas('item', function ($q2) {
-                    $q2->where('name', 'like', '%'.$this->search.'%')
-                        ->orWhere('sku', 'like', '%'.$this->search.'%')
-                        ->orWhere('barcode', 'like', '%'.$this->search.'%');
+                $term = '%'.mb_strtolower(trim($this->search)).'%';
+                $q->where(function ($outer) use ($term) {
+                    $outer->whereHas('item', function ($q2) use ($term) {
+                        $q2->whereRaw('LOWER(name) LIKE ?', [$term])
+                            ->orWhereRaw('LOWER(COALESCE(sku, \'\')) LIKE ?', [$term])
+                            ->orWhereRaw('LOWER(COALESCE(barcode, \'\')) LIKE ?', [$term]);
+                    })->orWhereRaw('LOWER(batch_number) LIKE ?', [$term]);
                 });
             })
             ->when($this->filter === 'd30', function ($q) use ($today) {

@@ -41,10 +41,11 @@ class ForeignPurchasesIndex extends Component
         $orders = ForeignPurchaseOrder::query()
             ->with(['provider', 'creator', 'lines'])
             ->when($this->search !== '', function ($query) {
-                $query->where(function ($q) {
-                    $q->where('order_number', 'like', '%' . $this->search . '%')
-                        ->orWhereHas('provider', function ($q2) {
-                            $q2->where('name', 'like', '%' . $this->search . '%');
+                $term = '%'.mb_strtolower(trim($this->search)).'%';
+                $query->where(function ($q) use ($term) {
+                    $q->whereRaw('LOWER(order_number) LIKE ?', [$term])
+                        ->orWhereHas('provider', function ($q2) use ($term) {
+                            $q2->whereRaw('LOWER(name) LIKE ?', [$term]);
                         });
                 });
             }, function ($query) {

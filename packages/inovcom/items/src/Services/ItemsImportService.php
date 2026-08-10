@@ -350,6 +350,10 @@ class ItemsImportService
             $cost = max(0.0, $cost);
             $status = 'warning';
         }
+        if ($price < $cost) {
+            $messages[] = 'Prix de vente inférieur au coût d’achat.';
+            $status = 'error';
+        }
         if ($expiryRaw !== null && $expiryRaw !== '' && $expiry === null) {
             $messages[] = 'Date de péremption invalide → ignorée (lot sans date stricte).';
             $status = 'warning';

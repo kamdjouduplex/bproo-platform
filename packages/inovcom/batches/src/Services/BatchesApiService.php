@@ -5,6 +5,7 @@ namespace InovCom\Batches\Services;
 use InovCom\Batches\Models\Batch;
 use InovCom\Batches\Models\BatchMovement;
 use InovCom\Kernel\Contracts\BatchesApi;
+use InovCom\Stock\Services\StockService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -143,26 +144,13 @@ class BatchesApiService implements BatchesApi
                 /** @var Batch $batch */
                 $batch = $row['batch'];
                 $take = (float) $row['quantity'];
-                if (Schema::connection('tenant')->hasTable('stock_levels')) {
-                    $level = $this->getStockLevelRow($itemId);
-                    $stockBefore = $level ? (float) $level->quantity : 0.0;
-                    $this->decreaseStockLevel($itemId, $take);
-                    $stockAfter = max(0, $stockBefore - $take);
-                } else {
-                    $stockBefore = 0.0;
-                    $stockAfter = 0.0;
-                }
-                if (Schema::connection('tenant')->hasTable('stock_movements')) {
-                    $this->recordStockMovementOut(
-                        $itemId,
-                        $take,
-                        $referenceType,
-                        $referenceId,
-                        $stockBefore,
-                        $stockAfter,
-                        $this->batchReasonLabel('out', $batch)
-                    );
-                }
+                $this->syncPhysicalStockOut(
+                    $itemId,
+                    $take,
+                    $referenceType,
+                    $referenceId,
+                    $this->batchReasonLabel('out', $batch)
+                );
             }
 
             return $consumed;
@@ -223,26 +211,13 @@ class BatchesApiService implements BatchesApi
             'reference_id' => $referenceId,
         ]);
 
-        if (Schema::connection('tenant')->hasTable('stock_levels')) {
-            $level = $this->getStockLevelRow($itemId);
-            $stockBefore = $level ? (float) $level->quantity : 0.0;
-            $this->increaseStockLevel($itemId, $quantity);
-            $stockAfter = $stockBefore + $quantity;
-        } else {
-            $stockBefore = 0.0;
-            $stockAfter = 0.0;
-        }
-        if (Schema::connection('tenant')->hasTable('stock_movements')) {
-            $this->recordStockMovementIn(
-                $itemId,
-                $quantity,
-                $referenceType,
-                $referenceId,
-                $stockBefore,
-                $stockAfter,
-                $this->batchReasonLabel('in', $batch)
-            );
-        }
+        $this->syncPhysicalStockIn(
+            $itemId,
+            $quantity,
+            $referenceType,
+            $referenceId,
+            $this->batchReasonLabel('in', $batch)
+        );
 
         return $batch;
     }
@@ -273,26 +248,13 @@ class BatchesApiService implements BatchesApi
         ]);
 
         $itemId = (int) $batch->item_id;
-        if (Schema::connection('tenant')->hasTable('stock_levels')) {
-            $level = $this->getStockLevelRow($itemId);
-            $stockBefore = $level ? (float) $level->quantity : 0.0;
-            $this->increaseStockLevel($itemId, $quantity);
-            $stockAfter = $stockBefore + $quantity;
-        } else {
-            $stockBefore = 0.0;
-            $stockAfter = 0.0;
-        }
-        if (Schema::connection('tenant')->hasTable('stock_movements')) {
-            $this->recordStockMovementIn(
-                $itemId,
-                $quantity,
-                $referenceType ?? 'sale_return',
-                $referenceId ?? 0,
-                $stockBefore,
-                $stockAfter,
-                $this->batchReasonLabel('in', $batch)
-            );
-        }
+        $this->syncPhysicalStockIn(
+            $itemId,
+            $quantity,
+            $referenceType ?? 'sale_return',
+            $referenceId ?? 0,
+            $this->batchReasonLabel('in', $batch)
+        );
     }
 
     public function writeOffExpiredBatch(int $batchId, ?string $notes = null): array
@@ -335,40 +297,17 @@ class BatchesApiService implements BatchesApi
 
             $lossRecordId = $this->maybeCreateExpiryLossRecord($batch, $qty, $notes);
 
-            if (Schema::connection('tenant')->hasTable('stock_levels')) {
-                $row = $this->getStockLevelRow($itemId);
-                $stockBefore = $row ? (float) $row->quantity : 0.0;
-                $stockAfter = max(0, $stockBefore - $qty);
-                $reserved = $row ? (float) $row->reserved_quantity : 0.0;
-                $avail = max(0, $stockAfter - $reserved);
-
-                if ($row) {
-                    DB::connection('tenant')->table('stock_levels')->where('item_id', $itemId)->update([
-                        'quantity' => $stockAfter,
-                        'available_quantity' => $avail,
-                        'updated_at' => now(),
-                    ]);
-                }
-
-                if (Schema::connection('tenant')->hasTable('stock_movements')) {
-                    $reason = 'Lot '.$batchNumber.' · exp. '.$batch->expiry_date->format('d/m/Y');
-                    if ($notes) {
-                        $reason .= ' — '.$notes;
-                    }
-                    DB::connection('tenant')->table('stock_movements')->insert([
-                        'item_id' => $itemId,
-                        'type' => 'out',
-                        'reference_type' => 'expiry_write_off',
-                        'reference_id' => $lossRecordId ?? $batch->id,
-                        'quantity' => -$qty,
-                        'quantity_before' => $stockBefore,
-                        'quantity_after' => $stockAfter,
-                        'reason' => $reason,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
-                }
+            $reason = 'Lot '.$batchNumber.' · exp. '.$batch->expiry_date->format('d/m/Y');
+            if ($notes) {
+                $reason .= ' — '.$notes;
             }
+            $this->syncPhysicalStockOut(
+                $itemId,
+                $qty,
+                'expiry_write_off',
+                $lossRecordId ?? $batch->id,
+                $reason
+            );
 
             return [
                 'batch_id' => (int) $batch->id,
@@ -457,22 +396,150 @@ class BatchesApiService implements BatchesApi
 
     private function getStockLevelRow(int $itemId): ?object
     {
-        return DB::connection('tenant')
-            ->table('stock_levels')
-            ->where('item_id', $itemId)
-            ->first();
+        $query = DB::connection('tenant')->table('stock_levels')->where('item_id', $itemId);
+        $storeId = $this->resolveStoreId();
+        if ($storeId !== null && Schema::connection('tenant')->hasColumn('stock_levels', 'store_id')) {
+            $scoped = (clone $query)->where('store_id', $storeId)->first();
+            if ($scoped) {
+                return $scoped;
+            }
+            // Heal legacy NULL store rows onto the current store when present.
+            $legacy = (clone $query)->whereNull('store_id')->first();
+            if ($legacy) {
+                DB::connection('tenant')->table('stock_levels')->where('id', $legacy->id)->update([
+                    'store_id' => $storeId,
+                    'updated_at' => now(),
+                ]);
+                $legacy->store_id = $storeId;
+
+                return $legacy;
+            }
+        }
+
+        return $query->first();
+    }
+
+    private function resolveStoreId(): ?int
+    {
+        if (! class_exists(\App\Services\StoreContextService::class)) {
+            return null;
+        }
+        try {
+            $context = app(\App\Services\StoreContextService::class);
+            $tenant = class_exists(\App\Services\TenantManager::class)
+                ? app(\App\Services\TenantManager::class)->tenant()
+                : null;
+
+            return $context->currentStoreId() ?: $context->defaultStoreId($tenant);
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function stockServiceAvailable(): bool
+    {
+        return class_exists(StockService::class)
+            && Schema::connection('tenant')->hasTable('stock_levels');
+    }
+
+    /**
+     * Increase physical stock on the current store (visible in Stock UI).
+     */
+    private function syncPhysicalStockIn(
+        int $itemId,
+        float $quantity,
+        ?string $referenceType,
+        ?int $referenceId,
+        string $reason
+    ): void {
+        if ($quantity <= 0 || ! Schema::connection('tenant')->hasTable('stock_levels')) {
+            return;
+        }
+
+        if ($this->stockServiceAvailable()) {
+            app(StockService::class)->addStock(
+                $itemId,
+                $quantity,
+                'in',
+                $referenceType,
+                $referenceId,
+                $reason
+            );
+
+            return;
+        }
+
+        $level = $this->getStockLevelRow($itemId);
+        $stockBefore = $level ? (float) $level->quantity : 0.0;
+        $this->increaseStockLevel($itemId, $quantity);
+        $stockAfter = $stockBefore + $quantity;
+        if (Schema::connection('tenant')->hasTable('stock_movements')) {
+            $this->recordStockMovementIn(
+                $itemId,
+                $quantity,
+                $referenceType ?? 'batch',
+                $referenceId ?? 0,
+                $stockBefore,
+                $stockAfter,
+                $reason
+            );
+        }
+    }
+
+    /**
+     * Decrease physical stock on the current store.
+     */
+    private function syncPhysicalStockOut(
+        int $itemId,
+        float $quantity,
+        ?string $referenceType,
+        ?int $referenceId,
+        string $reason
+    ): void {
+        if ($quantity <= 0 || ! Schema::connection('tenant')->hasTable('stock_levels')) {
+            return;
+        }
+
+        if ($this->stockServiceAvailable()) {
+            app(StockService::class)->removeStock(
+                $itemId,
+                $quantity,
+                'out',
+                $referenceType,
+                $referenceId,
+                $reason
+            );
+
+            return;
+        }
+
+        $level = $this->getStockLevelRow($itemId);
+        $stockBefore = $level ? (float) $level->quantity : 0.0;
+        $this->decreaseStockLevel($itemId, $quantity);
+        $stockAfter = max(0, $stockBefore - $quantity);
+        if (Schema::connection('tenant')->hasTable('stock_movements')) {
+            $this->recordStockMovementOut(
+                $itemId,
+                $quantity,
+                $referenceType,
+                $referenceId,
+                $stockBefore,
+                $stockAfter,
+                $reason
+            );
+        }
     }
 
     private function decreaseStockLevel(int $itemId, float $quantity): void
     {
         $row = $this->getStockLevelRow($itemId);
-        if (!$row) {
+        if (! $row) {
             return;
         }
         $before = (float) $row->quantity;
         $after = max(0, $before - $quantity);
         $avail = max(0, $after - (float) $row->reserved_quantity);
-        DB::connection('tenant')->table('stock_levels')->where('item_id', $itemId)->update([
+        DB::connection('tenant')->table('stock_levels')->where('id', $row->id)->update([
             'quantity' => $after,
             'available_quantity' => $avail,
             'updated_at' => now(),
@@ -486,21 +553,32 @@ class BatchesApiService implements BatchesApi
         $after = $before + $quantity;
         $reserved = $row ? (float) $row->reserved_quantity : 0;
         $avail = max(0, $after - $reserved);
+        $storeId = $this->resolveStoreId();
+        $hasStore = Schema::connection('tenant')->hasColumn('stock_levels', 'store_id');
+
         if ($row) {
-            DB::connection('tenant')->table('stock_levels')->where('item_id', $itemId)->update([
+            $payload = [
                 'quantity' => $after,
                 'available_quantity' => $avail,
                 'updated_at' => now(),
-            ]);
+            ];
+            if ($hasStore && $storeId !== null && empty($row->store_id)) {
+                $payload['store_id'] = $storeId;
+            }
+            DB::connection('tenant')->table('stock_levels')->where('id', $row->id)->update($payload);
         } else {
-            DB::connection('tenant')->table('stock_levels')->insert([
+            $insert = [
                 'item_id' => $itemId,
                 'quantity' => $after,
                 'reserved_quantity' => 0,
                 'available_quantity' => $avail,
                 'created_at' => now(),
                 'updated_at' => now(),
-            ]);
+            ];
+            if ($hasStore && $storeId !== null) {
+                $insert['store_id'] = $storeId;
+            }
+            DB::connection('tenant')->table('stock_levels')->insert($insert);
         }
     }
 
@@ -520,7 +598,7 @@ class BatchesApiService implements BatchesApi
         float $after,
         string $reason
     ): void {
-        DB::connection('tenant')->table('stock_movements')->insert([
+        $payload = [
             'item_id' => $itemId,
             'type' => 'out',
             'reference_type' => $refType,
@@ -531,7 +609,12 @@ class BatchesApiService implements BatchesApi
             'reason' => $reason,
             'created_at' => now(),
             'updated_at' => now(),
-        ]);
+        ];
+        $storeId = $this->resolveStoreId();
+        if ($storeId !== null && Schema::connection('tenant')->hasColumn('stock_movements', 'store_id')) {
+            $payload['store_id'] = $storeId;
+        }
+        DB::connection('tenant')->table('stock_movements')->insert($payload);
     }
 
     private function recordStockMovementIn(
@@ -543,7 +626,7 @@ class BatchesApiService implements BatchesApi
         float $after,
         string $reason
     ): void {
-        DB::connection('tenant')->table('stock_movements')->insert([
+        $payload = [
             'item_id' => $itemId,
             'type' => 'in',
             'reference_type' => $refType,
@@ -554,6 +637,11 @@ class BatchesApiService implements BatchesApi
             'reason' => $reason,
             'created_at' => now(),
             'updated_at' => now(),
-        ]);
+        ];
+        $storeId = $this->resolveStoreId();
+        if ($storeId !== null && Schema::connection('tenant')->hasColumn('stock_movements', 'store_id')) {
+            $payload['store_id'] = $storeId;
+        }
+        DB::connection('tenant')->table('stock_movements')->insert($payload);
     }
 }

@@ -325,6 +325,22 @@ class ItemsForm extends Component
 
         $this->validate($rules);
 
+        if ($canViewCost) {
+            foreach ($this->unit_prices as $i => $row) {
+                $price = (float) ($row['price'] ?? 0);
+                $cost = (float) ($row['cost'] ?? 0);
+                if ($price < $cost) {
+                    $this->addError(
+                        "unit_prices.$i.price",
+                        'Le prix de vente doit être supérieur ou égal au prix d’achat (coût).'
+                    );
+                }
+            }
+            if ($this->getErrorBag()->isNotEmpty()) {
+                return;
+            }
+        }
+
         $first = $this->unit_prices[0];
         $baseUnitId = (int) $first['unit_id'];
         $basePrice = (float) $first['price'];

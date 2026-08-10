@@ -92,10 +92,11 @@ class SalesIndex extends Component
         $sales = Sale::query()
             ->with(['client', 'creator', 'payments'])
             ->when($this->search !== '', function ($query) {
-                $query->where(function ($q) {
-                    $q->where('sale_number', 'like', '%' . $this->search . '%')
-                        ->orWhereHas('client', function ($q2) {
-                            $q2->where('name', 'like', '%' . $this->search . '%');
+                $term = '%'.mb_strtolower(trim($this->search)).'%';
+                $query->where(function ($q) use ($term) {
+                    $q->whereRaw('LOWER(sale_number) LIKE ?', [$term])
+                        ->orWhereHas('client', function ($q2) use ($term) {
+                            $q2->whereRaw('LOWER(name) LIKE ?', [$term]);
                         });
                 });
             }, function ($query) {

@@ -64,10 +64,11 @@ class ItemsIndex extends Component
         $items = Item::query()
             ->with(['category', 'brand', 'unit', 'unitPrices.unit'])
             ->when($this->search !== '', function ($query) {
-                $query->where(function ($q) {
-                    $q->where('name', 'like', '%' . $this->search . '%')
-                        ->orWhere('sku', 'like', '%' . $this->search . '%')
-                        ->orWhere('barcode', 'like', '%' . $this->search . '%');
+                $term = '%'.mb_strtolower(trim($this->search)).'%';
+                $query->where(function ($q) use ($term) {
+                    $q->whereRaw('LOWER(name) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(COALESCE(sku, \'\')) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(COALESCE(barcode, \'\')) LIKE ?', [$term]);
                 });
             })
             ->orderBy('name')

@@ -352,6 +352,7 @@
                                     </td>
                                     <td class="item-unit-prices__col-money">
                                         <input class="input input-sm item-unit-prices__input item-unit-prices__input--num" wire:model="unit_prices.{{ $index }}.price" type="number" min="0" step="1" placeholder="0">
+                                        @error('unit_prices.'.$index.'.price') <div class="field-error" style="font-size:11px;margin-top:2px;">{{ $message }}</div> @enderror
                                     </td>
                                     @if ($canViewCost)
                                         <td class="item-unit-prices__col-money">

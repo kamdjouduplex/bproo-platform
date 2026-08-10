@@ -366,21 +366,21 @@ class StockIndex extends Component
             ->when($brandId, fn ($query) => $query->where('items.brand_id', $brandId))
             ->when($providerId, fn ($query) => $this->applyProviderFilter($query, $providerId))
             ->when($this->search !== '', function ($query) use ($locationsEnabled, $storeId) {
-                $term = '%' . $this->search . '%';
+                $term = '%'.mb_strtolower(trim($this->search)).'%';
                 $query->where(function ($q) use ($term, $locationsEnabled, $storeId) {
-                    $q->where('items.name', 'like', $term)
-                        ->orWhere('items.sku', 'like', $term)
-                        ->orWhere('items.barcode', 'like', $term);
+                    $q->whereRaw('LOWER(items.name) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(COALESCE(items.sku, \'\')) LIKE ?', [$term])
+                        ->orWhereRaw('LOWER(COALESCE(items.barcode, \'\')) LIKE ?', [$term]);
                     if ($locationsEnabled) {
                         $q->orWhereIn('items.id', function ($sub) use ($term, $storeId) {
                             $sub->select('item_storage_locations.item_id')
                                 ->from('item_storage_locations')
                                 ->join('storage_locations', 'storage_locations.id', '=', 'item_storage_locations.storage_location_id')
                                 ->where(function ($l) use ($term) {
-                                    $l->where('storage_locations.zone', 'like', $term)
-                                        ->orWhere('storage_locations.code', 'like', $term)
-                                        ->orWhere('storage_locations.aisle', 'like', $term)
-                                        ->orWhere('storage_locations.shelf', 'like', $term);
+                                    $l->whereRaw('LOWER(COALESCE(storage_locations.zone, \'\')) LIKE ?', [$term])
+                                        ->orWhereRaw('LOWER(COALESCE(storage_locations.code, \'\')) LIKE ?', [$term])
+                                        ->orWhereRaw('LOWER(COALESCE(storage_locations.aisle, \'\')) LIKE ?', [$term])
+                                        ->orWhereRaw('LOWER(COALESCE(storage_locations.shelf, \'\')) LIKE ?', [$term]);
                                 });
                             if (Schema::connection('tenant')->hasColumn('storage_locations', 'store_id') && $storeId) {
                                 $sub->where('storage_locations.store_id', $storeId);
