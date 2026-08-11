@@ -145,6 +145,10 @@
         {
             "type": "path",
             "url": "../../packages/verticals/pharma"
+        },
+        {
+            "type": "path",
+            "url": "../../packages/verticals/school"
         }
     ],
     "require": {
@@ -156,6 +160,7 @@
         "bproo/platform-printing": "@dev",
         "bproo/ui-core": "@dev",
         "bproo/pharma": "@dev",
+        "bproo/school": "@dev",
         "barryvdh/laravel-dompdf": "^3.1",
         "phpoffice/phpspreadsheet": "^1.29|^2.0|^3.0|^4.0|^5.0",
         "guzzlehttp/guzzle": "^7.2",
@@ -247,7 +252,8 @@
             "InovCom\\Prospects\\": "../../packages/inovcom/prospects/src/",
             "InovCom\\Crm\\": "../../packages/inovcom/crm-suite/src/",
             "InovCom\\Branding\\": "../../packages/inovcom/settings/src/",
-            "Pharma\\": "../../packages/verticals/pharma/src/"
+            "Pharma\\": "../../packages/verticals/pharma/src/",
+            "School\\": "../../packages/verticals/school/src/"
         }
     },
     "autoload-dev": {
