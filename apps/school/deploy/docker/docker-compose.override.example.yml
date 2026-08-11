@@ -1,0 +1,5 @@
+# Ports only — networks bproo-net / proxy_net are in docker-compose.prod.yml
+services:
+  web:
+    ports:
+      - "127.0.0.1:8095:80"

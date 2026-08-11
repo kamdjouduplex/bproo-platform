@@ -45,6 +45,15 @@ return [
             'supports_multi_store' => true,
             'db_prefix' => 'pharma',
         ],
+        'school' => [
+            'label' => 'Bproo School',
+            'description' => 'École — années académiques, étudiants, inscriptions, notes, examens, paiements, cartes ID — application School.',
+            'app_key' => 'school',
+            'login_path' => '/app/login',
+            'base_url' => env('PRODUCT_SCHOOL_URL', 'http://127.0.0.1:8004'),
+            'supports_multi_store' => true,
+            'db_prefix' => 'school',
+        ],
         'pressing' => [
             'label' => 'Pressing',
             'description' => 'Réception, production, livraisons — application Pressing.',

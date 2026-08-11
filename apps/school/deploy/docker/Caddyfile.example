@@ -1,0 +1,4 @@
+school.afroinov.com {
+    encode gzip zstd
+    reverse_proxy school-web-1:80
+}

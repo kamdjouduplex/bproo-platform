@@ -1,0 +1,110 @@
+services:
+  app:
+    build:
+      context: ../../../..
+      dockerfile: deployment/docker/Dockerfile.app
+      args:
+        APP_DIR: apps/school
+      target: app
+    image: bproo/school:latest
+    env_file:
+      - ./.env.production
+    restart: unless-stopped
+    volumes:
+      - app-storage:/var/www/html/storage
+      - app-cache:/var/www/html/bootstrap/cache
+    networks:
+      - default
+      - bproo-net
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -x php-fpm || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+  web:
+    build:
+      context: ../../../..
+      dockerfile: deployment/docker/Dockerfile.app
+      args:
+        APP_DIR: apps/school
+      target: web
+    image: bproo/school-web:latest
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_started
+    volumes:
+      - app-storage:/var/www/html/storage:ro
+    networks:
+      - default
+      - proxy_net
+    healthcheck:
+      test: ["CMD-SHELL", "test -s /var/run/nginx.pid && kill -0 $$(cat /var/run/nginx.pid)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  queue:
+    image: bproo/school:latest
+    env_file:
+      - ./.env.production
+    restart: unless-stopped
+    command: ["php", "artisan", "queue:work", "redis", "--sleep=2", "--tries=3", "--timeout=120", "--max-time=3600"]
+    volumes:
+      - app-storage:/var/www/html/storage
+      - app-cache:/var/www/html/bootstrap/cache
+    networks:
+      - default
+      - bproo-net
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  scheduler:
+    image: bproo/school:latest
+    env_file:
+      - ./.env.production
+    restart: unless-stopped
+    command: ["/bin/sh", "-c", "while true; do php artisan schedule:run --verbose --no-interaction; sleep 60; done"]
+    volumes:
+      - app-storage:/var/www/html/storage
+      - app-cache:/var/www/html/bootstrap/cache
+    networks:
+      - default
+      - bproo-net
+    depends_on:
+      app:
+        condition: service_started
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  app-storage:
+  app-cache:
+  redis-data:
+
+networks:
+  bproo-net:
+    external: true
+  proxy_net:
+    external: true
