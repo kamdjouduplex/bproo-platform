@@ -100,6 +100,15 @@
                             <td>{{ fmt_num($batch->quantity) }}</td>
                             <td>{{ $batch->received_at?->format('d/m/Y') ?? '—' }}</td>
                             <td style="white-space: nowrap; text-align: right;">
+                                @if($canEditExpiry)
+                                    <a
+                                        class="btn btn-sm btn-secondary"
+                                        href="{{ route('tenant.batches.edit', [$batch->id, 'tenant' => $tenantCode]) }}"
+                                        title="Corriger la date de péremption"
+                                    >
+                                        Modifier date
+                                    </a>
+                                @endif
                                 @if($canWriteOff && $level === 'expired' && (float) $batch->quantity > 0)
                                     <button
                                         type="button"

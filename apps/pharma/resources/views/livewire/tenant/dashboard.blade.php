@@ -57,12 +57,29 @@
                     @endif
                 </div>
             </article>
+
+            <article class="dashboard-kpi dashboard-kpi--tint-green">
+                <div class="dashboard-kpi__icon-row">
+                    <x-ui-icon-box tone="green" icon="banknotes" />
+                    <span class="dashboard-kpi__label">Bénéfice du jour</span>
+                </div>
+                <div class="dashboard-kpi__value">
+                    {{ fmt_money($posBenefitToday) }}
+                    <span class="dashboard-kpi__currency">{{ $currency }}</span>
+                </div>
+                <div class="dashboard-kpi__meta">
+                    Ventes nettes − coût d’achat (retours inclus)
+                    @if (($posBenefitToday ?? 0) < 0)
+                        <span class="dashboard-kpi__trend dashboard-kpi__trend--down">Marge négative</span>
+                    @endif
+                </div>
+            </article>
         @endif
 
         @if ($hasStock)
-            <article class="dashboard-kpi dashboard-kpi--tint-green">
+            <article class="dashboard-kpi dashboard-kpi--tint-blue">
                 <div class="dashboard-kpi__icon-row">
-                    <x-ui-icon-box tone="green" icon="package" />
+                    <x-ui-icon-box tone="blue" icon="package" />
                     <span class="dashboard-kpi__label">Produits en stock</span>
                 </div>
                 <div class="dashboard-kpi__value">{{ fmt_num($itemsInStock) }}</div>

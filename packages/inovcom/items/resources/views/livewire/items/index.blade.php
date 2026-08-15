@@ -72,7 +72,32 @@
                                             @endif
                                             @break
                                         @case('cost')
-                                            {{ fmt_money($item->cost) }}
+                                            @if ($item->unitPrices->isEmpty())
+                                                {{ fmt_money($item->cost) }}
+                                            @else
+                                                @foreach ($item->unitPrices as $p)
+                                                    <span style="display: block; font-size: 12px;">{{ fmt_money($p->cost) }} / {{ $p->unit->abbreviation ?? $p->unit->name }}</span>
+                                                @endforeach
+                                            @endif
+                                            @break
+                                        @case('margin')
+                                            @php
+                                                $salePrice = (float) $item->price;
+                                                $buyPrice = (float) $item->cost;
+                                                if ($item->unitPrices->isNotEmpty()) {
+                                                    $baseUnit = $item->unitPrices->first(function ($p) {
+                                                        return abs((float) $p->conversion_factor - 1.0) < 0.0001;
+                                                    }) ?? $item->unitPrices->sortBy(fn ($p) => (float) $p->conversion_factor)->first();
+                                                    if ($baseUnit) {
+                                                        $salePrice = (float) $baseUnit->price;
+                                                        $buyPrice = (float) $baseUnit->cost;
+                                                    }
+                                                }
+                                                $margin = $salePrice - $buyPrice;
+                                            @endphp
+                                            <span @style(['color: #b91c1c; font-weight: 600' => $margin < 0, 'color: #15803d; font-weight: 600' => $margin > 0])>
+                                                {{ fmt_money($margin) }}
+                                            </span>
                                             @break
                                         @case('barcode')
                                             {{ $item->barcode ?? '—' }}

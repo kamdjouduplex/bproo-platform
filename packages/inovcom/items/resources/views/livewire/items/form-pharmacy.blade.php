@@ -3,9 +3,9 @@
         ?? session('tenant_code')
         ?? optional(request()->attributes->get('tenant'))->code;
     $galenicForms = [
-        'Comprimé', 'Gélule', 'Sirop', 'Suspension buvable', 'Solution injectable',
-        'Ampoule', 'Pommade', 'Crème', 'Gel', 'Suppositoire', 'Collyre',
-        'Spray / Aérosol', 'Sachet', 'Gouttes', 'Patch', 'Autre',
+        'Comprimé', 'Gélule', 'Capsule', 'Sirop', 'Suspension buvable', 'Solution injectable',
+        'Ampoule', 'Pommade', 'Crème', 'Gel', 'Liquide', 'Savon', 'Suppositoire', 'Collyre',
+        'Ophtalmique', 'Spray / Aérosol', 'Sachet', 'Gouttes', 'Patch', 'Autre',
     ];
 @endphp
 

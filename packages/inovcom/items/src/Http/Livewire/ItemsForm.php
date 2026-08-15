@@ -7,6 +7,7 @@ use App\Events\ModuleEvents\ItemUpdated;
 use App\Services\TenantManager;
 use Illuminate\Validation\Rule;
 use InovCom\Items\Http\Livewire\Concerns\AuthorizesItemAccess;
+use InovCom\Items\MedicamentsModule;
 use InovCom\Items\Models\Brand;
 use InovCom\Items\Models\Category;
 use InovCom\Items\Models\Item;
@@ -73,6 +74,10 @@ class ItemsForm extends Component
     public function mount(?Item $item = null): void
     {
         $this->storageLocationsEnabled = Schema::connection('tenant')->hasTable('storage_locations');
+
+        if (function_exists('items_is_pharmacy_catalog') && items_is_pharmacy_catalog()) {
+            MedicamentsModule::syncDefaultBrands();
+        }
 
         if (!$item) {
             $this->sku = '';

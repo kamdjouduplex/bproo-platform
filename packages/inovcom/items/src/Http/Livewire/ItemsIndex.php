@@ -5,6 +5,7 @@ namespace InovCom\Items\Http\Livewire;
 use App\Events\ModuleEvents\ItemDeleted;
 use App\Services\TenantManager;
 use InovCom\Items\Http\Livewire\Concerns\AuthorizesItemAccess;
+use InovCom\Items\MedicamentsModule;
 use InovCom\Items\Models\Item;
 use InovCom\Items\Services\ItemsDeleteService;
 use InovCom\Items\Services\ItemsListColumnService;
@@ -19,6 +20,13 @@ class ItemsIndex extends Component
 
     public string $search = '';
     public int $perPage = 10;
+
+    public function mount(): void
+    {
+        if (function_exists('items_is_pharmacy_catalog') && items_is_pharmacy_catalog()) {
+            MedicamentsModule::syncDefaultBrands();
+        }
+    }
 
     public function delete(int $itemId): void
     {

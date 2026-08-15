@@ -2,6 +2,7 @@
 
 namespace InovCom\Expenses\Http\Livewire;
 
+use InovCom\Expenses\ExpensesModule;
 use InovCom\Expenses\Models\Expense;
 use InovCom\Expenses\Models\ExpenseCategory;
 use InovCom\Expenses\Services\ExpensesService;
@@ -36,6 +37,8 @@ class ExpensesIndex extends Component
 
     public function mount(): void
     {
+        ExpensesModule::syncDefaultCategories();
+
         $status = request()->query('status');
         if (is_string($status) && $status !== '') {
             $this->statusFilter = $status;

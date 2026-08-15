@@ -65,7 +65,20 @@ class MedicamentsModule implements ModuleLifecycle
             );
         }
 
-        foreach ([
+        self::syncDefaultBrands();
+    }
+
+    public function uninstall(object $tenant): void
+    {
+        // Keep catalogue data; pivot disable is enough.
+    }
+
+    /**
+     * @return list<array{name: string, code: string}>
+     */
+    public static function defaultBrands(): array
+    {
+        return [
             ['name' => 'Sanofi', 'code' => 'sanofi'],
             ['name' => 'GSK', 'code' => 'gsk'],
             ['name' => 'Pfizer', 'code' => 'pfizer'],
@@ -86,16 +99,24 @@ class MedicamentsModule implements ModuleLifecycle
             ['name' => 'Afripharm', 'code' => 'afripharm'],
             ['name' => 'Denk Pharma', 'code' => 'denk'],
             ['name' => 'Emzor', 'code' => 'emzor'],
-        ] as $brand) {
+            ['name' => 'Unique', 'code' => 'unique'],
+            ['name' => 'Prince Pharma', 'code' => 'prince_pharma'],
+            ['name' => 'Shalina', 'code' => 'shalina'],
+            ['name' => 'Roshane', 'code' => 'roshane'],
+            ['name' => 'Premiphar', 'code' => 'premiphar'],
+        ];
+    }
+
+    /**
+     * Idempotent — safe for existing tenants (no duplicates).
+     */
+    public static function syncDefaultBrands(): void
+    {
+        foreach (self::defaultBrands() as $brand) {
             Brand::firstOrCreate(
                 ['code' => $brand['code']],
                 ['name' => $brand['name'], 'is_active' => true]
             );
         }
-    }
-
-    public function uninstall(object $tenant): void
-    {
-        // Keep catalogue data; pivot disable is enough.
     }
 }

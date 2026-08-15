@@ -137,9 +137,32 @@ class DashboardService
             ->join('sales', 'sale_lines.sale_id', '=', 'sales.id')
             ->join('items', 'sale_lines.item_id', '=', 'items.id')
             ->whereBetween('sales.sale_date', [$startStr, $endStr])
+            ->when(true, fn ($q) => $this->applyStoreFilter($q, 'sales'))
             ->selectRaw('COALESCE(SUM(sale_lines.quantity * COALESCE(sale_lines.conversion_factor, 1) * items.cost), 0) as total')
             ->value('total');
-        return (float) $sum;
+
+        $cogs = (float) $sum;
+
+        // Deduct COGS of confirmed returns in the period so benefit reflects refunds.
+        if (Schema::connection('tenant')->hasTable('sale_returns')
+            && Schema::connection('tenant')->hasTable('sale_return_lines')) {
+            $returned = DB::connection('tenant')
+                ->table('sale_return_lines')
+                ->join('sale_returns', 'sale_return_lines.sale_return_id', '=', 'sale_returns.id')
+                ->join('items', 'sale_return_lines.item_id', '=', 'items.id')
+                ->where('sale_returns.status', 'confirmed')
+                ->whereBetween('sale_returns.return_date', [$startStr, $endStr])
+                ->when(
+                    Schema::connection('tenant')->hasColumn('sale_returns', 'store_id'),
+                    fn ($q) => $this->applyStoreFilter($q, 'sale_returns')
+                )
+                ->selectRaw('COALESCE(SUM(COALESCE(sale_return_lines.quantity_base, sale_return_lines.quantity) * items.cost), 0) as total')
+                ->value('total');
+
+            $cogs = max(0, $cogs - (float) $returned);
+        }
+
+        return $cogs;
     }
 
     public function costOfGoodsSoldToday(): float
@@ -162,6 +185,17 @@ class DashboardService
     public function benefitToday(): float
     {
         return $this->salesToday()
+            - $this->costOfGoodsSoldToday()
+            - $this->lossesToday();
+    }
+
+    /**
+     * POS-only benefit for today (pharmacy dashboard).
+     * Based on sales of the day net of confirmed refunds, minus COGS and confirmed losses.
+     */
+    public function posBenefitToday(): float
+    {
+        return $this->posSalesToday()
             - $this->costOfGoodsSoldToday()
             - $this->lossesToday();
     }

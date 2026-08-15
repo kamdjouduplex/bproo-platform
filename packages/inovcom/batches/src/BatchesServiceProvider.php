@@ -49,6 +49,9 @@ class BatchesServiceProvider extends ServiceProvider
                 Route::get('/batches/create', BatchForm::class)
                     ->middleware(['module:batches'])
                     ->name('tenant.batches.create');
+                Route::get('/batches/{batch}/edit', BatchForm::class)
+                    ->middleware(['module:batches'])
+                    ->name('tenant.batches.edit');
             });
     }
 }

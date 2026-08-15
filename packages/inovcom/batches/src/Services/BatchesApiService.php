@@ -319,6 +319,55 @@ class BatchesApiService implements BatchesApi
         });
     }
 
+    public function updateExpiryDate(int $batchId, \Carbon\CarbonInterface $expiryDate): object
+    {
+        if (! $this->isAvailable()) {
+            throw new \RuntimeException('Module lots indisponible.');
+        }
+
+        return DB::connection('tenant')->transaction(function () use ($batchId, $expiryDate) {
+            $batch = Batch::query()->whereKey($batchId)->lockForUpdate()->first();
+            if (! $batch) {
+                throw new \InvalidArgumentException('Lot introuvable.');
+            }
+
+            $newDate = $expiryDate->copy()->startOfDay();
+            $oldDate = $batch->expiry_date->copy()->startOfDay();
+
+            if ($oldDate->equalTo($newDate)) {
+                return $batch;
+            }
+
+            $duplicate = Batch::query()
+                ->where('item_id', $batch->item_id)
+                ->where('batch_number', $batch->batch_number)
+                ->whereDate('expiry_date', $newDate->toDateString())
+                ->where('id', '!=', $batch->id)
+                ->exists();
+
+            if ($duplicate) {
+                throw new \InvalidArgumentException(
+                    'Un autre lot existe déjà avec le même numéro et cette date de péremption.'
+                );
+            }
+
+            $qty = (float) $batch->quantity;
+            $batch->expiry_date = $newDate;
+            $batch->save();
+
+            BatchMovement::create([
+                'batch_id' => $batch->id,
+                'quantity' => 0,
+                'quantity_before' => $qty,
+                'quantity_after' => $qty,
+                'reference_type' => 'expiry_correction',
+                'reference_id' => $batch->id,
+            ]);
+
+            return $batch->fresh();
+        });
+    }
+
     /**
      * Optional audit in Losses module (confirmed, without double stock removal).
      */

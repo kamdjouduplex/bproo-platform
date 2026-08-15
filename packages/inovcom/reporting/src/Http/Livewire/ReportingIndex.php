@@ -116,6 +116,43 @@ class ReportingIndex extends Component
         );
     }
 
+    public function explorerPdfUrl(): string
+    {
+        return $this->explorerExportUrl('tenant.reporting.explorer.pdf');
+    }
+
+    public function explorerPrintUrl(): string
+    {
+        return $this->explorerExportUrl('tenant.reporting.explorer.print');
+    }
+
+    private function explorerExportUrl(string $routeName): string
+    {
+        $tenantCode = request()->query('tenant')
+            ?? session('tenant_code')
+            ?? optional(request()->attributes->get('tenant'))->code;
+
+        $params = [
+            'tenant' => $tenantCode,
+            'report_type' => $this->reportType,
+            'period' => $this->period,
+            'limit' => $this->reportLimit,
+        ];
+
+        if ($this->periodValue) {
+            $params['period_value'] = $this->periodValue;
+        }
+        if ($this->period === 'custom') {
+            $params['date_from'] = $this->dateFrom;
+            $params['date_to'] = $this->dateTo;
+        }
+        if ($this->filterClientId) {
+            $params['client_id'] = $this->filterClientId;
+        }
+
+        return route($routeName, $params);
+    }
+
     public function render()
     {
         $reporting = app(ReportingService::class);

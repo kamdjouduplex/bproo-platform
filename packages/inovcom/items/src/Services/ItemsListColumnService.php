@@ -14,13 +14,14 @@ class ItemsListColumnService
         return [
             ['key' => 'reference', 'label' => 'Référence', 'visible' => true, 'order' => 10],
             ['key' => 'designation', 'label' => 'Désignation', 'visible' => true, 'order' => 20],
-            ['key' => 'category', 'label' => 'Catégorie', 'visible' => true, 'order' => 30],
-            ['key' => 'brand', 'label' => 'Marque', 'visible' => true, 'order' => 40],
-            ['key' => 'unit', 'label' => 'Unité base', 'visible' => true, 'order' => 50],
+            ['key' => 'category', 'label' => 'Catégorie', 'visible' => false, 'order' => 30],
+            ['key' => 'brand', 'label' => 'Marque', 'visible' => false, 'order' => 40],
             ['key' => 'price', 'label' => 'Prix vente', 'visible' => true, 'order' => 60],
-            ['key' => 'cost', 'label' => 'Coût', 'visible' => false, 'order' => 70, 'requires_permission' => 'items.view_cost'],
+            ['key' => 'cost', 'label' => 'Prix achat', 'visible' => true, 'order' => 70, 'requires_permission' => 'items.view_cost'],
+            ['key' => 'margin', 'label' => 'Bénéfice', 'visible' => true, 'order' => 75, 'requires_permission' => 'items.view_cost'],
             ['key' => 'barcode', 'label' => 'Code-barres', 'visible' => false, 'order' => 80],
             ['key' => 'status', 'label' => 'Statut', 'visible' => true, 'order' => 90],
+            ['key' => 'unit', 'label' => 'Unité base', 'visible' => true, 'order' => 100],
         ];
     }
 
@@ -64,6 +65,22 @@ class ItemsListColumnService
             if (!collect($merged)->contains('key', $def['key'])) {
                 $merged[] = $def;
             }
+        }
+
+        if (function_exists('items_is_pharmacy_catalog') && items_is_pharmacy_catalog()) {
+            $merged = array_map(function (array $col) {
+                if (in_array($col['key'], ['cost', 'margin'], true)) {
+                    $col['visible'] = true;
+                }
+                if (in_array($col['key'], ['category', 'brand'], true)) {
+                    $col['visible'] = false;
+                }
+                if ($col['key'] === 'unit') {
+                    $col['order'] = 100;
+                }
+
+                return $col;
+            }, $merged);
         }
 
         return $this->sortColumns($merged);

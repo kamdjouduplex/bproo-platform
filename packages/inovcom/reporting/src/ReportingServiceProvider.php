@@ -5,6 +5,7 @@ namespace InovCom\Reporting;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use InovCom\Kernel\Traits\LazyModuleBoot;
+use InovCom\Reporting\Http\Controllers\ReportingExplorerExportController;
 use InovCom\Reporting\Http\Livewire\ReportingIndex;
 use Livewire\Livewire;
 
@@ -40,6 +41,12 @@ class ReportingServiceProvider extends ServiceProvider
                 Route::get('/reporting', ReportingIndex::class)
                     ->middleware(['module:reporting'])
                     ->name('tenant.reporting.index');
+                Route::get('/reporting/explorer/pdf', [ReportingExplorerExportController::class, 'pdf'])
+                    ->middleware(['module:reporting'])
+                    ->name('tenant.reporting.explorer.pdf');
+                Route::get('/reporting/explorer/print', [ReportingExplorerExportController::class, 'print'])
+                    ->middleware(['module:reporting'])
+                    ->name('tenant.reporting.explorer.print');
             });
     }
 }

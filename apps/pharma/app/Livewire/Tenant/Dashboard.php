@@ -49,6 +49,7 @@ class Dashboard extends Component
             && $tenantUser->hasPermission('reporting.view');
 
         $posSalesToday = ($hasSales && $canViewFinance) ? $dashboard->posSalesToday() : 0.0;
+        $posBenefitToday = ($hasSales && $canViewFinance) ? $dashboard->posBenefitToday() : 0.0;
         $posTrend = ($hasSales && $canViewFinance) ? $dashboard->posTrendVsYesterday() : null;
         $itemsInStock = $hasStock ? $dashboard->itemsInStockCount() : 0;
         $expiringCount = $hasBatches ? $dashboard->expiringBatchesCount(90) : 0;
@@ -90,6 +91,7 @@ class Dashboard extends Component
                 'quickActions' => $this->buildQuickActions($moduleLinks, $tenantCode, $hasPrescriptions, $hasBatches, $hasPayroll, $hasAttendance),
                 'salesChart' => ($hasSales && $canViewFinance) ? $dashboard->posSalesLast7Days() : [],
                 'posSalesToday' => $posSalesToday,
+                'posBenefitToday' => $posBenefitToday,
                 'posSalesCountToday' => ($hasSales && $canViewFinance) ? $dashboard->posSalesCountToday() : 0,
                 'posTrend' => $posTrend,
                 'itemsInStock' => $itemsInStock,

@@ -141,6 +141,22 @@ class BatchesIndex extends Component
         return false;
     }
 
+    public function canEditExpiry(): bool
+    {
+        $user = auth('tenant')->user();
+        if (! $user) {
+            return false;
+        }
+        if (method_exists($user, 'isAdmin') && $user->isAdmin()) {
+            return true;
+        }
+        if (method_exists($user, 'hasPermission')) {
+            return $user->hasPermission('batches.create') || $user->hasPermission('batches.write_off');
+        }
+
+        return false;
+    }
+
     public function render()
     {
         $today = now()->toDateString();
@@ -205,6 +221,7 @@ class BatchesIndex extends Component
                 'batches' => $batches,
                 'stats' => $stats,
                 'canWriteOff' => $this->canWriteOff(),
+                'canEditExpiry' => $this->canEditExpiry(),
             ]);
     }
 }

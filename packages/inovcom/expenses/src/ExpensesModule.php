@@ -30,8 +30,20 @@ class ExpensesModule implements ModuleLifecycle
             );
         }
 
-        // Create default categories
-        $defaultCategories = [
+        self::syncDefaultCategories();
+    }
+
+    public function uninstall(object $tenant): void
+    {
+        // Optional: soft cleanup. We keep expenses data for now.
+    }
+
+    /**
+     * @return list<array{code: string, name: string, description: string}>
+     */
+    public static function defaultCategories(): array
+    {
+        return [
             ['code' => 'rent', 'name' => 'Loyer', 'description' => 'Loyer et charges locatives'],
             ['code' => 'utilities', 'name' => 'Services publics', 'description' => 'Électricité, eau, téléphone, internet'],
             ['code' => 'salaries', 'name' => 'Salaires', 'description' => 'Salaires et rémunérations'],
@@ -39,10 +51,18 @@ class ExpensesModule implements ModuleLifecycle
             ['code' => 'marketing', 'name' => 'Marketing', 'description' => 'Publicité et promotion'],
             ['code' => 'maintenance', 'name' => 'Maintenance', 'description' => 'Réparations et entretien'],
             ['code' => 'supplies', 'name' => 'Fournitures', 'description' => 'Fournitures de bureau et autres'],
+            ['code' => 'connexion', 'name' => 'Connexion', 'description' => 'Internet, données mobiles et frais de connexion'],
+            ['code' => 'restauration', 'name' => 'Restauration', 'description' => 'Repas et restauration'],
             ['code' => 'other', 'name' => 'Autres', 'description' => 'Autres dépenses'],
         ];
+    }
 
-        foreach ($defaultCategories as $category) {
+    /**
+     * Idempotent — safe for existing tenants (does not remove existing categories).
+     */
+    public static function syncDefaultCategories(): void
+    {
+        foreach (self::defaultCategories() as $category) {
             ExpenseCategory::firstOrCreate(
                 ['code' => $category['code']],
                 [
@@ -52,10 +72,5 @@ class ExpensesModule implements ModuleLifecycle
                 ]
             );
         }
-    }
-
-    public function uninstall(object $tenant): void
-    {
-        // Optional: soft cleanup. We keep expenses data for now.
     }
 }

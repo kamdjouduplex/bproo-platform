@@ -2,6 +2,7 @@
 
 namespace InovCom\Expenses\Http\Livewire;
 
+use InovCom\Expenses\ExpensesModule;
 use InovCom\Expenses\Models\Expense;
 use InovCom\Expenses\Models\ExpenseCategory;
 use InovCom\Expenses\Services\ExpensesService;
@@ -28,6 +29,8 @@ class ExpensesForm extends Component
 
     public function mount(?Expense $expense = null): void
     {
+        ExpensesModule::syncDefaultCategories();
+
         if (!$expense) {
             $this->expense_date = now()->format('Y-m-d');
             $this->status = 'pending';

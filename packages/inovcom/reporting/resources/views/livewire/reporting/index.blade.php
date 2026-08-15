@@ -656,7 +656,7 @@
             <h2 class="reporting-panel__title">Explorateur stratégique — {{ $periodLabel }}</h2>
             <div class="reporting-panel__body">
                 <p class="reporting-muted" style="margin-bottom:14px;">
-                    Choisissez un scénario, croisez avec un client si besoin, puis exportez en Excel pour vos décisions.
+                    Choisissez un scénario, croisez avec un client si besoin, puis exportez en Excel ou PDF pour vos décisions.
                 </p>
 
                 <div class="reporting-explorer__presets" role="group" aria-label="Scénarios rapides">
@@ -737,10 +737,19 @@
                     @endunless
                     <div class="reporting-explorer__field reporting-explorer__field--action">
                         <label class="reporting-filters__label reporting-filters__label--ghost">&nbsp;</label>
-                        <button type="button" class="btn btn-export btn-export--excel reporting-explorer__export" wire:click="exportExplorerExcel">
-                            <x-file-type-icon format="excel" class="btn-export__glyph" />
-                            <span class="btn-export__label">Exporter Excel</span>
-                        </button>
+                        <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end;">
+                            <button type="button" class="btn btn-export btn-export--excel reporting-explorer__export" wire:click="exportExplorerExcel">
+                                <x-file-type-icon format="excel" class="btn-export__glyph" />
+                                <span class="btn-export__label">Exporter Excel</span>
+                            </button>
+                            <a class="btn btn-export btn-export--pdf reporting-explorer__export" href="{{ $this->explorerPdfUrl() }}" target="_blank" rel="noopener">
+                                <x-file-type-icon format="pdf" class="btn-export__glyph" />
+                                <span class="btn-export__label">Exporter PDF</span>
+                            </a>
+                            <a class="btn btn-secondary reporting-explorer__export" href="{{ $this->explorerPrintUrl() }}" target="_blank" rel="noopener">
+                                Imprimer
+                            </a>
+                        </div>
                     </div>
                 </div>
 
