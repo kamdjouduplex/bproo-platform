@@ -139,7 +139,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="mt-4">
+        <div class="table-pagination">
             {{ $batches->links() }}
         </div>
     </section>

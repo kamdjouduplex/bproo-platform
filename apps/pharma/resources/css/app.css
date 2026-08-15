@@ -850,57 +850,67 @@ button.app-pagination__btn {
     font-size: 13px;
 }
 
-/* Fallback: pagination Tailwind par d?faut (Livewire) sans classes utilitaires */
-.app-table-card nav[role="navigation"]:not(.app-pagination) {
+/* Fallback: pagination Tailwind Livewire sans utilitaires (toutes les pages) */
+nav[role="navigation"]:not(.app-pagination) {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
     padding: 4px 0;
+    font-size: 13px;
 }
 
-.app-table-card nav[role="navigation"]:not(.app-pagination) svg {
-    width: 18px;
-    height: 18px;
+nav[role="navigation"]:not(.app-pagination) svg {
+    width: 16px !important;
+    height: 16px !important;
+    max-width: 16px !important;
+    max-height: 16px !important;
     flex-shrink: 0;
 }
 
-.app-table-card nav[role="navigation"]:not(.app-pagination) a,
-.app-table-card nav[role="navigation"]:not(.app-pagination) button,
-.app-table-card nav[role="navigation"]:not(.app-pagination) span[aria-current="page"] > span,
-.app-table-card nav[role="navigation"]:not(.app-pagination) span[aria-disabled="true"] > span {
+nav[role="navigation"]:not(.app-pagination) a,
+nav[role="navigation"]:not(.app-pagination) button,
+nav[role="navigation"]:not(.app-pagination) span[aria-current="page"] > span,
+nav[role="navigation"]:not(.app-pagination) span[aria-disabled="true"] > span {
     display: inline-flex !important;
     align-items: center;
     justify-content: center;
     min-width: 36px;
     min-height: 36px;
+    max-height: 36px;
     padding: 0 10px !important;
     margin: 0 !important;
     border: 1px solid #e5e7eb !important;
     border-radius: 6px !important;
     background: #fff !important;
     font-size: 13px !important;
+    line-height: 1 !important;
     box-shadow: none !important;
     color: #334155 !important;
 }
 
-.app-table-card nav[role="navigation"]:not(.app-pagination) [aria-current="page"] > span {
+nav[role="navigation"]:not(.app-pagination) [aria-current="page"] > span {
     background: #3fa796 !important;
     border-color: #3fa796 !important;
     color: #fff !important;
 }
 
-.app-table-card nav[role="navigation"]:not(.app-pagination) .sm\\:flex-1,
-.app-table-card nav[role="navigation"]:not(.app-pagination) .hidden.sm\\:flex-1 {
+nav[role="navigation"]:not(.app-pagination) .sm\\:flex-1,
+nav[role="navigation"]:not(.app-pagination) .hidden.sm\\:flex-1 {
     flex: 1 1 auto;
 }
 
-.app-table-card nav[role="navigation"]:not(.app-pagination) .flex {
+nav[role="navigation"]:not(.app-pagination) .flex {
     display: flex !important;
     flex-wrap: wrap;
     gap: 6px;
     align-items: center;
+}
+
+/* Ancien sélecteur limité aux tableaux — conservé pour compat */
+.app-table-card nav[role="navigation"]:not(.app-pagination) {
+    padding: 4px 0;
 }
 
 table {
