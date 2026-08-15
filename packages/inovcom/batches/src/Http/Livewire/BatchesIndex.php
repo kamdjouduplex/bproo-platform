@@ -151,7 +151,7 @@ class BatchesIndex extends Component
             return true;
         }
         if (method_exists($user, 'hasPermission')) {
-            return $user->hasPermission('batches.create') || $user->hasPermission('batches.write_off');
+            return $user->hasPermission('batches.update');
         }
 
         return false;

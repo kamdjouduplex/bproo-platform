@@ -2,6 +2,7 @@
 
 namespace InovCom\Batches\Http\Livewire;
 
+use InovCom\Batches\BatchesModule;
 use InovCom\Batches\Models\Batch;
 use InovCom\Kernel\Contracts\BatchesApi;
 use Livewire\Component;
@@ -22,7 +23,16 @@ class BatchForm extends Component
 
     public function mount(?Batch $batch = null): void
     {
+        BatchesModule::syncPermissions();
+
         if (! $batch) {
+            return;
+        }
+
+        if (! $this->canUpdateExpiry()) {
+            session()->flash('error', 'Vous n’avez pas le droit de modifier les lots.');
+            $this->redirect(route('tenant.batches.index', ['tenant' => $this->tenantCode()]), navigate: true);
+
             return;
         }
 
@@ -121,7 +131,7 @@ class BatchForm extends Component
             return true;
         }
         if (method_exists($user, 'hasPermission')) {
-            return $user->hasPermission('batches.create') || $user->hasPermission('batches.write_off');
+            return $user->hasPermission('batches.update');
         }
 
         return false;
