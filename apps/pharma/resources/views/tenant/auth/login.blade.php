@@ -7,7 +7,7 @@
             $tenant = app(App\Services\TenantManager::class)->tenant();
             $appName = config('app.name', 'Bproo Pharma');
             $shopName = $tenant ? $tenant->getSetting('shop_name', $tenant->name) : $appName;
-            $heroImage = '/images/login-pharmacy-hero.png';
+            $heroImage = '/images/login-pharmacy-hero.png?v=20260815';
         @endphp
         <title>Connexion — {{ $shopName }} | {{ $appName }}</title>
         @include('partials.favicon')
