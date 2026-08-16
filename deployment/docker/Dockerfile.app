@@ -74,9 +74,9 @@ RUN APP_ENV=production \
     && php artisan package:discover --ansi --no-interaction \
     || echo "WARN: package:discover deferred to container entrypoint"
 
-RUN mkdir -p database/migrations/tenant_modules \
-    && chown -R www-data:www-data storage bootstrap/cache database/migrations/tenant_modules \
-    && chmod -R ug+rwx storage bootstrap/cache database/migrations/tenant_modules
+RUN mkdir -p database/migrations/tenant database/migrations/tenant_modules \
+    && chown -R www-data:www-data storage bootstrap/cache database/migrations \
+    && chmod -R ug+rwx storage bootstrap/cache database/migrations
 
 # Shared entrypoint (storage dirs, package rediscovery, caches)
 COPY deployment/docker/php-entrypoint.sh /usr/local/bin/php-entrypoint.sh
