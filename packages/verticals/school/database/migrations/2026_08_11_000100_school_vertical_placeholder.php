@@ -8,8 +8,8 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Placeholder: V1 school-specific migrations will land incrementally.
-        // The goal is to keep vertical bootstrapping working with module install/publish flow.
+        // Legacy bootstrap marker kept for module install/publish compatibility.
+        // School schema lives in later tenant_modules migrations.
         if (! Schema::connection('tenant')->hasTable('school_placeholder')) {
             Schema::connection('tenant')->create('school_placeholder', function (Blueprint $table) {
                 $table->id();

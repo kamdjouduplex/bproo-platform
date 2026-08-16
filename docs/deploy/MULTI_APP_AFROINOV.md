@@ -14,6 +14,7 @@ Suivez les étapes **dans l’ordre**. Ne sautez rien.
 | Pharma | `apps/pharma` | https://pharma.afroinov.com | `pharma` | **8092** | `pharma-web-1` |
 | Pressing | `apps/pressing` | https://pressing.afroinov.com | `pressing` | **8093** | `pressing-web-1` |
 | Control Center (admin) | `apps/control-center` | https://admin.afroinov.com | `admin` | **8094** | `admin-web-1` |
+| School (beta) | `apps/school` | https://school.afroinov.com | `school` | **8095** | `school-web-1` |
 
 ### Déjà sur le VPS — **ne pas toucher**
 
@@ -70,7 +71,7 @@ Il n’y a **pas** de sync magique : c’est la même base landlord.
 | Conteneur PostgreSQL | `vps-db-bproo_pg` |
 | Base landlord | `bproo_landlord` |
 | User app | `bproo_app` |
-| Secret provision | `TENANT_PROVISION_SECRET` (identique sur admin + myerp + pharma + pressing) |
+| Secret provision | `TENANT_PROVISION_SECRET` (identique sur admin + myerp + pharma + pressing + **school**) |
 | Réseau Caddy | `proxy_net` (existant) |
 | Proxy | `vps-proxy-caddy-1` |
 | Caddyfile | `/home/kamfo-teuh-01/vps-proxy/Caddyfile` |
@@ -87,6 +88,7 @@ Chaque app a sa propre stack : `app` + `web` + `queue` + `scheduler` + `redis`.
    - `pharma.afroinov.com`
    - `pressing.afroinov.com`
    - `admin.afroinov.com`
+   - `school.afroinov.com` (beta)
 2. [ ] Monorepo poussé sur Git (URL de clone + branche)
 3. [ ] Accès SSH au VPS
 4. [ ] 2 mots de passe forts prêts (Postgres admin + user app)
@@ -607,6 +609,75 @@ curl -sI https://pressing.afroinov.com/ | head -8
 
 ---
 
+## 12b. Étape 6b — School (beta)
+
+Prérequis : landlord déjà migré (myerp/admin), DNS `school.afroinov.com`, même `TENANT_PROVISION_SECRET` que admin.
+
+SMS / email peuvent rester vides en beta : les notifications seront journalisées en `skipped`.
+
+```bash
+cd /home/kamfo-teuh-01/apps/bproo-platform
+git pull --ff-only
+
+cd apps/school
+
+cat > deploy/docker/.env.production <<EOF
+APP_NAME="Bproo School"
+APP_ENV=production
+APP_KEY=
+APP_DEBUG=false
+APP_URL=https://school.afroinov.com
+FORCE_HTTPS=true
+
+APP_PRODUCT_KEY=school
+TENANT_PROVISION_SECRET=\${TENANT_PROVISION_SECRET}
+PRODUCT_ERP_URL=https://myerp.afroinov.com
+PRODUCT_PHARMA_URL=https://pharma.afroinov.com
+PRODUCT_PRESSING_URL=https://pressing.afroinov.com
+PRODUCT_SCHOOL_URL=https://school.afroinov.com
+
+LOG_CHANNEL=stack
+LOG_LEVEL=warning
+
+DB_CONNECTION=pgsql
+DB_HOST=vps-db-bproo_pg
+DB_PORT=5432
+DB_DATABASE=bproo_landlord
+DB_USERNAME=bproo_app
+DB_PASSWORD=\${BPROO_DB_APP_PASS}
+
+DB_PROVISION_HOST=vps-db-bproo_pg
+DB_PROVISION_PORT=5432
+DB_PROVISION_DATABASE=postgres
+DB_PROVISION_USERNAME=postgres
+DB_PROVISION_PASSWORD=\${BPROO_DB_ADMIN_PASS}
+
+CACHE_DRIVER=redis
+SESSION_DRIVER=redis
+QUEUE_CONNECTION=redis
+REDIS_HOST=redis
+REDIS_PASSWORD=null
+REDIS_PORT=6379
+REDIS_QUEUE=default
+
+MAIL_MAILER=log
+MAIL_FROM_ADDRESS=noreply@afroinov.com
+MAIL_FROM_NAME="\${APP_NAME}"
+
+HTTP_PORT=8095
+EOF
+chmod 600 deploy/docker/.env.production
+
+COMPOSE_PROJECT=school HTTP_PORT=8095 bash deploy/docker/bootstrap-prod.sh
+
+# Brancher au proxy + Caddy (bloc school.afroinov.com) puis :
+curl -sI https://school.afroinov.com/ | head -8
+```
+
+Sur **admin**, renseigner `PRODUCT_SCHOOL_URL=https://school.afroinov.com` (même secret), puis `modules:sync` / config:cache. Créer un tenant type **school** depuis Control Center.
+
+---
+
 ## 13. Étape 7 — Caddy (HTTPS public)
 
 ### 13.1 Brancher les webs au proxy
@@ -616,9 +687,11 @@ docker network connect proxy_net myerp-web-1 2>/dev/null || true
 docker network connect proxy_net pharma-web-1 2>/dev/null || true
 docker network connect proxy_net pressing-web-1 2>/dev/null || true
 docker network connect proxy_net admin-web-1 2>/dev/null || true
+docker network connect proxy_net school-web-1 2>/dev/null || true
 
 docker exec vps-proxy-caddy-1 wget -qO- --timeout=5 http://myerp-web-1/ 2>&1 | head -c 80; echo
 docker exec vps-proxy-caddy-1 wget -qO- --timeout=5 http://admin-web-1/ 2>&1 | head -c 80; echo
+docker exec vps-proxy-caddy-1 wget -qO- --timeout=5 http://school-web-1/ 2>&1 | head -c 80; echo
 ```
 
 ### 13.2 Ajouter les blocs (sans modifier erp / storeapp / complexesms)
@@ -649,6 +722,11 @@ admin.afroinov.com {
     encode gzip zstd
     reverse_proxy admin-web-1:80
 }
+
+school.afroinov.com {
+    encode gzip zstd
+    reverse_proxy school-web-1:80
+}
 ```
 
 Recharger :
@@ -664,6 +742,7 @@ curl -sI https://myerp.afroinov.com/ | head -8
 curl -sI https://pharma.afroinov.com/ | head -8
 curl -sI https://pressing.afroinov.com/ | head -8
 curl -sI https://admin.afroinov.com/ | head -8
+curl -sI https://school.afroinov.com/ | head -8
 curl -sI https://erp.afroinov.com/ | head -8
 ```
 
@@ -723,14 +802,15 @@ docker exec -i vps-db-bproo_pg psql -U postgres -c "\l" | grep -E 'erp_|pharma_|
 - [ ] `https://pharma.afroinov.com` OK
 - [ ] `https://pressing.afroinov.com` OK
 - [ ] `https://admin.afroinov.com` OK — voit les entreprises landlord
-- [ ] « Ouvrir l’app » depuis admin → myerp / pharma / pressing
+- [ ] `https://school.afroinov.com` OK (beta)
+- [ ] « Ouvrir l’app » depuis admin → myerp / pharma / pressing / school
 - [ ] Au moins 1 tenant avec **sa propre DB** + login `/app/login?tenant=`
 - [ ] `APP_DEBUG=false` partout
 - [ ] Mot de passe seed changé
 - [ ] storeapp / complexesms intacts
 
 ```bash
-docker ps --format 'table {{.Names}}\t{{.Status}}' | grep -E 'myerp-|pharma-|pressing-|admin-|erp-|caddy|storeapp|complexesms'
+docker ps --format 'table {{.Names}}\t{{.Status}}' | grep -E 'myerp-|pharma-|pressing-|admin-|school-|erp-|caddy|storeapp|complexesms'
 ```
 
 ---

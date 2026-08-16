@@ -13,7 +13,38 @@ class TenantSettingsApplier
 {
     public static function apply(Tenant $tenant): void
     {
-        $locale = (string) $tenant->getSetting('locale', config('inovcom.default_locale', 'fr'));
+        $supported = config('inovcom.supported_locales', ['fr', 'en']);
+        if (! is_array($supported) || $supported === []) {
+            $supported = ['fr'];
+        }
+
+        $enabledRaw = $tenant->getSetting('enabled_locales', $supported);
+        if (is_string($enabledRaw)) {
+            $decoded = json_decode($enabledRaw, true);
+            $enabledRaw = is_array($decoded) ? $decoded : $supported;
+        }
+        $enabled = is_array($enabledRaw) && $enabledRaw !== [] ? $enabledRaw : $supported;
+
+        $userLocale = null;
+        try {
+            $user = auth('tenant')->user();
+            if ($user && ! empty($user->preferred_locale)) {
+                $userLocale = (string) $user->preferred_locale;
+            }
+        } catch (\Throwable) {
+            $userLocale = null;
+        }
+
+        $sessionLocale = session('locale');
+        $tenantLocale = (string) $tenant->getSetting('locale', config('inovcom.default_locale', 'fr'));
+
+        $locale = (string) ($userLocale ?: $sessionLocale ?: $tenantLocale);
+        if (! in_array($locale, $enabled, true)) {
+            $locale = in_array($tenantLocale, $enabled, true)
+                ? $tenantLocale
+                : (string) ($enabled[0] ?? config('inovcom.default_locale', 'fr'));
+        }
+
         $currency = (string) $tenant->getSetting('currency', config('inovcom.default_currency', 'XOF'));
         $timezone = (string) $tenant->getSetting(
             'timezone',
@@ -38,5 +69,6 @@ class TenantSettingsApplier
 
         View::share('tenantCurrency', $currency);
         View::share('tenantTimezone', $timezone);
+        View::share('tenantEnabledLocales', $enabled);
     }
 }

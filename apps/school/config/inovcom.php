@@ -2,7 +2,7 @@
 
 return [
     'default_currency' => 'XOF',
-    'supported_locales' => ['fr', 'en'],
+    'supported_locales' => ['fr', 'en', 'es', 'pt', 'ar'],
     'default_locale' => 'fr',
     'default_timezone' => env('INOVCOM_DEFAULT_TIMEZONE', 'Africa/Douala'),
     'tenant' => [
@@ -19,6 +19,5 @@ return [
         'enabled' => env('MODULE_MARKETPLACE_ENABLED', false),
         'url' => env('MODULE_MARKETPLACE_URL', 'https://marketplace.inovcom.com'),
     ],
-    'version' => env('APP_VERSION', '1.0.0'),
     'version' => env('APP_VERSION', '1.0.0'),
 ];

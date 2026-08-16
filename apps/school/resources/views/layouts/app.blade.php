@@ -100,13 +100,23 @@
                             @if ($isCashierView && $hasSales && $canCreateSale && Route::has('tenant.sales.create'))
                                 <a href="{{ route('tenant.sales.create', ['tenant' => $tenantCode]) }}" class="btn btn-primary app-nav-new-sale">Nouvelle vente</a>
                             @endif
-                            <select class="app-select">
-                                <option value="fr">FR</option>
-                                <option value="en">EN</option>
-                            </select>
                             @php
                                 try { $tenantAuthCheck = auth('tenant')->check(); } catch (\Throwable $e) { $tenantAuthCheck = false; }
+                                $localeChoices = class_exists(\School\Support\SchoolLocaleCatalog::class)
+                                    ? \School\Support\SchoolLocaleCatalog::enabled($tenant)
+                                    : ['fr' => 'Français', 'en' => 'English'];
                             @endphp
+                            @if($tenantAuthCheck && class_exists(\School\Http\Livewire\SchoolGlobalSearch::class))
+                                <livewire:school.global-search wire:key="header-school-search" />
+                            @endif
+                            <form method="POST" action="{{ route('locale.update', array_filter(['tenant' => $tenantCode])) }}" class="app-locale-form">
+                                @csrf
+                                <select class="app-select" name="locale" onchange="this.form.submit()" aria-label="Langue">
+                                    @foreach($localeChoices as $code => $label)
+                                        <option value="{{ $code }}" @selected(app()->getLocale() === $code)>{{ strtoupper($code) }}</option>
+                                    @endforeach
+                                </select>
+                            </form>
                             @if($tenantAuthCheck)
                                 @if ($hasAttendanceModule && class_exists(\InovCom\Attendance\Http\Livewire\AttendancePunchWidget::class))
                                     <livewire:inovcom-attendance.punch-widget wire:key="header-attendance-punch" />

@@ -17,6 +17,8 @@ class AccountProfile extends Component
 
     public string $phone = '';
 
+    public string $preferred_locale = 'fr';
+
     public string $current_password = '';
 
     public string $password = '';
@@ -72,12 +74,21 @@ class AccountProfile extends Component
                 Rule::unique(User::class, 'phone')->ignore($user->id),
             ];
         }
+        if (Schema::connection('tenant')->hasColumn('users', 'preferred_locale')) {
+            $localeKeys = config('inovcom.supported_locales', ['fr', 'en']);
+            $rules['preferred_locale'] = ['required', 'string', Rule::in(is_array($localeKeys) ? $localeKeys : ['fr'])];
+        }
 
         $data = $this->validate($rules);
         $user->name = $data['name'];
         $user->email = $data['email'];
         if (Schema::connection('tenant')->hasColumn('users', 'phone')) {
             $user->phone = $this->digits($data['phone'] ?? '') ?: null;
+        }
+        if (Schema::connection('tenant')->hasColumn('users', 'preferred_locale')) {
+            $user->preferred_locale = $data['preferred_locale'] ?? 'fr';
+            session(['locale' => $user->preferred_locale]);
+            app()->setLocale($user->preferred_locale);
         }
         $user->save();
 
@@ -187,6 +198,7 @@ class AccountProfile extends Component
         $this->name = (string) $user->name;
         $this->email = (string) $user->email;
         $this->phone = (string) ($user->phone ?? '');
+        $this->preferred_locale = (string) ($user->preferred_locale ?? app()->getLocale() ?? 'fr');
         $this->hasEmployee = false;
         $this->matricule = null;
         $this->position = null;

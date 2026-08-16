@@ -9,6 +9,7 @@
     var returnUrl = @json($returnUrl);
     var printFilename = @json($printTitle);
     var finished = false;
+    var openedFromMainWindow = !!(window.opener && !window.opener.closed);
 
     if (printFilename) {
         document.title = printFilename;
@@ -21,11 +22,32 @@
     });
 
     function finish() {
-        if (finished || !returnUrl) {
+        if (finished) {
             return;
         }
         finished = true;
-        window.location.replace(returnUrl);
+
+        if (openedFromMainWindow) {
+            try {
+                if (window.opener) {
+                    window.opener.focus();
+                }
+            } catch (error) {
+                // Ignore focus issues if the opener is not accessible anymore.
+            }
+
+            try {
+                window.close();
+            } catch (error) {
+                // The browser may block closing the tab if it was not opened programmatically.
+            }
+
+            return;
+        }
+
+        if (returnUrl) {
+            window.location.replace(returnUrl);
+        }
     }
 
     window.addEventListener('afterprint', function () {

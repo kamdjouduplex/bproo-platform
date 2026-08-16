@@ -24,7 +24,7 @@ return [
             'description' => 'École — années académiques, étudiants, inscriptions, notes, examens, paiements et cartes ID.',
             'app_key' => 'school',
             'login_path' => '/app/login',
-            'base_url' => env('PRODUCT_SCHOOL_URL', 'http://127.0.0.1:8004'),
+            'base_url' => env('PRODUCT_SCHOOL_URL', 'http://127.0.0.1:8000'),
             'supports_multi_store' => true,
             'db_prefix' => 'school',
         ],

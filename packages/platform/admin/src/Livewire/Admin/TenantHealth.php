@@ -11,6 +11,14 @@ class TenantHealth extends Component
 {
     public array $statuses = [];
 
+    public ?string $retryCode = null;
+
+    public string $admin_name = '';
+
+    public string $admin_email = '';
+
+    public string $admin_password = '';
+
     public function mount(): void
     {
         $this->refreshStatuses();
@@ -54,10 +62,35 @@ class TenantHealth extends Component
         }
     }
 
-    public function retryProvisioning(string $code): void
+    public function openRetry(string $code): void
     {
-        $tenant = Tenant::where('code', $code)->first();
-        if (!$tenant) {
+        $this->retryCode = $code;
+        $this->admin_name = '';
+        $this->admin_email = '';
+        $this->admin_password = '';
+        $this->resetErrorBag();
+    }
+
+    public function cancelRetry(): void
+    {
+        $this->retryCode = null;
+        $this->admin_name = '';
+        $this->admin_email = '';
+        $this->admin_password = '';
+        $this->resetErrorBag();
+    }
+
+    public function retryProvisioning(): void
+    {
+        $this->validate([
+            'retryCode' => ['required', 'string'],
+            'admin_name' => ['required', 'string', 'max:255'],
+            'admin_email' => ['required', 'email', 'max:255'],
+            'admin_password' => ['required', 'string', 'min:8'],
+        ]);
+
+        $tenant = Tenant::where('code', $this->retryCode)->first();
+        if (! $tenant) {
             notify()->error('Vendeur introuvable.');
             return;
         }
@@ -71,9 +104,22 @@ class TenantHealth extends Component
             'db_password' => null,
         ]);
 
-        app(TenantProvisionDispatcher::class)->dispatch($tenant, '', '', '');
+        try {
+            app(TenantProvisionDispatcher::class)->dispatch(
+                $tenant,
+                $this->admin_name,
+                $this->admin_email,
+                $this->admin_password
+            );
+        } catch (\Throwable $e) {
+            notify()->error('Échec relance : '.$e->getMessage());
+            $this->refreshStatuses();
 
-        notify()->success("Provisionnement relancé pour « {$code} ». Rafraîchissez dans 1–2 min.");
+            return;
+        }
+
+        notify()->success("Provisionnement relancé pour « {$this->retryCode} ». Rafraîchissez dans 1–2 min.");
+        $this->cancelRetry();
         $this->refreshStatuses();
     }
 

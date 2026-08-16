@@ -16,6 +16,7 @@ class User extends Authenticatable
         'name',
         'email',
         'phone',
+        'preferred_locale',
         'password',
         'is_active',
         'assigned_store_id',

@@ -32,6 +32,19 @@
                 <input class="input" type="tel" wire:model="phone" placeholder="670274538">
                 @error('phone') <div class="text-danger" style="margin-top:4px;">{{ $message }}</div> @enderror
             </div>
+            @if(\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('users', 'preferred_locale'))
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label class="label">Langue préférée</label>
+                    <select class="input" wire:model="preferred_locale">
+                        @foreach((class_exists(\School\Support\SchoolLocaleCatalog::class)
+                            ? \School\Support\SchoolLocaleCatalog::enabled(app()->bound('tenant') ? app('tenant') : null)
+                            : ['fr' => 'Français', 'en' => 'English']) as $code => $label)
+                            <option value="{{ $code }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    @error('preferred_locale') <div class="text-danger" style="margin-top:4px;">{{ $message }}</div> @enderror
+                </div>
+            @endif
             <button type="button" class="btn btn-primary" wire:click="saveProfile" wire:loading.attr="disabled">
                 Enregistrer le profil
             </button>

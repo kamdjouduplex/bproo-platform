@@ -21,11 +21,25 @@
     });
 
     function finish() {
-        if (finished || !returnUrl) {
+        if (finished) {
             return;
         }
         finished = true;
-        window.location.replace(returnUrl);
+
+        // Fermer l’onglet d’impression (ouvert via target=_blank / window.open).
+        try {
+            window.close();
+        } catch (e) {}
+
+        // Si le navigateur refuse de fermer (rare), revenir à l’appli dans cet onglet.
+        setTimeout(function () {
+            if (window.closed) {
+                return;
+            }
+            if (returnUrl) {
+                window.location.replace(returnUrl);
+            }
+        }, 250);
     }
 
     window.addEventListener('afterprint', function () {
@@ -40,11 +54,15 @@
         });
     }
 
-    function openPrintDialog() {
+    window.printAndClose = function () {
         if (printFilename) {
             document.title = printFilename;
         }
         window.print();
+    };
+
+    function openPrintDialog() {
+        window.printAndClose();
     }
 
     if (document.readyState === 'complete') {

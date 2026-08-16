@@ -1,56 +1,79 @@
-# Bproo Pharma
+# Bproo School
 
-Application spécialisée pharmacie de la plateforme Bproo. Host mince (`apps/pharma`) + packages partagés `inovcom/*` + vertical `packages/verticals/pharma`.
+Application école de la plateforme Bproo. Host mince (`apps/school`) + packages partagés `inovcom/*` / `platform/*` + vertical `packages/verticals/school` (`bproo/school`).
 
 ## Architecture
 
 ```
-apps/pharma          → host Laravel (UI, config, tenancy)
-packages/inovcom/*   → POS, stock, lots, achats, caisse, clients…
-packages/verticals/pharma → hub, rôles pharmacien/caissier/magasinier, extensions futures
+apps/school                 → host Laravel (UI, config, tenancy)
+packages/verticals/school   → modules métier (élèves, notes, paiements, cartes ID…)
+packages/platform/*         → tenancy, admin, modules
+packages/inovcom/*          → briques partagées (users, configuration…)
 ```
 
-Type de tenant Control Center : **`pharma`** (alias legacy `pharmacy` → `pharma`).  
-URL locale par défaut : `http://127.0.0.1:8003` (`PRODUCT_PHARMA_URL`).
+Type de tenant Control Center : **`school`**.  
+URL locale par défaut : `http://127.0.0.1:8000` (`PRODUCT_SCHOOL_URL`).  
+Prod beta : `https://school.afroinov.com` (port **8095**).
 
-## Pack modules V1 (activés par défaut)
+## Pack modules V1 (activés par défaut pour un tenant `school`)
 
 | Module | Rôle |
 |---|---|
-| `pharma` | Hub + rôles |
-| `items` | Médicaments |
-| `clients` | Clients |
-| `providers` | Fournisseurs |
-| `sales` | POS |
-| `stock` | Stock |
-| `purchases` | Achats |
-| `batches` | Lots / péremption |
-| `prescriptions` | Ordonnances |
-| `caisse` | Caisse |
-| `returns` | Retours |
-| `debts` | Crédit client |
+| `school` | Hub / tableau de bord |
+| `school_years` | Années académiques (+ carry-over) |
+| `school_classes` / `school_subjects` / `school_teachers` | Référentiel |
+| `school_students` / `school_enrollments` | Élèves & inscriptions |
+| `school_id_cards` | Cartes ID (QR, lot 12/A4) |
+| `school_fees` / `school_payments` | Frais, paiements, soldes |
+| `school_exams` / `school_grading` | Examens & barèmes |
+| `school_publications` / `school_report_cards` | Publication & bulletins |
+| `school_notifications` | Journal SMS/email (channels optionnels) |
+| `school_settings` | Listes, langues, audit |
+| `users` / `configuration` | Core tenant |
+
+Les modules commerce / pharmacie restent dans le host mais **ne s’activent pas** pour un tenant `school`.
 
 ## Démarrage local
 
 ```bash
-cd apps/pharma
-cp .env.example .env   # aligner DB landlord comme ERP + APP_URL=http://127.0.0.1:8003
-# Vendor : pour le MVP, junction vers ERP (évite un composer install monorepo fragile)
-#   mklink /J vendor ..\erp\vendor
-composer dump-autoload
+cd apps/school
+cp .env.example .env
+# Aligner DB landlord + APP_URL=http://127.0.0.1:8000 + APP_PRODUCT_KEY=school
+composer install
 php artisan key:generate
+php artisan storage:link
 php artisan modules:sync
-npm install && npm run dev
-php artisan serve --port=8003
+npm install && npm run build
+php artisan serve
 ```
 
-Créer une société de type **Bproo Pharma** depuis le Control Center (`PRODUCT_PHARMA_URL`).
+Créer une société de type **Bproo School** depuis le Control Center (`PRODUCT_SCHOOL_URL`).
 
-## Prochaines étapes métier
+### Seed démo (optionnel)
 
-1. Bloquer la vente des lots périmés (FEFO dans `batches` / `sales`)
-2. Champs médicament : DCI, forme, dosage, famille thérapeutique
-3. Enforcement `requires_prescription` au POS
-4. V3 : mutuelles, fidélité, livraison (dans le vertical)
+```bash
+php artisan tenant:seed-school-demo school
+```
 
-Voir le canvas blueprint dans Cursor : `bproo-pharma-blueprint.canvas.tsx`.
+Comptes typiques (voir seeder) : `directeur.demo@school.test` / `Directeur#2025`.
+
+## Beta — limites connues
+
+- SMS / email : non requis ; sans config les notifs sont journalisées en `skipped`.
+- Cartes ID : QR oui, code-barres (rendu) plus tard.
+- IDs élèves : motif fixe `SCH-{année}-{####}` pour l’instant.
+- Emplois du temps / présences : hors scope beta.
+- UI principalement en français (switcher locale présent, traductions school partielles).
+
+## Déploiement
+
+Voir `deploy/docker/DEPLOY.md` et le guide multi-apps `docs/deploy/MULTI_APP_AFROINOV.md`.
+
+```bash
+cd /home/kamfo-teuh-01/apps/bproo-platform
+git pull --ff-only
+cd apps/school
+COMPOSE_PROJECT=school HTTP_PORT=8095 bash deploy/docker/bootstrap-prod.sh
+```
+
+PRD : `Bproo_School_PRD_v1.1.md`.

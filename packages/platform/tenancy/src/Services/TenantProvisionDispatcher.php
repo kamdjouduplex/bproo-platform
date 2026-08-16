@@ -25,7 +25,9 @@ class TenantProvisionDispatcher
         $baseUrl = rtrim((string) config("tenant_types.types.{$type}.base_url", ''), '/');
 
         if ($this->shouldProvisionLocally($type, $baseUrl)) {
-            ProvisionTenantJob::dispatch($tenant, $adminName, $adminEmail, $adminPassword);
+            // Avoid Livewire/PHP 30s timeout: run after the HTTP response is sent.
+            ProvisionTenantJob::dispatch($tenant, $adminName, $adminEmail, $adminPassword)
+                ->afterResponse();
 
             return;
         }

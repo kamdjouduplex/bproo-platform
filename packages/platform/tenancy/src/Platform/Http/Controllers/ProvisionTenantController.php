@@ -36,12 +36,14 @@ class ProvisionTenantController extends Controller
             ], 422);
         }
 
+        // Return 202 quickly; with sync queue this still runs after the response
+        // so Control Center does not hit PHP max_execution_time (30s).
         ProvisionTenantJob::dispatch(
             $tenant,
             (string) ($data['admin_name'] ?? ''),
             (string) ($data['admin_email'] ?? ''),
             (string) ($data['admin_password'] ?? '')
-        );
+        )->afterResponse();
 
         return response()->json([
             'ok' => true,
