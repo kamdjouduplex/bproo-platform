@@ -4,10 +4,11 @@
 
 <div class="page-body">
     <section class="card">
-        <h2 class="card-title">{{ $isEdit ? 'Corriger la date de péremption' : 'Nouveau lot' }}</h2>
+        <h2 class="card-title">{{ $isEdit ? 'Modifier le lot' : 'Nouveau lot' }}</h2>
         <p class="text-muted" style="margin-bottom: 16px;">
             @if ($isEdit)
-                Corrigez une date saisie par erreur. L’article, le numéro de lot et la quantité restent inchangés.
+                Corrigez le numéro de lot, la date de péremption et/ou la quantité. L’article reste inchangé.
+                Une modification de quantité met à jour le stock de l’article.
             @else
                 Enregistrer un lot manuellement (réception hors achats ou stock initial).
             @endif
@@ -26,12 +27,18 @@
                     <input class="input" type="text" value="{{ $item_label }}" disabled>
                 </div>
                 <div class="field">
-                    <label class="field-label">N° lot</label>
-                    <input class="input" type="text" value="{{ $batch_number }}" disabled>
+                    <label class="field-label">N° lot <span class="text-red-600">*</span></label>
+                    <input class="input" type="text" wire:model="batch_number" placeholder="Ex: LOT-2026-001" required>
+                    @error('batch_number')
+                        <span class="text-red-600 text-sm">{{ $message }}</span>
+                    @enderror
                 </div>
                 <div class="field">
-                    <label class="field-label">Quantité</label>
-                    <input class="input" type="text" value="{{ fmt_num((float) $quantity) }}" disabled>
+                    <label class="field-label">Quantité <span class="text-red-600">*</span></label>
+                    <input class="input" type="number" wire:model="quantity" min="0" step="any" required>
+                    @error('quantity')
+                        <span class="text-red-600 text-sm">{{ $message }}</span>
+                    @enderror
                 </div>
                 <div class="field">
                     <label class="field-label">Date de péremption <span class="text-red-600">*</span></label>
@@ -76,9 +83,17 @@
                 </div>
             @endif
             <div class="field" style="grid-column: 1 / -1; display: flex; gap: 12px; align-items: center;">
-                <button type="submit" class="btn btn-primary">
-                    {{ $isEdit ? 'Enregistrer la correction' : 'Enregistrer le lot' }}
-                </button>
+                @if ($isEdit)
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                        wire:confirm="Confirmer la modification de ce lot ? Le stock article sera mis à jour si la quantité change."
+                    >
+                        Enregistrer la correction
+                    </button>
+                @else
+                    <button type="submit" class="btn btn-primary">Enregistrer le lot</button>
+                @endif
                 <a class="btn btn-secondary" href="{{ route('tenant.batches.index', ['tenant' => $tenantCode]) }}">Annuler</a>
             </div>
         </form>

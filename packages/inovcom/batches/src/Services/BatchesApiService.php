@@ -319,13 +319,27 @@ class BatchesApiService implements BatchesApi
         });
     }
 
-    public function updateExpiryDate(int $batchId, \Carbon\CarbonInterface $expiryDate): object
-    {
+    public function updateBatch(
+        int $batchId,
+        string $batchNumber,
+        \Carbon\CarbonInterface $expiryDate,
+        float $quantity
+    ): object {
         if (! $this->isAvailable()) {
             throw new \RuntimeException('Module lots indisponible.');
         }
 
-        return DB::connection('tenant')->transaction(function () use ($batchId, $expiryDate) {
+        $batchNumber = trim($batchNumber);
+        if ($batchNumber === '') {
+            throw new \InvalidArgumentException('Le numéro de lot est obligatoire.');
+        }
+
+        $quantity = round($quantity, 3);
+        if ($quantity < 0) {
+            throw new \InvalidArgumentException('La quantité ne peut pas être négative.');
+        }
+
+        return DB::connection('tenant')->transaction(function () use ($batchId, $batchNumber, $expiryDate, $quantity) {
             $batch = Batch::query()->whereKey($batchId)->lockForUpdate()->first();
             if (! $batch) {
                 throw new \InvalidArgumentException('Lot introuvable.');
@@ -333,36 +347,53 @@ class BatchesApiService implements BatchesApi
 
             $newDate = $expiryDate->copy()->startOfDay();
             $oldDate = $batch->expiry_date->copy()->startOfDay();
+            $oldNumber = (string) $batch->batch_number;
+            $qtyBefore = round((float) $batch->quantity, 3);
+            $numberChanged = mb_strtolower($oldNumber) !== mb_strtolower($batchNumber);
+            $dateChanged = ! $oldDate->equalTo($newDate);
+            $qtyChanged = abs($qtyBefore - $quantity) > 0.0001;
 
-            if ($oldDate->equalTo($newDate)) {
+            if (! $numberChanged && ! $dateChanged && ! $qtyChanged) {
                 return $batch;
             }
 
+            // Un lot (N°) doit être unique par article.
             $duplicate = Batch::query()
                 ->where('item_id', $batch->item_id)
-                ->where('batch_number', $batch->batch_number)
-                ->whereDate('expiry_date', $newDate->toDateString())
+                ->whereRaw('LOWER(batch_number) = ?', [mb_strtolower($batchNumber)])
                 ->where('id', '!=', $batch->id)
                 ->exists();
 
             if ($duplicate) {
                 throw new \InvalidArgumentException(
-                    'Un autre lot existe déjà avec le même numéro et cette date de péremption.'
+                    'Un lot avec le numéro « '.$batchNumber.' » existe déjà pour cet article.'
                 );
             }
 
-            $qty = (float) $batch->quantity;
+            $batch->batch_number = $batchNumber;
             $batch->expiry_date = $newDate;
+            $batch->quantity = $quantity;
             $batch->save();
 
+            $delta = round($quantity - $qtyBefore, 3);
             BatchMovement::create([
                 'batch_id' => $batch->id,
-                'quantity' => 0,
-                'quantity_before' => $qty,
-                'quantity_after' => $qty,
-                'reference_type' => 'expiry_correction',
+                'quantity' => $delta,
+                'quantity_before' => $qtyBefore,
+                'quantity_after' => $quantity,
+                'reference_type' => 'batch_correction',
                 'reference_id' => $batch->id,
             ]);
+
+            if (abs($delta) > 0.0001) {
+                $itemId = (int) $batch->item_id;
+                $reason = $this->batchReasonLabel($delta > 0 ? 'in' : 'out', $batch).' · correction manuelle';
+                if ($delta > 0) {
+                    $this->syncPhysicalStockIn($itemId, $delta, 'batch_correction', $batch->id, $reason);
+                } else {
+                    $this->syncPhysicalStockOut($itemId, abs($delta), 'batch_correction', $batch->id, $reason);
+                }
+            }
 
             return $batch->fresh();
         });

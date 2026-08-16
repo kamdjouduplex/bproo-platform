@@ -29,7 +29,7 @@ class BatchForm extends Component
             return;
         }
 
-        if (! $this->canUpdateExpiry()) {
+        if (! $this->canUpdateBatch()) {
             session()->flash('error', 'Vous n’avez pas le droit de modifier les lots.');
             $this->redirect(route('tenant.batches.index', ['tenant' => $this->tenantCode()]), navigate: true);
 
@@ -57,7 +57,7 @@ class BatchForm extends Component
         }
 
         if ($this->batchId) {
-            $this->saveExpiryCorrection($api);
+            $this->saveBatchCorrection($api);
 
             return;
         }
@@ -94,34 +94,44 @@ class BatchForm extends Component
         $this->redirect(route('tenant.batches.index', ['tenant' => $this->tenantCode()]), navigate: true);
     }
 
-    private function saveExpiryCorrection(BatchesApi $api): void
+    private function saveBatchCorrection(BatchesApi $api): void
     {
-        if (! $this->canUpdateExpiry()) {
-            session()->flash('error', 'Vous n’avez pas le droit de modifier la date de péremption.');
+        if (! $this->canUpdateBatch()) {
+            session()->flash('error', 'Vous n’avez pas le droit de modifier les lots.');
 
             return;
         }
 
         $data = $this->validate([
+            'batch_number' => 'required|string|max:100',
             'expiry_date' => 'required|date',
+            'quantity' => 'required|numeric|min:0',
         ], [
+            'batch_number.required' => 'Le numéro de lot est obligatoire.',
             'expiry_date.required' => 'La date de péremption est obligatoire.',
             'expiry_date.date' => 'La date de péremption est invalide.',
+            'quantity.required' => 'La quantité est obligatoire.',
+            'quantity.min' => 'La quantité ne peut pas être négative.',
         ]);
 
         try {
-            $api->updateExpiryDate((int) $this->batchId, \Carbon\Carbon::parse($data['expiry_date']));
+            $api->updateBatch(
+                (int) $this->batchId,
+                $data['batch_number'],
+                \Carbon\Carbon::parse($data['expiry_date']),
+                (float) $data['quantity']
+            );
         } catch (\InvalidArgumentException|\RuntimeException $e) {
             session()->flash('error', $e->getMessage());
 
             return;
         }
 
-        session()->flash('success', 'Date de péremption mise à jour.');
+        session()->flash('success', 'Lot mis à jour.');
         $this->redirect(route('tenant.batches.index', ['tenant' => $this->tenantCode()]), navigate: true);
     }
 
-    public function canUpdateExpiry(): bool
+    public function canUpdateBatch(): bool
     {
         $user = auth('tenant')->user();
         if (! $user) {
@@ -148,7 +158,7 @@ class BatchForm extends Component
 
         return view('inovcom-batches::livewire.batches.form')
             ->layout('layouts.app', [
-                'title' => $this->batchId ? 'Modifier la péremption' : 'Nouveau lot',
+                'title' => $this->batchId ? 'Modifier le lot' : 'Nouveau lot',
                 'subtitle' => 'Pharmacie',
             ])
             ->with([

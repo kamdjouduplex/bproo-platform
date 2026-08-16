@@ -66,11 +66,17 @@ interface BatchesApi
     public function writeOffExpiredBatch(int $batchId, ?string $notes = null): array;
 
     /**
-     * Correct the expiry date of an existing batch (typo / wrong entry).
+     * Correct batch number, expiry date and/or quantity of an existing batch.
+     * Batch number must remain unique per item. Quantity changes sync physical stock.
      *
      * @return object Batch model
      */
-    public function updateExpiryDate(int $batchId, \Carbon\CarbonInterface $expiryDate): object;
+    public function updateBatch(
+        int $batchId,
+        string $batchNumber,
+        \Carbon\CarbonInterface $expiryDate,
+        float $quantity
+    ): object;
 
     /**
      * Check if Batches module is active (e.g. has tables).

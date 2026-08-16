@@ -104,9 +104,9 @@
                                     <a
                                         class="btn btn-sm btn-secondary"
                                         href="{{ route('tenant.batches.edit', [$batch->id, 'tenant' => $tenantCode]) }}"
-                                        title="Corriger la date de péremption"
+                                        title="Modifier le lot"
                                     >
-                                        Modifier date
+                                        Modifier
                                     </a>
                                 @endif
                                 @if($canWriteOff && $level === 'expired' && (float) $batch->quantity > 0)
