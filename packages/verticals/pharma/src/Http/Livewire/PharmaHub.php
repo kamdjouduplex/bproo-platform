@@ -15,6 +15,7 @@ class PharmaHub extends Component
             Route::has('tenant.stock.index') ? ['label' => 'Stock', 'route' => 'tenant.stock.index', 'hint' => 'Niveaux, transferts, ruptures'] : null,
             Route::has('tenant.purchases.index') ? ['label' => 'Achats', 'route' => 'tenant.purchases.index', 'hint' => 'Commandes & réceptions'] : null,
             Route::has('tenant.prescriptions.index') ? ['label' => 'Ordonnances', 'route' => 'tenant.prescriptions.index', 'hint' => 'Délivrance & historique'] : null,
+            Route::has('tenant.pharma-reporting.dashboard') ? ['label' => 'Rapport Pharmacie', 'route' => 'tenant.pharma-reporting.dashboard', 'hint' => 'Tableau de bord, ventes, stock, finance'] : null,
             Route::has('tenant.items.index') ? ['label' => 'Médicaments', 'route' => 'tenant.items.index', 'hint' => 'Catalogue produits'] : null,
             Route::has('tenant.caisse.index') ? ['label' => 'Caisse', 'route' => 'tenant.caisse.index', 'hint' => 'Sessions & écarts'] : null,
             Route::has('tenant.clients.index') ? ['label' => 'Clients', 'route' => 'tenant.clients.index', 'hint' => 'Particuliers, cliniques, crédit'] : null,

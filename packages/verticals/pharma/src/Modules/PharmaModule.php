@@ -37,6 +37,7 @@ class PharmaModule implements ModuleLifecycle
                     'stock.view', 'batches.view', 'batches.manage',
                     'prescriptions.view', 'prescriptions.manage',
                     'purchases.view', 'clients.view', 'items.view',
+                    'reporting.view', 'reporting.export',
                 ],
             ],
             [

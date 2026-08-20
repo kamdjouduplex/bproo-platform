@@ -246,7 +246,8 @@
             "InovCom\\Crm\\": "../../packages/inovcom/crm-suite/src/",
             "InovCom\\Branding\\": "../../packages/inovcom/settings/src/",
             "Pressing\\": "../../packages/verticals/pressing/src/",
-            "School\\": "../../packages/verticals/school/src/"
+            "School\\": "../../packages/verticals/school/src/",
+            "Pharma\\": "../../packages/verticals/pharma/src/"
         }
     },
     "autoload-dev": {

@@ -180,6 +180,7 @@ return [
         InovCom\Prospects\ProspectsServiceProvider::class,
         InovCom\Crm\CrmServiceProvider::class,
         Pharma\PharmaServiceProvider::class,
+        Pharma\PharmaReportingServiceProvider::class,
 
         /*
          * Application Service Providers...
