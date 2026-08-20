@@ -1,0 +1,152 @@
+@page {
+  size: A4;
+  margin: 16mm 14mm 18mm 14mm;
+}
+
+body {
+  font-family: "Segoe UI", "Manrope", Helvetica, Arial, sans-serif;
+  font-size: 10.5pt;
+  line-height: 1.45;
+  color: #1a1038;
+  max-width: 100%;
+}
+
+.cover {
+  page-break-after: always;
+  min-height: 240mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 18mm 8mm 12mm;
+  background: linear-gradient(180deg, #3b1d6e 0%, #2a1454 42%, #f4f7fb 42%);
+  color: #fff;
+  border-radius: 8px;
+}
+
+.cover h1 {
+  border: none;
+  color: #fff;
+  font-size: 28pt;
+  margin: 24px 0 8px;
+}
+
+.cover .badge {
+  display: inline-block;
+  background: #d8efe8;
+  color: #2a1454;
+  font-weight: 700;
+  font-size: 10pt;
+  padding: 6px 12px;
+  border-radius: 999px;
+}
+
+.cover .meta {
+  color: #e9e1f7;
+  font-size: 11pt;
+}
+
+.cover-footer {
+  color: #475569;
+  background: #fff;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+h1 {
+  font-size: 20pt;
+  color: #2a1454;
+  border-bottom: 3px solid #3b1d6e;
+  padding-bottom: 6px;
+  margin-top: 0;
+}
+
+h2 {
+  font-size: 14pt;
+  color: #3b1d6e;
+  margin-top: 22px;
+  page-break-after: avoid;
+}
+
+h3 {
+  font-size: 11.5pt;
+  color: #1e293b;
+  margin-top: 14px;
+  page-break-after: avoid;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0 14px;
+  font-size: 9.5pt;
+}
+
+th, td {
+  border: 1px solid #d6d3e8;
+  padding: 5px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #f3eefb;
+  color: #2a1454;
+  font-weight: 700;
+}
+
+tr:nth-child(even) td {
+  background: #faf9fd;
+}
+
+code {
+  background: #f1f5f9;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 9pt;
+}
+
+ol.steps > li {
+  margin-bottom: 6px;
+}
+
+.note, .warn, .ok {
+  border-left: 4px solid #3b1d6e;
+  background: #f6f2fb;
+  padding: 8px 12px;
+  margin: 10px 0 14px;
+  page-break-inside: avoid;
+}
+
+.warn {
+  border-left-color: #b45309;
+  background: #fffbeb;
+}
+
+.ok {
+  border-left-color: #15803d;
+  background: #f0fdf4;
+}
+
+.toc a {
+  color: #3b1d6e;
+  text-decoration: none;
+}
+
+.toc li {
+  margin-bottom: 3px;
+}
+
+.kicker {
+  font-size: 9pt;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b46a8;
+  font-weight: 700;
+}
+
+@media print {
+  h2 { page-break-before: auto; }
+  table, .note, .warn, .ok { page-break-inside: avoid; }
+  a { color: inherit; text-decoration: none; }
+}

@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Bproo School — Manuel d’utilisation (bêta)</title>
+  <link rel="stylesheet" href="manuel-beta.css">
+  <style>
+    @page { size: A4; margin: 16mm 14mm 18mm 14mm; }
+    body { font-family: "Segoe UI", Helvetica, Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: #1a1038; }
+    .cover { page-break-after: always; padding: 22mm 10mm 12mm; background: #3b1d6e; color: #fff; border-radius: 8px; min-height: 230mm; }
+    .cover h1 { border: none; color: #fff; font-size: 28pt; margin: 28px 0 10px; }
+    .cover .badge { display: inline-block; background: #d8efe8; color: #2a1454; font-weight: 700; padding: 6px 12px; border-radius: 999px; font-size: 10pt; }
+    .cover .meta { color: #e9e1f7; }
+    .cover-footer { margin-top: 80mm; background: #fff; color: #334155; padding: 14px 16px; border-radius: 8px; }
+    h1 { font-size: 20pt; color: #2a1454; border-bottom: 3px solid #3b1d6e; padding-bottom: 6px; }
+    h2 { font-size: 14pt; color: #3b1d6e; margin-top: 22px; page-break-after: avoid; }
+    h3 { font-size: 11.5pt; color: #1e293b; margin-top: 14px; page-break-after: avoid; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 9.5pt; }
+    th, td { border: 1px solid #d6d3e8; padding: 5px 8px; text-align: left; vertical-align: top; }
+    th { background: #f3eefb; color: #2a1454; font-weight: 700; }
+    tr:nth-child(even) td { background: #faf9fd; }
+    code { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 9pt; }
+    ol.steps > li { margin-bottom: 6px; }
+    .note, .warn, .ok { border-left: 4px solid #3b1d6e; background: #f6f2fb; padding: 8px 12px; margin: 10px 0 14px; page-break-inside: avoid; }
+    .warn { border-left-color: #b45309; background: #fffbeb; }
+    .ok { border-left-color: #15803d; background: #f0fdf4; }
+    .toc a { color: #3b1d6e; text-decoration: none; }
+    .kicker { font-size: 9pt; letter-spacing: .08em; text-transform: uppercase; color: #6b46a8; font-weight: 700; }
+    @media print { table, .note, .warn, .ok { page-break-inside: avoid; } a { color: inherit; text-decoration: none; } }
+  </style>
+</head>
+<body>
+
+<div class="cover">
+  <div>
+    <span class="badge">BÊTA — Manuel testeur</span>
+    <p class="kicker" style="color:#d8efe8; margin-top:28px;">Bproo School</p>
+    <h1>Manuel d’utilisation<br>pour l’administrateur d’école</h1>
+    <p class="meta">Guide A → Z pour tester l’application de bout en bout :<br>
+    connexion, référentiel, élèves, inscriptions, paiements, cartes ID, examens, bulletins.</p>
+  </div>
+  <div class="cover-footer">
+    <strong>Version :</strong> bêta · août 2026<br>
+    <strong>Public :</strong> directeur / administrateur de l’école<br>
+    <strong>Langue de l’interface :</strong> français (par défaut)<br>
+    <strong>Adresse :</strong> <code>https://school.afroinov.com</code>
+  </div>
+</div>
+
+<h1>Sommaire</h1>
+<ol class="toc">
+  <li>Ce que vous allez tester</li>
+  <li>Connexion et premiers pas</li>
+  <li>Comprendre l’écran (menus, boutons Voir / Gérer)</li>
+  <li>Rôles (directeur, enseignant, caissier)</li>
+  <li>Ordre recommandé (A → Z)</li>
+  <li>Référentiel : année, classes, matières</li>
+  <li>Enseignants</li>
+  <li>Élèves (profil permanent + photo)</li>
+  <li>Inscriptions (chaque année)</li>
+  <li>Frais de scolarité et soldes</li>
+  <li>Paiements et reçus</li>
+  <li>Cartes d’identité élèves</li>
+  <li>Examens et notes</li>
+  <li>Notation (barèmes, coefficients, règles)</li>
+  <li>Publication des résultats</li>
+  <li>Bulletins et relevés</li>
+  <li>Recherche, langues, audit, utilisateurs</li>
+  <li>Notifications (SMS / e-mail)</li>
+  <li>Nouvelle année académique (réutilisation)</li>
+  <li>Limites de la bêta</li>
+  <li>Checklist de test (à cocher)</li>
+  <li>Problèmes fréquents</li>
+</ol>
+
+<h2>1. Ce que vous allez tester</h2>
+<p><strong>Bproo School</strong> digitalise le cycle de vie d’une école : élèves, inscriptions, scolarité, cartes, notes et bulletins.</p>
+<p>Idées à retenir :</p>
+<ul>
+  <li><strong>L’élève est créé une seule fois</strong> (profil permanent).</li>
+  <li><strong>L’inscription se refait chaque année académique</strong> (classe / section).</li>
+  <li>Un profil incomplet <strong>n’empêche pas</strong> d’inscrire : un pourcentage de complétion indique ce qui manque.</li>
+  <li>Les <strong>classes, matières et enseignants</strong> se réutilisent d’une année à l’autre (pas de doublons).</li>
+</ul>
+<div class="warn">
+  <strong>Hors scope bêta :</strong> emplois du temps et présences élèves. Les SMS / e-mails automatiques peuvent être journalisés « ignorés » s’ils ne sont pas configurés — ce n’est pas un bug.
+</div>
+
+<h2>2. Connexion et premiers pas</h2>
+<h3>2.1 Adresse</h3>
+<ol class="steps">
+  <li>Ouvrez un navigateur (Chrome, Edge ou Firefox).</li>
+  <li>Allez sur : <code>https://school.afroinov.com/app/login?tenant=VOTRE_CODE</code></li>
+  <li>Remplacez <code>VOTRE_CODE</code> par le code de l’école (fourni à la création, pour votre cas: <code>school</code>).</li>
+</ol>
+<div class="note">Sans le paramètre <code>?tenant=...</code>, l’application ne sait pas quelle école ouvrir. Conservez ce lien dans vos favoris.</div>
+
+<h3>2.2 Identifiants</h3>
+<p>Utilisez le compte administrateur créé pour votre école (e-mail + mot de passe transmis à l’ouverture).</p>
+<p>Si un jeu de démo a été chargé, comptes types :</p>
+<table>
+  <thead><tr><th>Rôle</th><th>E-mail</th><th>Mot de passe</th></tr></thead>
+  <tbody>
+    <tr><td>Directeur (recommandé pour ce manuel)</td><td><code>directeur.demo@school.test</code></td><td><code>Directeur#2025</code></td></tr>
+    <tr><td>Enseignant</td><td><code>enseignant.demo@school.test</code></td><td><code>Enseignant#2025</code></td></tr>
+    <tr><td>Caissier</td><td><code>caissier.demo@school.test</code></td><td><code>Caissier#2025</code></td></tr>
+  </tbody>
+</table>
+<div class="warn">Changez ces mots de passe dès que possible si vous n’êtes plus en démo interne.</div>
+
+<h3>2.3 Après connexion</h3>
+<p>Vous arrivez sur le <strong>tableau de bord</strong> : nombre d’élèves, inscriptions de l’année, enseignants, paiements en attente, examens ouverts, encaissé du jour.</p>
+<p>Raccourcis en haut à droite (selon permissions) : Élèves, Inscriptions, Paiements, Examens, Bulletins.</p>
+
+<h2>3. Comprendre l’écran</h2>
+<table>
+  <thead><tr><th>Élément</th><th>À quoi ça sert</th></tr></thead>
+  <tbody>
+    <tr><td>Menu de gauche</td><td>Groupes : Scolarité, Finances scolaires, Examens &amp; résultats, Référentiel, Administration, Système</td></tr>
+    <tr><td>Recherche (en-tête)</td><td>Recherche globale élève (ID, nom, parent, téléphone…)</td></tr>
+    <tr><td>Bouton <strong>Voir</strong></td><td>Fiche en lecture</td></tr>
+    <tr><td>Bouton <strong>Gérer</strong></td><td>Modification / actions (si vous avez le droit)</td></tr>
+    <tr><td>Bouton <strong>Nouveau / Nouvelle…</strong></td><td>Ouvre un formulaire (souvent une fenêtre)</td></tr>
+    <tr><td>Filtres au-dessus des listes</td><td>Année, classe, statut, recherche…</td></tr>
+  </tbody>
+</table>
+<p>Dans <strong>Système</strong> : <em>Utilisateurs</em> (comptes de l’école) et <em>Configuration</em> (nom, logo, paramètres d’impression).</p>
+
+<h2>4. Rôles</h2>
+<table>
+  <thead><tr><th>Rôle</th><th>Peut surtout…</th><th>Ne peut généralement pas…</th></tr></thead>
+  <tbody>
+    <tr><td><strong>directeur</strong></td><td>Tout paramétrer, publier les résultats, gérer utilisateurs, paiements, cartes, notes</td><td>—</td></tr>
+    <tr><td><strong>enseignant</strong></td><td>Voir élèves / classes, créer des examens, saisir des notes, imprimer des bulletins</td><td>Gérer les paiements, les frais, les cartes ID, les utilisateurs</td></tr>
+    <tr><td><strong>caissier</strong></td><td>Inscrire, encaisser / vérifier les paiements, générer les cartes ID</td><td>Saisir les notes, publier les résultats, changer le barème</td></tr>
+  </tbody>
+</table>
+<p>Pour ce manuel, connectez-vous en <strong>directeur</strong> (ou compte admin école).</p>
+
+<h2>5. Ordre recommandé (A → Z)</h2>
+<ol class="steps">
+  <li>Année académique active</li>
+  <li>Classes et matières</li>
+  <li>Enseignants</li>
+  <li>Élèves (photo si possible)</li>
+  <li>Inscriptions dans une classe</li>
+  <li>Structures de frais + imputation</li>
+  <li>Paiement (espèces puis banque)</li>
+  <li>Cartes ID (lot 12 / A4)</li>
+  <li>Système de notation + coefficients</li>
+  <li>Examen + notes</li>
+  <li>Règle de publication + publication</li>
+  <li>Bulletin / relevé / feuille de notes</li>
+</ol>
+<p>Les sections suivantes détaillent chaque étape.</p>
+
+<h2>6. Référentiel : année, classes, matières</h2>
+<h3>6.1 Année académique</h3>
+<p>Menu : <strong>Référentiel → Années académiques</strong>.</p>
+<ol class="steps">
+  <li>Cliquez <strong>Nouvelle année</strong>.</li>
+  <li>Renseignez le nom (ex. <em>Année académique 2025-2026</em>), dates de début / fin.</li>
+  <li>Cochez <strong>Activer</strong> : cela désactive les autres années.</li>
+  <li>Enregistrer.</li>
+</ol>
+<p>À la création d’une <em>nouvelle</em> année, vous pouvez <strong>réutiliser</strong> depuis une année existante : structures de frais, règles de notation, coefficients, sessions d’examens (brouillons). Les classes / matières / enseignants ne sont pas recopiés — ils existent déjà.</p>
+
+<h3>6.2 Classes</h3>
+<p>Menu : <strong>Référentiel → Classes</strong> → <strong>Nouvelle classe</strong>.</p>
+<ul>
+  <li>Nom : ex. <code>6ème A</code></li>
+  <li>Section : A, B, C… (listes éditables dans Paramétrage)</li>
+  <li>Laisser <em>Actif</em> coché</li>
+</ul>
+
+<h3>6.3 Matières</h3>
+<p>Menu : <strong>Référentiel → Matières</strong> → <strong>Nouvelle matière</strong>.</p>
+<ul>
+  <li>Nom : Mathématiques, Français…</li>
+  <li>Code : MATH, FR…</li>
+</ul>
+
+<div class="ok">Données démo typiques : année 2025-2026 ; classes 6ème A, 5ème A, 3ème Exp. ; matières MATH, FR, ANG, SVT.</div>
+
+<h2>7. Enseignants</h2>
+<p>Menu : <strong>Scolarité → Enseignants</strong> → <strong>Nouvel enseignant</strong>.</p>
+<p>Saisissez nom, téléphone, e-mail. Ce fichier est le référentiel pédagogique ; ce n’est pas automatiquement un compte de connexion (les comptes se créent dans <strong>Utilisateurs</strong>).</p>
+
+<h2>8. Élèves (profil permanent + photo)</h2>
+<p>Menu : <strong>Scolarité → Élèves</strong>.</p>
+<h3>8.1 Créer un élève</h3>
+<ol class="steps">
+  <li>Cliquez <strong>Nouvel élève</strong>.</li>
+  <li><strong>Student ID</strong> : laissez vide pour génération auto <code>SCH-AAAA-0001</code>, ou saisissez un code.</li>
+  <li>Prénom, nom (obligatoires pour un profil utilisable).</li>
+  <li>Genre, date de naissance, parent / tuteur, téléphone, e-mail (recommandés).</li>
+  <li><strong>Photo</strong> : <em>Choisir et cadrer la photo</em> — recadrez le visage (zoom / déplacement) puis validez.</li>
+  <li><strong>Enregistrer</strong>.</li>
+</ol>
+<p>La colonne <strong>Profil</strong> affiche un pourcentage (ID, nom, genre, naissance, parent, téléphone, e-mail, photo). Vous pouvez inscrire même si le pourcentage n’est pas 100 %.</p>
+<h3>8.2 Compléter plus tard</h3>
+<p>Ouvrez l’élève → <strong>Gérer</strong> : ajoutez photo, téléphone parent, etc. L’historique (inscriptions, ledger, paiements, notes) reste sur la fiche.</p>
+<div class="note">Sans photo, la carte ID affiche une silhouette. Pour un test d’impression « réel », uploadez au moins une photo.</div>
+
+<h2>9. Inscriptions (chaque année)</h2>
+<p>Menu : <strong>Scolarité → Inscriptions</strong> → <strong>Nouvelle inscription</strong>.</p>
+<ol class="steps">
+  <li>Recherchez l’élève (ID ou nom) — ne recréez pas un second profil.</li>
+  <li>Choisissez l’année académique, la classe, la section.</li>
+  <li>Statut : en général <strong>Inscrit</strong>.</li>
+  <li>Enregistrer.</li>
+</ol>
+<p>L’inscription peut déclencher l’imputation des frais (si une structure de frais existe pour cette classe / année) et une notification (souvent « ignorée » sans SMS).</p>
+<p>Statuts possibles : Inscrit, Transféré, Diplômé, Inactif (listes modifiables).</p>
+
+<h2>10. Frais de scolarité et soldes</h2>
+<h3>10.1 Structures de frais</h3>
+<p>Menu : <strong>Finances scolaires → Structures de frais</strong>.</p>
+<ol class="steps">
+  <li><strong>Nouvelle structure</strong> : nom (ex. Scolarité), année, classe, montant (ex. 75 000), devise XOF, actif.</li>
+  <li>Une structure par classe / année est le cas le plus simple.</li>
+</ol>
+<p>Exemple démo : 6ème A = 75 000 · 5ème A = 80 000 · 3ème = 90 000 XOF.</p>
+
+<h3>10.2 Soldes scolarité</h3>
+<p>Menu : <strong>Finances scolaires → Soldes scolarité</strong> (sous Paiements).</p>
+<p>Cartes : <strong>À jour</strong> / <strong>Partiel</strong> / <strong>Impayé</strong> + reste à recouvrer.</p>
+<p>Bouton <strong>Imputer les frais</strong> : crée les écritures manquantes pour l’année / classe filtrées (utile si vous avez créé les frais après les inscriptions).</p>
+<p>Puis <strong>Nouveau paiement</strong> pour encaisser.</p>
+
+<h2>11. Paiements et reçus</h2>
+<p>Menu : <strong>Finances scolaires → Paiements</strong> → <strong>Nouveau paiement</strong>.</p>
+<h3>11.1 Méthodes</h3>
+<table>
+  <thead><tr><th>Méthode</th><th>Effet</th><th>Justificatif</th></tr></thead>
+  <tbody>
+    <tr><td>Espèces à l’école</td><td>Validé tout de suite + reçu</td><td>Non</td></tr>
+    <tr><td>Carte bancaire</td><td>Validé tout de suite + reçu</td><td>Non</td></tr>
+    <tr><td>Versement banque</td><td>En attente jusqu’à vérification</td><td>Oui (bordereau) + n° de référence</td></tr>
+    <tr><td>Mobile Money</td><td>En attente</td><td>Oui + ID transaction</td></tr>
+    <tr><td>Chèque</td><td>En attente</td><td>Oui + n° de chèque</td></tr>
+  </tbody>
+</table>
+<h3>11.2 Test A — paiement à l’école (le plus simple)</h3>
+<ol class="steps">
+  <li>Nouveau paiement → élève inscrit → méthode <strong>Espèces à l’école</strong>.</li>
+  <li>Montant (ex. 25 000), nom du payeur, enregistrer.</li>
+  <li>Statut <strong>Validé</strong>. Ouvrez la fiche → <strong>Imprimer le reçu</strong>.</li>
+  <li>Vérifiez le solde : l’élève passe en partiel ou à jour selon le montant.</li>
+</ol>
+<h3>11.3 Test B — paiement banque (circuit complet)</h3>
+<ol class="steps">
+  <li>Nouveau paiement → <strong>Versement banque</strong> : banque, n° de bordereau, photo / scan du reçu.</li>
+  <li>Statut <strong>En attente</strong>.</li>
+  <li>Ouvrez <strong>Gérer</strong> : consultez le justificatif → <strong>Valider</strong> (nom du caissier) ou <strong>Rejeter</strong> (motif).</li>
+  <li>Après validation : reçu imprimable + solde mis à jour.</li>
+</ol>
+<div class="note">Le solde se calcule via le <em>grand livre élève</em> (débit = frais, crédit = paiements validés). Un paiement rejeté ne diminue pas le dû.</div>
+
+<h2>12. Cartes d’identité élèves</h2>
+<p>Menu : <strong>Scolarité → Cartes ID</strong>.</p>
+<ol class="steps">
+  <li><strong>Générer des cartes</strong> : année, éventuellement classe / section / genre / statut, code lot (ex. <code>Promo-2026-A</code>).</li>
+  <li>Les cartes déjà générées pour le même élève / année ne sont en général pas recréées.</li>
+  <li>Filtrez le lot, cliquez <strong>Imprimer le lot</strong> (ou Imprimer sur une ligne).</li>
+  <li>Aperçu : <strong>12 cartes par feuille A4</strong> (grille 3 × 4). Dans la boîte d’impression, activez <strong>Graphiques d’arrière-plan</strong> pour garder le violet / vert.</li>
+</ol>
+<p>Chaque carte : nom de l’école, photo ronde, classe, année, Student ID, téléphone, QR, mention de perte.</p>
+<div class="warn">Le QR est imprimé ; le code-barres n’est pas encore dessiné (donnée stockée seulement). Impression via le navigateur (Imprimer / PDF).</div>
+
+<h2>13. Examens et notes</h2>
+<p>Menu : <strong>Examens &amp; résultats → Examens</strong>.</p>
+<ol class="steps">
+  <li><strong>Nouvel examen</strong> : titre (ex. Devoir 1 — Trimestre 1), année, classe, matière, date, coefficient de l’épreuve, statut <strong>Ouvert</strong>.</li>
+  <li>Ouvrez <strong>Gérer</strong> : saisissez une note par élève inscrit (sur la base du barème, souvent /20).</li>
+  <li>Validez / enregistrez les notes. Passez l’examen en <strong>Clôturé</strong> quand la saisie est terminée.</li>
+</ol>
+<p>Statuts : Brouillon → Ouvert (saisie) → Clôturé.</p>
+<p>Un enseignant peut saisir les notes ; le directeur aussi.</p>
+
+<h2>14. Notation (barèmes, coefficients, règles)</h2>
+<p>Menu : <strong>Examens &amp; résultats → Notation</strong>. Trois onglets :</p>
+<table>
+  <thead><tr><th>Onglet</th><th>Rôle</th></tr></thead>
+  <tbody>
+    <tr><td>Systèmes &amp; barèmes</td><td>Échelle (ex. /20) et mentions (Très bien, Assez bien, Ajourné…) avec notes min/max</td></tr>
+    <tr><td>Coefficients</td><td>Poids de chaque matière pour une année / classe</td></tr>
+    <tr><td>Règles de calcul</td><td>Moyenne de passage, moyenne de promotion, max de matières échouées, méthode de moyenne</td></tr>
+  </tbody>
+</table>
+<p>Créez au moins <strong>un système actif</strong> avec quelques tranches (ex. 16–20 = TB, 10–11,99 = Passable, &lt; 10 = Ajourné) avant d’imprimer des bulletins parlants.</p>
+<div class="note">Le « classement » actuel concerne le mode de calcul de moyenne, pas encore l’affichage du rang de classe (1er, 2e…) sur le bulletin.</div>
+
+<h2>15. Publication des résultats</h2>
+<p>Menu : <strong>Examens &amp; résultats → Publication</strong>.</p>
+<p>Onglet <strong>Règles</strong> : créez une règle, par exemple :</p>
+<ul>
+  <li>Frais soldés (oui / non)</li>
+  <li>Notes validées (oui / non)</li>
+  <li>Approbation directeur (oui / non)</li>
+</ul>
+<p>Puis onglet <strong>Publications</strong> :</p>
+<ol class="steps">
+  <li><strong>Nouvelle publication</strong> : titre, année, classe (ou toutes), règle.</li>
+  <li>Le système calcule les élèves <strong>éligibles</strong> vs non (frais, notes…).</li>
+  <li>Si la règle l’exige : <strong>Gérer</strong> → approuver (nom du directeur).</li>
+  <li><strong>Publier</strong>. Statuts : Brouillon → En approbation → Publié (ou Rejeté).</li>
+</ol>
+<div class="warn">Si la règle exige « frais payés » et que le solde n’est pas à jour, l’élève reste non éligible — c’est voulu. Payez / validez d’abord, ou assouplissez la règle pour le test.</div>
+
+<h2>16. Bulletins et relevés</h2>
+<p>Menu : <strong>Examens &amp; résultats → Bulletins &amp; relevés</strong>.</p>
+<ol class="steps">
+  <li>Filtrez année et classe.</li>
+  <li>Par élève : <strong>Bulletin</strong> ou <strong>Relevé</strong> (ouvre l’aperçu impression).</li>
+  <li><strong>Feuille de notes (filtre)</strong> : tableau de classe.</li>
+  <li>Imprimez ou « Enregistrer au format PDF » depuis le navigateur.</li>
+</ol>
+<p>La moyenne et la mention viennent du moteur de notation + notes saisies.</p>
+
+<h2>17. Recherche, langues, audit, utilisateurs</h2>
+<h3>17.1 Recherche globale</h3>
+<p>Barre en haut : ID élève, nom, parent, téléphone, e-mail, classe. Cliquez un résultat pour ouvrir la fiche.</p>
+<h3>17.2 Langues</h3>
+<p>Menu : <strong>Administration → Langues</strong>. Le directeur peut activer / désactiver des langues. Un sélecteur peut exister dans l’en-tête. <strong>L’interface métier reste principalement en français</strong> dans cette bêta.</p>
+<h3>17.3 Audit</h3>
+<p>Menu : <strong>Administration → Audit</strong>. Journal des actions sensibles (élèves, inscriptions, paiements, notes, cartes…).</p>
+<h3>17.4 Utilisateurs et configuration</h3>
+<p>Menu <strong>Système → Utilisateurs</strong> : créez un compte (e-mail, mot de passe) et attribuez le rôle <em>directeur</em>, <em>enseignant</em> ou <em>caissier</em>.</p>
+<p><strong>Configuration</strong> : nom de l’établissement (affiché sur cartes / bulletins), logo si disponible.</p>
+
+<h2>18. Notifications (SMS / e-mail)</h2>
+<p>Menu : <strong>Administration → Notifications</strong>.</p>
+<ul>
+  <li><strong>Journal</strong> : inscriptions, paiements, résultats, bulletins, annonces — canaux SMS / e-mail / système. Statut souvent <em>Ignoré</em> sans passerelle.</li>
+  <li><strong>Annonce rapide</strong> : un message vers un téléphone ou un e-mail (pas un envoi de masse classe).</li>
+  <li><strong>Paramètres</strong> : activer les canaux, Twilio ou webhook SMS, e-mail expéditeur — à laisser vide en bêta si non fourni.</li>
+</ul>
+<div class="ok">Pour le test bêta, vérifiez surtout que le journal enregistre l’événement. L’absence de SMS n’est pas un échec.</div>
+
+<h2>19. Nouvelle année académique</h2>
+<ol class="steps">
+  <li>Créez la nouvelle année, cochez Activer.</li>
+  <li>Choisissez « Réutiliser depuis… » et les cases Frais / Notation / Coefficients / Examens brouillons.</li>
+  <li>Inscrivez les élèves existants dans leurs classes (nouvelle inscription, même profil).</li>
+  <li>Imputez les frais, générez les cartes de la nouvelle année.</li>
+</ol>
+<p>L’historique des années précédentes reste consultable sur la fiche élève.</p>
+
+<h2>20. Limites de la bêta (à connaître)</h2>
+<table>
+  <thead><tr><th>Sujet</th><th>Comportement actuel</th></tr></thead>
+  <tbody>
+    <tr><td>Emplois du temps / présences</td><td>Non livrés</td></tr>
+    <tr><td>SMS / e-mail</td><td>Optionnels ; sinon journal « ignoré »</td></tr>
+    <tr><td>Code-barres carte ID</td><td>QR oui ; glyphe code-barres non</td></tr>
+    <tr><td>Motif d’ID élève</td><td>Fixe <code>SCH-année-0001</code></td></tr>
+    <tr><td>Rang de classe sur bulletin</td><td>Pas encore affiché</td></tr>
+    <tr><td>Traduction complète</td><td>FR prioritaire</td></tr>
+    <tr><td>Annonces de masse</td><td>Un destinataire à la fois</td></tr>
+    <tr><td>PDF serveur</td><td>Impression navigateur uniquement</td></tr>
+  </tbody>
+</table>
+
+<h2>21. Checklist de test (à cocher)</h2>
+<table>
+  <thead><tr><th>#</th><th>Scénario</th><th>OK ?</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>Je me connecte avec <code>?tenant=CODE</code></td><td>☐</td></tr>
+    <tr><td>2</td><td>Le tableau de bord s’affiche</td><td>☐</td></tr>
+    <tr><td>3</td><td>Année académique active visible</td><td>☐</td></tr>
+    <tr><td>4</td><td>Je crée (ou vois) une classe et une matière</td><td>☐</td></tr>
+    <tr><td>5</td><td>Je crée un élève + photo cadrée</td><td>☐</td></tr>
+    <tr><td>6</td><td>Le % de profil se met à jour</td><td>☐</td></tr>
+    <tr><td>7</td><td>J’inscris l’élève dans une classe / année</td><td>☐</td></tr>
+    <tr><td>8</td><td>Une structure de frais existe ; solde non nul après imputation</td><td>☐</td></tr>
+    <tr><td>9</td><td>Paiement espèces → reçu imprimable, solde baisse</td><td>☐</td></tr>
+    <tr><td>10</td><td>Paiement banque → attente → validation avec justificatif</td><td>☐</td></tr>
+    <tr><td>11</td><td>Génération d’un lot de cartes + aperçu 12 / A4</td><td>☐</td></tr>
+    <tr><td>12</td><td>Photo visible sur au moins une carte</td><td>☐</td></tr>
+    <tr><td>13</td><td>Examen ouvert + saisie d’au moins 2 notes</td><td>☐</td></tr>
+    <tr><td>14</td><td>Système de notation + une règle de publication</td><td>☐</td></tr>
+    <tr><td>15</td><td>Publication : éligibles / non éligibles cohérents</td><td>☐</td></tr>
+    <tr><td>16</td><td>Bulletin ou feuille de notes s’imprime</td><td>☐</td></tr>
+    <tr><td>17</td><td>Recherche globale trouve l’élève par ID et par téléphone parent</td><td>☐</td></tr>
+    <tr><td>18</td><td>Un 2ᵉ utilisateur (enseignant ou caissier) a des menus plus limités</td><td>☐</td></tr>
+  </tbody>
+</table>
+
+<h2>22. Problèmes fréquents</h2>
+<table>
+  <thead><tr><th>Symptôme</th><th>Que faire</th></tr></thead>
+  <tbody>
+    <tr><td>Page de login sans école / erreur tenant</td><td>Ajouter <code>?tenant=votre-code</code> dans l’URL</td></tr>
+    <tr><td>Bouton Gérer absent / permission refusée</td><td>Vous n’avez pas le rôle ; reconnectez-vous en directeur</td></tr>
+    <tr><td>Carte ID sans photo / pastille vide</td><td>Uploader et cadrer la photo dans Élèves → Gérer</td></tr>
+    <tr><td>Impression sans fond violet</td><td>Dans Chrome/Edge : Plus de paramètres → <strong>Graphiques d’arrière-plan</strong></td></tr>
+    <tr><td>Solde à 0 alors que des frais existent</td><td>Soldes scolarité → Imputer les frais</td></tr>
+    <tr><td>Publication : 0 élève éligible</td><td>Assouplir la règle (frais / notes) ou valider paiements et notes</td></tr>
+    <tr><td>SMS jamais partis</td><td>Normal en bêta non configurée ; voir le journal « Ignoré »</td></tr>
+    <tr><td>Mot de passe oublié</td><td>Demander à l’opérateur plateforme (Control Center) de réinitialiser le compte</td></tr>
+  </tbody>
+</table>
+
+<h2>Annexe A — Menu de gauche (carte mentale)</h2>
+<table>
+  <thead><tr><th>Groupe</th><th>Écrans</th></tr></thead>
+  <tbody>
+    <tr><td>Scolarité</td><td>Enseignants · Élèves · Inscriptions · Cartes ID</td></tr>
+    <tr><td>Finances scolaires</td><td>Structures de frais · Paiements · Soldes scolarité</td></tr>
+    <tr><td>Examens &amp; résultats</td><td>Examens · Notation · Publication · Bulletins &amp; relevés</td></tr>
+    <tr><td>Référentiel</td><td>Années académiques · Classes · Matières</td></tr>
+    <tr><td>Administration</td><td>Notifications · Listes · Langues · Audit</td></tr>
+    <tr><td>Système</td><td>Utilisateurs · Configuration</td></tr>
+  </tbody>
+</table>
+
+<h2>Annexe B — Données démo (si seed chargé)</h2>
+<table>
+  <thead><tr><th>Élève</th><th>ID</th><th>Classe</th></tr></thead>
+  <tbody>
+    <tr><td>Amina Diallo</td><td>SCH-2025-0001</td><td>6ème A</td></tr>
+    <tr><td>Jean Mbarga</td><td>SCH-2025-0002</td><td>6ème A</td></tr>
+    <tr><td>Fatou Sow</td><td>SCH-2025-0003</td><td>5ème A</td></tr>
+    <tr><td>Paul Okeke</td><td>SCH-2025-0004</td><td>5ème A</td></tr>
+    <tr><td>Grace Tchoumi</td><td>SCH-2025-0005</td><td>3ème Exp.</td></tr>
+    <tr><td>Ibrahim Hassan</td><td>SCH-2025-0006</td><td>3ème Exp.</td></tr>
+  </tbody>
+</table>
+<p>Lot de cartes : <code>DEMO-2025</code>. Un paiement démo de 25 000 XOF existe déjà pour Amina Diallo.</p>
+
+<p style="margin-top:28px; font-size:9.5pt; color:#64748b;">
+  Bproo School — Manuel administrateur école (bêta) · août 2026 · Document interne de test.<br>
+  Pour toute question technique de déploiement, s’adresser à l’équipe plateforme Afro Inov.
+</p>
+
+</body>
+</html>
