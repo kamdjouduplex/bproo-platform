@@ -13,10 +13,17 @@
                 <option value="50">50</option>
             </select>
         </div>
-        <a class="btn btn-primary" href="{{ route('tenant.facturation.create', ['tenant' => $tenantCode]) }}">
+        <a class="btn btn-primary" href="{{ route('tenant.facturation.create', array_filter(['tenant' => $tenantCode, 'project' => $projectFilter ?? null])) }}">
             + {{ __('Nouvelle facture') }}
         </a>
     </div>
+
+    @if(!empty($projectFilter) && \Illuminate\Support\Facades\Route::has('tenant.projets.show'))
+        <p class="text-[13px] text-slate-500 -mt-2 mb-3">
+            <a class="text-blue-700 hover:underline" href="{{ route('tenant.projets.show', ['tenant' => $tenantCode, 'project' => $projectFilter]) }}">← {{ __('Retour au chantier') }}</a>
+            <span class="text-slate-400">·</span> {{ __('Factures de ce chantier uniquement.') }}
+        </p>
+    @endif
 
     <div class="card overflow-hidden p-0">
         <div class="overflow-x-auto">

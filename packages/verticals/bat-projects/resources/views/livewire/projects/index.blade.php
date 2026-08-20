@@ -69,8 +69,12 @@
                         $ptype = $project->project_type ?? 'construction';
                     @endphp
                     <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors" wire:key="project-{{ $project->id }}">
-                        <td class="px-4 py-2.5 font-mono text-[11px] text-slate-400">{{ $project->code }}</td>
-                        <td class="px-4 py-2.5 font-semibold text-slate-800">{{ $project->title }}</td>
+                        <td class="px-4 py-2.5 font-mono text-[11px] text-slate-400">
+                            <a class="hover:text-blue-700" href="{{ route('tenant.projets.show', ['tenant' => $tenantCode, 'project' => $project->id]) }}">{{ $project->code }}</a>
+                        </td>
+                        <td class="px-4 py-2.5 font-semibold text-slate-800">
+                            <a class="hover:text-blue-700" href="{{ route('tenant.projets.show', ['tenant' => $tenantCode, 'project' => $project->id]) }}">{{ $project->title }}</a>
+                        </td>
                         @if(!$isPrestations)
                         <td class="px-4 py-2.5">
                             <span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold {{ $catalog::executionBadgeClass($ptype) }}">
@@ -86,6 +90,11 @@
                         <td class="px-4 py-2.5"><span class="inline-block px-2 py-0.5 rounded-full text-[11px] font-medium {{ $sc }}">{{ $sl }}</span></td>
                         <td class="px-4 py-2.5">
                             <div class="flex items-center gap-1">
+                                <a class="table-action table-action-edit"
+                                   href="{{ route('tenant.projets.show', ['tenant' => $tenantCode, 'project' => $project->id]) }}"
+                                   title="{{ __('Ouvrir') }}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" width="16" height="16"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                </a>
                                 <a class="table-action table-action-edit"
                                    href="{{ route('tenant.projets.edit', ['tenant' => $tenantCode, 'project' => $project->id]) }}"
                                    title="{{ __('Modifier') }}">

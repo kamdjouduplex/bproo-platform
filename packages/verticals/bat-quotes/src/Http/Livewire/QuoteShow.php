@@ -431,7 +431,7 @@ class QuoteShow extends Component
         }
 
         $this->redirect(
-            route('tenant.projets.edit', ['tenant' => $this->tenantCode(), 'project' => $project->id]),
+            route('tenant.projets.show', ['tenant' => $this->tenantCode(), 'project' => $project->id]),
             navigate: true
         );
     }

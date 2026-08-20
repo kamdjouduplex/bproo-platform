@@ -14,10 +14,14 @@ class InvoicesIndex extends Component
     public function mount(): void
     {
         $this->tenantAuthorize('facturation.view');
+        if (request()->filled('project')) {
+            $this->projectFilter = (int) request()->query('project');
+        }
     }
 
     public string $search = '';
     public int $perPage = 10;
+    public ?int $projectFilter = null;
 
     public function updatedSearch(): void
     {
@@ -36,6 +40,7 @@ class InvoicesIndex extends Component
     {
         $invoices = Invoice::query()
             ->with(['client', 'project', 'quote'])
+            ->when($this->projectFilter, fn ($q) => $q->where('project_id', $this->projectFilter))
             ->when($this->search !== '', function ($q) {
                 $q->where(function ($q) {
                     $q->where('code', 'like', '%' . $this->search . '%')
@@ -50,6 +55,9 @@ class InvoicesIndex extends Component
                 'title' => __('Facturation'),
                 'subtitle' => __('Factures, suivi des paiements.'),
             ])
-            ->with(['invoices' => $invoices]);
+            ->with([
+                'invoices' => $invoices,
+                'projectFilter' => $this->projectFilter,
+            ]);
     }
 }

@@ -13,10 +13,14 @@ class PurchaseOrdersIndex extends Component
 
     public string $search  = '';
     public int    $perPage = 10;
+    public ?int   $projectFilter = null;
 
     public function mount(): void
     {
         $this->tenantAuthorize('achats.view');
+        if (request()->filled('project')) {
+            $this->projectFilter = (int) request()->query('project');
+        }
     }
 
     public function updatedSearch(): void
@@ -37,6 +41,7 @@ class PurchaseOrdersIndex extends Component
     {
         $purchaseOrders = PurchaseOrder::on('tenant')
             ->with(['supplier', 'project'])
+            ->when($this->projectFilter, fn ($q) => $q->where('project_id', $this->projectFilter))
             ->when($this->search !== '', function ($q) {
                 $q->where(function ($q) {
                     $q->where('code', 'like', '%' . $this->search . '%')
@@ -53,6 +58,9 @@ class PurchaseOrdersIndex extends Component
                 'title'    => __('Achats'),
                 'subtitle' => __('Bons de commande'),
             ])
-            ->with(['purchaseOrders' => $purchaseOrders]);
+            ->with([
+                'purchaseOrders' => $purchaseOrders,
+                'projectFilter'  => $this->projectFilter,
+            ]);
     }
 }

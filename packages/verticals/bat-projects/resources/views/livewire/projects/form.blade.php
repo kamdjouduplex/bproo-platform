@@ -271,7 +271,9 @@
         </div>
 
         <div class="flex items-center gap-2 mt-6 pt-4 border-t border-slate-100">
-            <a class="btn btn-secondary" href="{{ route($isPrestation ? 'tenant.prestations.index' : 'tenant.projets.index', ['tenant' => $tenantCode]) }}">
+            <a class="btn btn-secondary" href="{{ $projectId
+                ? route('tenant.projets.show', ['tenant' => $tenantCode, 'project' => $projectId])
+                : route($isPrestation ? 'tenant.prestations.index' : 'tenant.projets.index', ['tenant' => $tenantCode]) }}">
                 {{ __('Retour') }}
             </a>
             <button class="btn btn-primary" wire:click="save"

@@ -622,7 +622,7 @@ class QuoteForm extends Component
 
         $tenantCode = session('tenant_code') ?? optional(app(TenantManager::class)->tenant())->code;
         $this->redirect(
-            route('tenant.projets.edit', ['tenant' => $tenantCode, 'project' => $project->id]),
+            route('tenant.projets.show', ['tenant' => $tenantCode, 'project' => $project->id]),
             navigate: true
         );
     }

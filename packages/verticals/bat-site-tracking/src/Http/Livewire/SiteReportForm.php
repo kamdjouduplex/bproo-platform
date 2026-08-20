@@ -77,6 +77,10 @@ class SiteReportForm extends Component
             $this->tenantAuthorize('suivi.create');
             $this->report_date = now()->format('Y-m-d');
             $this->assigned_to = (string) (auth('tenant')->id() ?? '');
+            if (request()->filled('project')) {
+                $this->project_id = (string) request()->query('project');
+                $this->updatedProjectId($this->project_id);
+            }
         }
     }
 

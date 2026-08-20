@@ -52,6 +52,10 @@ class PurchaseOrderForm extends Component
         if (empty($this->lines)) {
             $this->addLine();
         }
+
+        if (!$this->purchaseOrderId && request()->filled('project')) {
+            $this->project_id = (int) request()->query('project');
+        }
     }
 
     protected function rules(): array

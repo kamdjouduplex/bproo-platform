@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use InovCom\Projets\Http\Livewire\PrestationsIndex;
 use InovCom\Projets\Http\Livewire\ProjectForm;
+use InovCom\Projets\Http\Livewire\ProjectHub;
 use InovCom\Projets\Http\Livewire\ProjectsIndex;
 use InovCom\Projets\Models\Project;
 use InovCom\Kernel\Traits\LazyModuleBoot;
@@ -32,6 +33,7 @@ class ProjetsServiceProvider extends ServiceProvider
         Livewire::component('inovcom-projets.projects-index', ProjectsIndex::class);
         Livewire::component('inovcom-projets.prestations-index', PrestationsIndex::class);
         Livewire::component('inovcom-projets.project-form', ProjectForm::class);
+        Livewire::component('inovcom-projets.project-hub', ProjectHub::class);
 
         Route::bind('project', fn ($value) => Project::on('tenant')->findOrFail($value));
 
@@ -58,6 +60,9 @@ class ProjetsServiceProvider extends ServiceProvider
                 Route::get('/projets/{project}/edit', ProjectForm::class)
                     ->middleware(['module:projets'])
                     ->name('tenant.projets.edit');
+                Route::get('/projets/{project}', ProjectHub::class)
+                    ->middleware(['module:projets'])
+                    ->name('tenant.projets.show');
             });
     }
 }

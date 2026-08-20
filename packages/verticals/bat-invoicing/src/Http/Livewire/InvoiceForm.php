@@ -132,6 +132,11 @@ class InvoiceForm extends Component
         if (empty($this->lines)) {
             $this->addLine();
         }
+
+        if (!$this->invoiceId && request()->filled('project')) {
+            $this->hydrateFromProject((int) request()->query('project'));
+        }
+
         $this->syncClientLabel();
         $this->syncProjectLabel();
         $this->syncQuoteLabel();
@@ -171,6 +176,29 @@ class InvoiceForm extends Component
     protected function isFormLocked(): bool
     {
         return in_array($this->status, ['paid', 'cancelled'], true);
+    }
+
+    protected function hydrateFromProject(int $projectId): void
+    {
+        if ($projectId < 1) {
+            return;
+        }
+
+        $project = Project::on('tenant')->find($projectId);
+        if (!$project) {
+            return;
+        }
+
+        $this->project_id = $project->id;
+        if ($this->client_id < 1) {
+            $this->client_id = (int) $project->client_id;
+        }
+        if (!$this->quote_id && $project->quote_id) {
+            $this->quote_id = (int) $project->quote_id;
+        }
+        if ($this->title === '') {
+            $this->title = $project->title;
+        }
     }
 
     protected function syncClientLabel(): void

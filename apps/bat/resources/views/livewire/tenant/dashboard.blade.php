@@ -211,7 +211,7 @@
                 @foreach ($projects['recent'] as $p)
                 <li class="flex items-center gap-2 text-[13px]">
                     <span class="w-2 h-2 rounded-full shrink-0 {{ $p->status === 'in_progress' ? 'bg-blue-500' : ($p->status === 'on_hold' ? 'bg-amber-500' : 'bg-slate-300') }}"></span>
-                    <a href="{{ route('tenant.projets.edit', ['tenant' => $tenantCode, 'project' => $p->id]) }}"
+                    <a href="{{ route('tenant.projets.show', ['tenant' => $tenantCode, 'project' => $p->id]) }}"
                        class="flex-1 text-slate-600 hover:text-indigo-500 truncate overflow-hidden whitespace-nowrap">
                         {{ $p->code }} — {{ \Illuminate\Support\Str::limit($p->title, 35) }}
                     </a>

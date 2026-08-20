@@ -56,6 +56,9 @@ class DeliveryForm extends Component
             }
         } else {
             $this->tenantAuthorize('logistique.create');
+            if (request()->filled('project')) {
+                $this->project_id = (string) request()->query('project');
+            }
         }
 
         if (empty($this->items)) {

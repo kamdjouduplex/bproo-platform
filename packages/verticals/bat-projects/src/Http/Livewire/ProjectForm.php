@@ -228,7 +228,7 @@ class ProjectForm extends Component
             $project->update($data);
             notify()->success(__('Projet mis à jour.'));
             $this->redirect(
-                route('tenant.projets.edit', ['tenant' => $tenantCode, 'project' => $this->projectId]),
+                route('tenant.projets.show', ['tenant' => $tenantCode, 'project' => $this->projectId]),
                 navigate: true
             );
         } else {
@@ -239,7 +239,7 @@ class ProjectForm extends Component
             ]));
             notify()->success($this->isPrestation ? __('Prestation créée.') : __('Projet créé.'));
             $this->redirect(
-                route('tenant.projets.edit', ['tenant' => $tenantCode, 'project' => $project->id]),
+                route('tenant.projets.show', ['tenant' => $tenantCode, 'project' => $project->id]),
                 navigate: true
             );
         }

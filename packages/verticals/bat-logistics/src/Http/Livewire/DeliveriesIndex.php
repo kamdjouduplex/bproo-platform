@@ -15,10 +15,14 @@ class DeliveriesIndex extends Component
 
     public string $search       = '';
     public string $statusFilter = '';
+    public ?int   $projectFilter = null;
 
     public function mount(): void
     {
         $this->tenantAuthorize('logistique.view');
+        if (request()->filled('project')) {
+            $this->projectFilter = (int) request()->query('project');
+        }
     }
 
     public function updatingSearch(): void
@@ -69,6 +73,7 @@ class DeliveriesIndex extends Component
         $deliveries = Delivery::on('tenant')
             ->with(['vehicle', 'driver', 'sourceWarehouse'])
             ->withCount('items')
+            ->when($this->projectFilter, fn ($q) => $q->where('project_id', $this->projectFilter))
             ->when($this->search !== '', fn($q) => $q->where(function ($q) {
                 $q->where('code', 'ilike', '%' . $this->search . '%')
                   ->orWhere('destination', 'ilike', '%' . $this->search . '%');

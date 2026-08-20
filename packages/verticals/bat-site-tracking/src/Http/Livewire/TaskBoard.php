@@ -33,6 +33,13 @@ class TaskBoard extends Component
     {
         $this->tenantAuthorize('suivi.view');
         $this->periodDate = $this->defaultPeriodDate();
+
+        if (request()->filled('project')) {
+            $this->projectId = (string) request()->query('project');
+        }
+        if (request()->filled('tab') && in_array(request()->query('tab'), ['kanban', 'rapports'], true)) {
+            $this->activeTab = (string) request()->query('tab');
+        }
     }
 
     // ── Period helpers ────────────────────────────────────────────────────────
