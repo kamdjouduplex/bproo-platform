@@ -1,13 +1,5 @@
 @php
     $tenantCode = $tenantCode ?? request()->query('tenant');
-    $service = app(\InovCom\Attendance\Services\AttendanceService::class);
-    $punchesToday = $todayStatus['punches_today'] ?? collect();
-    $periodLabels = [
-        'this_month' => 'Ce mois',
-        'last_month' => 'Mois dernier',
-        'this_year' => 'Cette année',
-        'last_7_days' => '7 derniers jours',
-    ];
 @endphp
 
 <div class="page-body attendance-page">
@@ -22,52 +14,52 @@
             {{ $punchFlashMessage }}
         </div>
     @endif
-
-    @if ($networkConfigured && ! $networkOk)
+    @if (($networkConfigured ?? false) && ! ($networkOk ?? true))
         <div class="alert alert-error" style="margin-bottom:16px;" role="alert">
             {{ $networkMessage }}
         </div>
     @endif
 
-    <section class="attendance-hero card {{ $isPresent ? 'attendance-hero--present' : ($departureTime ? 'attendance-hero--complete' : 'attendance-hero--idle') }}">
-        <div class="attendance-hero__main">
-            <div class="attendance-hero__label">
-                Aujourd’hui
-                @if (!empty($connectedUserName))
-                    · {{ $connectedUserName }}
+    {{-- Pointage du jour (arrivée / départ) --}}
+    @if ($canPunch)
+        <section class="attendance-hero card {{ $isPresent ? 'attendance-hero--present' : ($departureTime ? 'attendance-hero--complete' : 'attendance-hero--idle') }}">
+            <div class="attendance-hero__main">
+                <div class="attendance-hero__label">
+                    Pointage du jour
+                    @if (!empty($connectedUserName))
+                        · {{ $connectedUserName }}
+                    @endif
+                </div>
+                <div class="attendance-hero__date">{{ $todayLabel ?? now()->format('d/m/Y') }} · {{ $clock }}</div>
+                <div class="attendance-hero__status-pill">
+                    @if ($isPresent)
+                        <span class="attendance-pill attendance-pill--present">Présent</span>
+                    @elseif ($arrivalTime && $departureTime)
+                        <span class="attendance-pill attendance-pill--done">Journée clôturée</span>
+                    @else
+                        <span class="attendance-pill attendance-pill--idle">En attente d’arrivée</span>
+                    @endif
+                </div>
+                @if ($networkConfigured ?? false)
+                    <p class="attendance-hero__hint" style="margin-top:10px;">
+                        Pointage autorisé sur le Wi‑Fi <strong>{{ $wifiName }}</strong>
+                    </p>
                 @endif
             </div>
-            <div class="attendance-hero__date">{{ $todayLabel ?? now()->format('d/m/Y') }} · {{ $clock }}</div>
-            <div class="attendance-hero__status-pill">
-                @if ($isPresent)
-                    <span class="attendance-pill attendance-pill--present">Présent</span>
-                @elseif ($arrivalTime && $departureTime)
-                    <span class="attendance-pill attendance-pill--done">Journée clôturée</span>
-                @else
-                    <span class="attendance-pill attendance-pill--idle">En attente d’arrivée</span>
-                @endif
-            </div>
-            @if ($networkConfigured)
-                <p class="attendance-hero__hint" style="margin-top:10px;">
-                    Pointage autorisé sur le Wi‑Fi <strong>{{ $wifiName }}</strong>
-                </p>
-            @endif
-        </div>
 
-        <div class="attendance-hero__metrics">
-            <div class="attendance-metric">
-                <span class="attendance-metric__label">Arrivée</span>
-                <span class="attendance-metric__value {{ $arrivalTime ? 'is-set is-in' : '' }}">{{ $arrivalTime ?? '—' }}</span>
+            <div class="attendance-hero__metrics">
+                <div class="attendance-metric">
+                    <span class="attendance-metric__label">Arrivée</span>
+                    <span class="attendance-metric__value {{ $arrivalTime ? 'is-set is-in' : '' }}">{{ $arrivalTime ?? '—' }}</span>
+                </div>
+                <div class="attendance-metric__arrow" aria-hidden="true">→</div>
+                <div class="attendance-metric">
+                    <span class="attendance-metric__label">Départ</span>
+                    <span class="attendance-metric__value {{ $departureTime ? 'is-set is-out' : '' }}">{{ $departureTime ?? '—' }}</span>
+                </div>
             </div>
-            <div class="attendance-metric__arrow" aria-hidden="true">→</div>
-            <div class="attendance-metric">
-                <span class="attendance-metric__label">Départ</span>
-                <span class="attendance-metric__value {{ $departureTime ? 'is-set is-out' : '' }}">{{ $departureTime ?? '—' }}</span>
-            </div>
-        </div>
 
-        <div class="attendance-hero__actions">
-            @if ($canPunch)
+            <div class="attendance-hero__actions">
                 @if ($canPunchIn)
                     <button
                         type="button"
@@ -76,9 +68,12 @@
                         wire:loading.attr="disabled"
                         wire:target="punchIn,punchOut"
                     >
-                        <span wire:loading.remove wire:target="punchIn">Pointer l’arrivée</span>
+                        <span wire:loading.remove wire:target="punchIn">
+                            {{ $arrivalTime ? 'Nouvelle arrivée' : 'Pointer l’arrivée' }}
+                        </span>
                         <span wire:loading wire:target="punchIn">Enregistrement…</span>
                     </button>
+                    <p class="attendance-hero__hint">Marquez votre arrivée en début de journée.</p>
                 @elseif ($canPunchOut)
                     <button
                         type="button"
@@ -90,150 +85,213 @@
                         <span wire:loading.remove wire:target="punchOut">Pointer le départ</span>
                         <span wire:loading wire:target="punchOut">Enregistrement…</span>
                     </button>
+                    <p class="attendance-hero__hint">Arrivée à <strong>{{ $arrivalTime }}</strong> — pensez à pointer le départ.</p>
+                @else
+                    <p class="attendance-hero__hint">Journée déjà clôturée. À demain !</p>
                 @endif
-            @else
-                <p class="attendance-hero__hint">Vous n’avez pas la permission de pointer.</p>
-            @endif
 
-            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">
-                @if ($canSheet)
-                    <a class="btn btn-secondary" href="{{ route('tenant.attendance.sheet', ['tenant' => $tenantCode]) }}">
-                        Fiches
-                    </a>
-                @endif
                 @if ($canSettings ?? false)
-                    <a class="btn btn-secondary" href="{{ route('tenant.attendance.settings', ['tenant' => $tenantCode]) }}">
-                        Paramètres
-                    </a>
+                    <div style="margin-top:8px;">
+                        <a class="btn btn-secondary" href="{{ route('tenant.attendance.settings', ['tenant' => $tenantCode]) }}">
+                            Paramètres
+                        </a>
+                    </div>
                 @endif
             </div>
-        </div>
-    </section>
-
-    @if ($punchesToday->isNotEmpty())
-        <section class="card attendance-timeline-card" style="margin-bottom:16px;">
-            <div class="card-title" style="margin-bottom:12px;">Timeline aujourd’hui</div>
-            <ol class="attendance-timeline">
-                @foreach ($punchesToday as $p)
-                    @php
-                        $isOut = ($p->punch_type ?? 'in') === 'out';
-                    @endphp
-                    <li class="attendance-timeline__item {{ $isOut ? 'is-out' : 'is-in' }}">
-                        <span class="attendance-timeline__dot"></span>
-                        <span class="attendance-timeline__type">{{ $service->punchTypeLabel($p->punch_type ?? 'in') }}</span>
-                        <span class="attendance-timeline__time">{{ $p->punched_at->format('H:i:s') }}</span>
-                    </li>
-                @endforeach
-            </ol>
         </section>
-    @endif
-
-    @if ($myReport && ($myReport['expected_days'] ?? 0) === 0 && ($myReport['punches'] ?? collect())->isNotEmpty())
-        <div class="alert alert-warning" style="margin-bottom:16px;">
-            Des pointages existent sur la période, mais aucun jour ouvré (lun.–sam.) n’est encore comptabilisé.
-            Vérifiez que votre fiche employé est liée à votre compte dans Utilisateurs.
+    @elseif ($canSettings ?? false)
+        <div style="margin-bottom:16px;">
+            <a class="btn btn-secondary" href="{{ route('tenant.attendance.settings', ['tenant' => $tenantCode]) }}">
+                Paramètres
+            </a>
         </div>
     @endif
 
-    @if ($myReport)
-        <section class="card" style="margin-bottom:16px; padding:16px;">
-            <div class="card-title" style="margin-bottom:12px;">
-                @if ($canViewAll && $employeeFilter !== '')
-                    Performance (employé sélectionné)
-                @else
-                    Ma performance
-                @endif
-            </div>
-            @include('inovcom-attendance::components.performance-indicator', ['report' => $myReport])
-        </section>
-    @endif
-
-    <section class="card app-table-card">
-        <div class="table-toolbar" style="flex-wrap:wrap; gap:10px;">
-            <div class="table-title">
-                @if ($canViewAll)
-                    Historique des pointages
-                @else
-                    Mon historique
-                @endif
-            </div>
-            <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-left:auto;">
-                <div class="attendance-period-pills" role="group" aria-label="Période">
-                    @foreach ($periodLabels as $key => $label)
-                        <button
-                            type="button"
-                            class="btn btn-sm {{ $period === $key ? 'btn-primary' : 'btn-secondary' }}"
-                            wire:click="setPeriod('{{ $key }}')"
-                        >{{ $label }}</button>
-                    @endforeach
-                </div>
-                <input class="input input-sm" type="date" wire:model.live="dateFrom" title="Du" aria-label="Date de début">
-                <input class="input input-sm" type="date" wire:model.live="dateTo" title="Au" aria-label="Date de fin">
-                @if ($canViewAll)
+    {{-- ========== ADMIN : liste employés + % ========== --}}
+    @if ($canViewAll)
+        <section class="card app-table-card">
+            <div class="table-toolbar attendance-toolbar">
+                <div class="table-title">Employés — {{ $monthLabel }}</div>
+                <div class="attendance-toolbar__filters">
                     <input
                         class="input input-sm"
                         type="search"
-                        wire:model.live.debounce.300ms="employeeSearch"
+                        wire:model.live.debounce.300ms="search"
                         placeholder="Rechercher un employé…"
                         aria-label="Rechercher un employé"
-                        style="min-width:180px;"
                     >
-                    @if ($employees->isNotEmpty())
-                        <select class="input input-sm" wire:model.live="employeeFilter" aria-label="Employé">
-                            <option value="">Tous les employés</option>
-                            @foreach ($employees as $emp)
-                                <option value="{{ $emp->id }}">{{ $emp->full_name }} ({{ $emp->employee_number }})</option>
+                    <select class="input input-sm" wire:model.live="month" aria-label="Mois">
+                        @foreach ($monthOptions as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Employé</th>
+                            <th>N°</th>
+                            <th>Présences</th>
+                            <th>Absences</th>
+                            <th>Taux de présence</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse (($teamSummary['rows'] ?? []) as $row)
+                            @php
+                                $level = $row['performance_level'];
+                                $pct = $row['performance_percent'];
+                                $barColor = match ($level) {
+                                    'excellent' => '#16a34a',
+                                    'good' => '#2563eb',
+                                    'warning' => '#d97706',
+                                    default => '#dc2626',
+                                };
+                                $detailUrl = $row['employee_id']
+                                    ? route('tenant.attendance.show', ['tenant' => $tenantCode, 'employeeId' => $row['employee_id'], 'month' => $month])
+                                    : route('tenant.attendance.show-user', ['tenant' => $tenantCode, 'userId' => $row['user_id'], 'month' => $month]);
+                            @endphp
+                            <tr wire:key="person-{{ $row['key'] }}">
+                                <td>
+                                    <strong>{{ $row['display_name'] }}</strong>
+                                    @if (!empty($row['position']))
+                                        <div class="attendance-emp-meta">{{ $row['position'] }}</div>
+                                    @elseif (! $row['employee_id'] && !empty($row['user']?->email))
+                                        <div class="attendance-emp-meta">{{ $row['user']->email }}</div>
+                                    @endif
+                                </td>
+                                <td>{{ $row['employee_number'] ?? '—' }}</td>
+                                <td>
+                                    <span style="color:#16a34a; font-weight:600;">{{ $row['present_days'] }}</span>
+                                    <span class="attendance-emp-meta"> / {{ $row['expected_days'] }} j.</span>
+                                </td>
+                                <td style="color:#b91c1c; font-weight:600;">{{ $row['absent_days'] }}</td>
+                                <td style="min-width:160px;">
+                                    <div class="attendance-pct">
+                                        <div class="attendance-pct__bar" aria-hidden="true">
+                                            <span style="width:{{ min(100, $pct) }}%; background:{{ $barColor }};"></span>
+                                        </div>
+                                        <div class="attendance-pct__label" style="color:{{ $barColor }};">
+                                            {{ fmt_num($pct, 1) }}%
+                                            <span class="attendance-emp-meta">· {{ $row['performance_label'] }}</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td style="text-align:right; white-space:nowrap;">
+                                    <a class="btn btn-secondary btn-sm" href="{{ $detailUrl }}">Voir</a>
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" style="text-align:center; color:#94a3b8; padding:32px;">
+                                    @if (trim($search) !== '')
+                                        Aucune personne ne correspond à « {{ $search }} ».
+                                    @else
+                                        Aucune personne active à afficher.
+                                    @endif
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @if (!empty($teamSummary['rows']))
+                <div class="attendance-footer-note">
+                    Base de calcul : jours ouvrés (lun.–sam.) du mois · {{ $teamSummary['expected_days'] ?? 0 }} jour(s) ouvré(s) à ce jour
+                </div>
+            @endif
+        </section>
+
+    {{-- ========== EMPLOYÉ : mon historique ========== --}}
+    @else
+        <section class="card attendance-intro" style="margin-bottom:16px; padding:16px 18px;">
+            <div class="attendance-intro__title">Ma présence</div>
+            <p class="attendance-intro__text">
+                Consultez votre historique d’arrivées et de départs pour le mois sélectionné,
+                et imprimez votre fiche de présence en PDF.
+            </p>
+        </section>
+
+        @if (! $myEmployee)
+            <div class="alert alert-warning" style="margin-bottom:16px;">
+                Votre compte n’est pas encore lié à une fiche employé (Paie). Votre présence est quand même suivie via votre compte utilisateur.
+            </div>
+        @endif
+
+        @if ($myReport)
+            <section class="card" style="margin-bottom:16px; padding:16px;">
+                <div class="attendance-detail-toolbar" style="margin-bottom:14px;">
+                    <div class="table-title" style="margin:0;">{{ $monthLabel }}</div>
+                    <div class="attendance-toolbar__filters">
+                        <select class="input input-sm" wire:model.live="month" aria-label="Mois">
+                            @foreach ($monthOptions as $value => $label)
+                                <option value="{{ $value }}">{{ $label }}</option>
                             @endforeach
                         </select>
-                    @endif
-                @endif
-                @if ($exportUrl)
-                    <a class="btn btn-secondary btn-sm" href="{{ $exportUrl }}" target="_blank" rel="noopener">
-                        Exporter PDF
-                    </a>
-                @endif
-            </div>
-        </div>
-        <div class="table-scroll">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Type</th>
-                        <th>Heure</th>
-                        @if ($canViewAll)
-                            <th>Employé</th>
+                        @if ($printUrl)
+                            <a
+                                class="btn btn-primary btn-sm"
+                                href="{{ $printUrl }}"
+                                onclick="window.open(this.href, '_blank'); return false;"
+                            >
+                                Imprimer la fiche PDF
+                            </a>
                         @endif
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse ($punches as $p)
-                        @php
-                            $typeLabel = $service->punchTypeLabel($p->punch_type ?? 'in');
-                            $isOut = ($p->punch_type ?? 'in') === 'out';
-                        @endphp
-                        <tr wire:key="punch-{{ $p->id }}">
-                            <td>{{ $p->attendance_date->format('d/m/Y') }}</td>
-                            <td>
-                                <span class="badge {{ $isOut ? 'badge-neutral' : 'badge-success' }}">{{ $typeLabel }}</span>
-                            </td>
-                            <td class="prospect-money">{{ $p->punched_at->format('H:i:s') }}</td>
-                            @if ($canViewAll)
-                                <td>{{ $p->employee?->full_name ?? $p->user?->name ?? '—' }}</td>
-                            @endif
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="{{ $canViewAll ? 4 : 3 }}" style="text-align:center;color:#94a3b8;padding:28px;">
-                                Aucun pointage sur cette période.
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-        @if (method_exists($punches, 'links'))
-            <div style="padding:12px;">{{ $punches->links() }}</div>
+                    </div>
+                </div>
+
+                @include('inovcom-attendance::components.performance-indicator', ['report' => $myReport])
+            </section>
+
+            <section class="card app-table-card">
+                <div class="table-toolbar">
+                    <div class="table-title">Détail jour par jour</div>
+                </div>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Jour</th>
+                                <th>Arrivée</th>
+                                <th>Départ</th>
+                                <th>Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($myReport['days'] as $day)
+                                <tr>
+                                    <td>{{ $day['label'] }}</td>
+                                    <td>{{ $day['weekday'] }}</td>
+                                    <td class="{{ $day['arrival'] ? 'is-in-time' : '' }}">{{ $day['arrival'] ?? '—' }}</td>
+                                    <td class="{{ $day['departure'] ? 'is-out-time' : '' }}">{{ $day['departure'] ?? '—' }}</td>
+                                    <td>
+                                        @if ($day['present'])
+                                            @if ($day['complete'] ?? false)
+                                                <span class="badge badge-success">Complet</span>
+                                            @else
+                                                <span class="badge badge-warning">Arrivée seule</span>
+                                            @endif
+                                        @else
+                                            <span class="badge badge-error">Absent</span>
+                                        @endif
+                                    </td>
+                                </tr>
+                            @empty
+                                <tr>
+                                    <td colspan="5" style="text-align:center; color:#94a3b8; padding:28px;">
+                                        Aucun jour à afficher pour ce mois.
+                                    </td>
+                                </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </section>
         @endif
-    </section>
+    @endif
 </div>

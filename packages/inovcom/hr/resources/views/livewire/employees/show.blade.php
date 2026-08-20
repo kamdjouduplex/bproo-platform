@@ -23,8 +23,8 @@
                 @elseif (\Illuminate\Support\Facades\Route::has('tenant.users.index'))
                     <a class="btn btn-secondary" href="{{ route('tenant.users.index', ['tenant' => $tenantCode]) }}">Utilisateurs</a>
                 @endif
-                @if (\Illuminate\Support\Facades\Route::has('tenant.attendance.sheet'))
-                    <a class="btn btn-secondary" href="{{ route('tenant.attendance.sheet', ['tenant' => $tenantCode, 'employee_id' => $employee->id]) }}">Présence</a>
+                @if (\Illuminate\Support\Facades\Route::has('tenant.attendance.show'))
+                    <a class="btn btn-secondary" href="{{ route('tenant.attendance.show', ['tenant' => $tenantCode, 'employeeId' => $employee->id]) }}">Présence</a>
                 @endif
                 @if ($canLeave && \Illuminate\Support\Facades\Route::has('tenant.payroll.leaves.index'))
                     <a class="btn btn-secondary" href="{{ route('tenant.payroll.leaves.index', ['tenant' => $tenantCode, 'employee_id' => $employee->id]) }}">Congés</a>

@@ -2,153 +2,117 @@
 <html lang="fr">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
     @include('partials.print.document-title')
     <style>
         @include('inovcom-invoicing::print.partials.document-print-styles')
 
-        html, body {
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+        .page.attendance-print-page {
+            padding: 0 !important;
+            max-width: 210mm;
+            page-break-after: always;
         }
-
-        .sheet-title {
+        .page.attendance-print-page:last-of-type { page-break-after: auto; }
+        .attendance-sheet {
+            padding: 10mm 12mm 8mm !important;
+            box-sizing: border-box;
+        }
+        .attendance-sheet .sheet-title {
             text-align: center;
-            margin: 14px 0 6px;
-            font-size: 16px;
+            margin: 16px 0 8px !important;
+            font-size: 13px;
             font-weight: 800;
             letter-spacing: 0.08em;
             text-transform: uppercase;
         }
-        .sheet-employee {
+        .attendance-sheet .meta {
             text-align: center;
-            font-size: 13px;
-            margin-bottom: 14px;
-            color: #111;
-        }
-        .sheet-employee strong { font-size: 14px; }
-
-        .perf-box {
-            border: 2px solid #111;
-            padding: 12px 14px;
-            margin-bottom: 14px;
-            text-align: center;
-        }
-        .perf-box__label {
             font-size: 11px;
+            margin: 0 0 16px !important;
+            color: #374151;
+            line-height: 1.5;
+        }
+        .attendance-sheet .perf-box {
+            border: 2px solid #111;
+            padding: 16px 18px !important;
+            margin: 0 0 18px !important;
+            text-align: center;
+            box-sizing: border-box;
+        }
+        .attendance-sheet .perf-box__label {
+            font-size: 10px;
             text-transform: uppercase;
             font-weight: 700;
             letter-spacing: 0.04em;
-            margin-bottom: 4px;
+            margin-bottom: 6px !important;
         }
-        .perf-box .pct {
-            font-size: 28px;
+        .attendance-sheet .perf-box .pct {
+            font-size: 26px;
             font-weight: 800;
-            line-height: 1.1;
+            line-height: 1.25;
+            margin: 6px 0 !important;
         }
-        .perf-box--excellent .pct { color: #166534; }
-        .perf-box--good .pct { color: #1d4ed8; }
-        .perf-box--warning .pct { color: #b45309; }
-        .perf-box--poor .pct { color: #b91c1c; }
-        .perf-box__level {
+        .attendance-sheet .perf-box__status {
             font-weight: 700;
-            font-size: 13px;
-            margin-top: 2px;
+            font-size: 11px;
+            margin: 0 0 10px !important;
         }
-        .perf-box--excellent .perf-box__level { color: #166534; }
-        .perf-box--good .perf-box__level { color: #1d4ed8; }
-        .perf-box--warning .perf-box__level { color: #b45309; }
-        .perf-box--poor .perf-box__level { color: #b91c1c; }
-
-        .stats {
+        .attendance-sheet .perf-box--excellent .pct { color: #166534; }
+        .attendance-sheet .perf-box--good .pct { color: #1d4ed8; }
+        .attendance-sheet .perf-box--warning .pct { color: #b45309; }
+        .attendance-sheet .perf-box--poor .pct { color: #b91c1c; }
+        .attendance-sheet .stats {
             display: flex;
             justify-content: center;
-            gap: 18px;
-            margin-top: 10px;
-            font-size: 11px;
+            gap: 20px;
+            margin-top: 10px !important;
+            font-size: 10px;
             flex-wrap: wrap;
+            line-height: 1.5;
         }
-
-        .cal-table {
+        .attendance-sheet .cal-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 11px;
-            margin-top: 4px;
-        }
-        .cal-table th,
-        .cal-table td {
-            border: 1px solid #111;
-            padding: 7px 8px;
-            text-align: center;
-            vertical-align: middle;
-        }
-        .cal-table th {
-            font-weight: 800;
-            background: #111;
-            color: #fff;
-            text-transform: uppercase;
             font-size: 10px;
+            table-layout: fixed;
         }
-        .cal-table tbody tr:nth-child(even) td { background: #f5f5f5; }
-        .col-date { width: 18%; text-align: left; padding-left: 10px; }
-        .col-day { width: 12%; }
-        .col-time { width: 16%; }
-        .col-status { width: 22%; font-weight: 700; }
-        .status-ok { color: #166534; }
-        .status-partial { color: #b45309; }
-        .status-absent { color: #b91c1c; }
-
-        .sheet-signatures {
-            display: flex;
-            justify-content: space-between;
-            gap: 40px;
-            margin-top: 28px;
-            page-break-inside: avoid;
+        .attendance-sheet .cal-table th,
+        .attendance-sheet .cal-table td {
+            border: 1px solid #111 !important;
+            padding: 10px 12px !important;
+            text-align: center !important;
+            vertical-align: middle !important;
+            line-height: 1.4 !important;
         }
-        .sheet-sign {
-            flex: 1;
-            border-top: 1px solid #111;
-            padding-top: 8px;
-            font-size: 11px;
+        .attendance-sheet .cal-table th {
+            background: #f0f0f0 !important;
             font-weight: 700;
-            min-height: 56px;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            padding: 11px 12px !important;
         }
-        .sheet-sign span {
-            display: block;
-            font-weight: 400;
-            font-size: 10px;
-            color: #4b5563;
-            margin-top: 4px;
-        }
+        .attendance-sheet .present { color: #166534; font-weight: 700; }
+        .attendance-sheet .partial { color: #b45309; font-weight: 700; }
+        .attendance-sheet .absent { color: #b91c1c; font-weight: 700; }
 
         @media print {
-            .cal-table th {
-                background: #111 !important;
-                color: #fff !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            .cal-table tbody tr:nth-child(even) td {
-                background: #f5f5f5 !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            .page { page-break-after: always; }
-            .page:last-child { page-break-after: auto; }
+            .attendance-sheet { padding: 10mm 12mm 8mm !important; }
+            .attendance-sheet .cal-table th,
+            .attendance-sheet .cal-table td { padding: 10px 12px !important; }
+            .attendance-sheet .perf-box { padding: 16px 18px !important; }
         }
     </style>
 </head>
 <body>
-@foreach ($teamReport['employees'] as $row)
-    @php
-        $report = $row['report'];
-        $employee = $row['employee'];
-        $level = $report['performance_level'];
-        $percent = $report['performance_percent'];
-    @endphp
-    <div class="page">
-        <div class="print-page-inner print-page-inner--last">
-            <div class="print-page-content">
+    @foreach ($teamReport['employees'] as $row)
+        @php
+            $report = $row['report'];
+            $employee = $row['employee'];
+            $level = $report['performance_level'];
+            $percent = $report['performance_percent'];
+        @endphp
+        <div class="page attendance-print-page">
+            <div class="print-page-inner attendance-sheet">
                 @include('inovcom-invoicing::print.partials.document-header', [
                     'settings' => $settings,
                     'docDate' => now()->format('d/m/y'),
@@ -158,17 +122,15 @@
                 ])
 
                 <div class="sheet-title">Fiche de présence</div>
-                <div class="sheet-employee">
+                <div class="meta">
                     <strong>{{ $row['display_name'] }}</strong>
-                    @if ($employee->employee_number ?? null)
-                        — N° {{ $employee->employee_number }}
-                    @endif
+                    @if ($employee->employee_number ?? null) — N° {{ $employee->employee_number }} @endif
                 </div>
 
                 <div class="perf-box perf-box--{{ $level }}">
                     <div class="perf-box__label">Indicateur de performance</div>
                     <div class="pct">{{ fmt_num($percent, 1) }}%</div>
-                    <div class="perf-box__level">{{ $report['performance_label'] }}</div>
+                    <div class="perf-box__status">{{ $report['performance_label'] }}</div>
                     <div class="stats">
                         <span>Jours ouvrés : <strong>{{ $report['expected_days'] }}</strong></span>
                         <span>Présences : <strong>{{ $report['present_days'] }}</strong></span>
@@ -179,22 +141,16 @@
 
                 <table class="cal-table">
                     <thead>
-                        <tr>
-                            <th class="col-date">Date</th>
-                            <th class="col-day">Jour</th>
-                            <th class="col-time">Arrivée</th>
-                            <th class="col-time">Départ</th>
-                            <th class="col-status">Statut</th>
-                        </tr>
+                        <tr><th>Date</th><th>Jour</th><th>Arrivée</th><th>Départ</th><th>Statut</th></tr>
                     </thead>
                     <tbody>
                         @foreach ($report['days'] as $day)
                             <tr>
-                                <td class="col-date">{{ $day['label'] }}</td>
-                                <td class="col-day">{{ $day['weekday'] }}</td>
-                                <td class="col-time">{{ $day['arrival'] ?? '—' }}</td>
-                                <td class="col-time">{{ $day['departure'] ?? '—' }}</td>
-                                <td class="col-status {{ $day['present'] ? (($day['complete'] ?? false) ? 'status-ok' : 'status-partial') : 'status-absent' }}">
+                                <td style="padding:10px 12px !important;">{{ $day['label'] }}</td>
+                                <td style="padding:10px 12px !important;">{{ $day['weekday'] }}</td>
+                                <td style="padding:10px 12px !important;">{{ $day['arrival'] ?? '—' }}</td>
+                                <td style="padding:10px 12px !important;">{{ $day['departure'] ?? '—' }}</td>
+                                <td class="{{ $day['present'] ? (($day['complete'] ?? false) ? 'present' : 'partial') : 'absent' }}" style="padding:10px 12px !important;">
                                     @if ($day['present'])
                                         {{ ($day['complete'] ?? false) ? 'Complet' : 'Arrivée seule' }}
                                     @else
@@ -206,25 +162,14 @@
                     </tbody>
                 </table>
 
-                <div class="sheet-signatures">
-                    <div class="sheet-sign">
-                        Signature employé
-                        <span>{{ $row['display_name'] }}</span>
-                    </div>
-                    <div class="sheet-sign">
-                        Visa responsable
-                        <span>Date &amp; signature</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="print-page-footer">
                 @include('inovcom-invoicing::print.partials.document-footer', ['settings' => $settings])
             </div>
         </div>
-    </div>
-@endforeach
+    @endforeach
 
-@include('partials.print.auto-print', ['returnUrl' => $returnUrl ?? null])
+    @include('partials.print.auto-print', [
+        'returnUrl' => $returnUrl ?? null,
+        'closeAfterPrint' => true,
+    ])
 </body>
 </html>

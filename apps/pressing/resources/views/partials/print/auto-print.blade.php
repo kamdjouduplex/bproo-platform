@@ -2,12 +2,14 @@
     $returnUrl = $returnUrl ?? null;
     $autoPrint = $autoPrint ?? true;
     $printTitle = $printTitle ?? 'Document';
+    $closeAfterPrint = $closeAfterPrint ?? false;
 @endphp
 @if ($autoPrint)
 <script>
 (function () {
     var returnUrl = @json($returnUrl);
     var printFilename = @json($printTitle);
+    var closeAfterPrint = @json((bool) $closeAfterPrint);
     var finished = false;
 
     if (printFilename) {
@@ -20,34 +22,21 @@
         }
     });
 
-    function showCloseHint() {
-        try {
-            document.title = @json(__('Impression terminée'));
-            document.body.innerHTML = '<main style="font-family:Segoe UI,system-ui,sans-serif;text-align:center;padding:48px 16px;color:#334155;">'
-                + '<p style="font-size:18px;font-weight:700;margin:0 0 8px;">' + @json(__('Impression terminée')) + '</p>'
-                + '<p style="margin:0;color:#64748b;">' + @json(__('Vous pouvez fermer cet onglet.')) + '</p>'
-                + '</main>';
-        } catch (e) {}
-    }
-
     function finish() {
         if (finished) {
             return;
         }
         finished = true;
 
-        // Print was opened in a new tab/window: close it.
-        // Do NOT navigate to returnUrl (that reloads the app and feels like a new tab).
-        var openedSeparately = !!window.opener || (window.history && window.history.length <= 1);
-        if (openedSeparately) {
+        if (closeAfterPrint) {
             try {
                 window.close();
             } catch (e) {}
             setTimeout(function () {
-                if (!window.closed) {
-                    showCloseHint();
+                if (!window.closed && returnUrl) {
+                    window.location.replace(returnUrl);
                 }
-            }, 200);
+            }, 250);
             return;
         }
 

@@ -7,6 +7,7 @@ use Illuminate\Support\ServiceProvider;
 use InovCom\Attendance\Http\Controllers\AttendanceHistoryPrintController;
 use InovCom\Attendance\Http\Controllers\AttendanceSheetPrintController;
 use InovCom\Attendance\Http\Controllers\AttendanceTeamSheetPrintController;
+use InovCom\Attendance\Http\Livewire\AttendanceEmployeeShow;
 use InovCom\Attendance\Http\Livewire\AttendanceIndex;
 use InovCom\Attendance\Http\Livewire\AttendanceKiosk;
 use InovCom\Attendance\Http\Livewire\AttendancePunchWidget;
@@ -43,6 +44,7 @@ class AttendanceServiceProvider extends ServiceProvider
 
         Livewire::component('inovcom-attendance.punch-widget', AttendancePunchWidget::class);
         Livewire::component('inovcom-attendance.index', AttendanceIndex::class);
+        Livewire::component('inovcom-attendance.show', AttendanceEmployeeShow::class);
         Livewire::component('inovcom-attendance.sheet', AttendanceSheet::class);
         Livewire::component('inovcom-attendance.settings', AttendanceSettings::class);
         Livewire::component('inovcom-attendance.kiosk', AttendanceKiosk::class);
@@ -66,6 +68,14 @@ class AttendanceServiceProvider extends ServiceProvider
                 Route::get('/attendance', AttendanceIndex::class)
                     ->middleware(['module:attendance'])
                     ->name('tenant.attendance.index');
+                Route::get('/attendance/employee/{employeeId}', AttendanceEmployeeShow::class)
+                    ->middleware(['module:attendance'])
+                    ->whereNumber('employeeId')
+                    ->name('tenant.attendance.show');
+                Route::get('/attendance/user/{userId}', AttendanceEmployeeShow::class)
+                    ->middleware(['module:attendance'])
+                    ->whereNumber('userId')
+                    ->name('tenant.attendance.show-user');
                 Route::get('/attendance/settings', AttendanceSettings::class)
                     ->middleware(['module:attendance'])
                     ->name('tenant.attendance.settings');

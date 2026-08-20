@@ -2,12 +2,14 @@
     $returnUrl = $returnUrl ?? null;
     $autoPrint = $autoPrint ?? true;
     $printTitle = $printTitle ?? 'Document';
+    $closeAfterPrint = $closeAfterPrint ?? false;
 @endphp
 @if ($autoPrint)
 <script>
 (function () {
     var returnUrl = @json($returnUrl);
     var printFilename = @json($printTitle);
+    var closeAfterPrint = @json((bool) $closeAfterPrint);
     var finished = false;
 
     if (printFilename) {
@@ -26,20 +28,21 @@
         }
         finished = true;
 
-        // Fermer l’onglet d’impression (ouvert via target=_blank / window.open).
-        try {
-            window.close();
-        } catch (e) {}
+        if (closeAfterPrint) {
+            try {
+                window.close();
+            } catch (e) {}
+            setTimeout(function () {
+                if (!window.closed && returnUrl) {
+                    window.location.replace(returnUrl);
+                }
+            }, 250);
+            return;
+        }
 
-        // Si le navigateur refuse de fermer (rare), revenir à l’appli dans cet onglet.
-        setTimeout(function () {
-            if (window.closed) {
-                return;
-            }
-            if (returnUrl) {
-                window.location.replace(returnUrl);
-            }
-        }, 250);
+        if (returnUrl) {
+            window.location.replace(returnUrl);
+        }
     }
 
     window.addEventListener('afterprint', function () {
@@ -54,15 +57,11 @@
         });
     }
 
-    window.printAndClose = function () {
+    function openPrintDialog() {
         if (printFilename) {
             document.title = printFilename;
         }
         window.print();
-    };
-
-    function openPrintDialog() {
-        window.printAndClose();
     }
 
     if (document.readyState === 'complete') {

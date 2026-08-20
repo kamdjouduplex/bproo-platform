@@ -14,8 +14,11 @@ class AttendanceSheetPrintController
 {
     public function __invoke(Request $request): View
     {
-        if (!$request->filled('employee_id')) {
-            abort(422, 'Employé requis.');
+        $employeeId = $request->filled('employee_id') ? (int) $request->employee_id : null;
+        $userId = $request->filled('user_id') ? (int) $request->user_id : null;
+
+        if (! $employeeId && ! $userId) {
+            abort(422, 'Employé ou utilisateur requis.');
         }
 
         $tenant = app(TenantManager::class)->tenant();
@@ -25,19 +28,31 @@ class AttendanceSheetPrintController
         $from = Carbon::parse($request->input('date_from', now()->startOfMonth()->toDateString()));
         $to = Carbon::parse($request->input('date_to', now()->toDateString()));
 
-        $report = $service->presenceReport((int) $request->employee_id, null, $from, $to);
+        $report = $service->presenceReport($employeeId, $userId, $from, $to);
         $displayName = $service->displayName($report['employee'], $report['user']);
+        $month = $from->format('Y-m');
+
+        if ($employeeId) {
+            $returnRoute = 'tenant.attendance.show';
+            $returnParams = ['employeeId' => $employeeId, 'month' => $month];
+            $docNumber = (string) $employeeId;
+        } else {
+            $returnRoute = 'tenant.attendance.show-user';
+            $returnParams = ['userId' => $userId, 'month' => $month];
+            $docNumber = 'u'.$userId;
+        }
 
         return view('inovcom-attendance::print.sheet', array_merge([
             'settings' => $settings,
             'report' => $report,
             'displayName' => $displayName,
-            'periodLabel' => $from->format('d/m/Y') . ' — ' . $to->format('d/m/Y'),
+            'periodLabel' => $from->format('d/m/Y').' — '.$to->format('d/m/Y'),
         ], PrintDocument::context(
             $request,
             'fiche-presence',
-            (string) $request->employee_id,
-            'tenant.attendance.sheet'
+            $docNumber,
+            $returnRoute,
+            $returnParams
         )));
     }
 }

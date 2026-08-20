@@ -31,7 +31,7 @@ class AttendanceTeamSheetPrintController
             $request,
             'fiches-presence-equipe',
             $from->format('Ymd') . '-' . $to->format('Ymd'),
-            'tenant.attendance.sheet'
+            'tenant.attendance.index'
         )));
     }
 }

@@ -2,12 +2,14 @@
     $returnUrl = $returnUrl ?? null;
     $autoPrint = $autoPrint ?? true;
     $printTitle = $printTitle ?? 'Document';
+    $closeAfterPrint = $closeAfterPrint ?? false;
 @endphp
 @if ($autoPrint)
 <script>
 (function () {
     var returnUrl = @json($returnUrl);
     var printFilename = @json($printTitle);
+    var closeAfterPrint = @json((bool) $closeAfterPrint);
     var finished = false;
 
     if (printFilename) {
@@ -21,11 +23,26 @@
     });
 
     function finish() {
-        if (finished || !returnUrl) {
+        if (finished) {
             return;
         }
         finished = true;
-        window.location.replace(returnUrl);
+
+        if (closeAfterPrint) {
+            try {
+                window.close();
+            } catch (e) {}
+            setTimeout(function () {
+                if (!window.closed && returnUrl) {
+                    window.location.replace(returnUrl);
+                }
+            }, 250);
+            return;
+        }
+
+        if (returnUrl) {
+            window.location.replace(returnUrl);
+        }
     }
 
     window.addEventListener('afterprint', function () {

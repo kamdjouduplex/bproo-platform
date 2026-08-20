@@ -2,14 +2,15 @@
     $returnUrl = $returnUrl ?? null;
     $autoPrint = $autoPrint ?? true;
     $printTitle = $printTitle ?? 'Document';
+    $closeAfterPrint = $closeAfterPrint ?? false;
 @endphp
 @if ($autoPrint)
 <script>
 (function () {
     var returnUrl = @json($returnUrl);
     var printFilename = @json($printTitle);
+    var closeAfterPrint = @json((bool) $closeAfterPrint);
     var finished = false;
-    var openedFromMainWindow = !!(window.opener && !window.opener.closed);
 
     if (printFilename) {
         document.title = printFilename;
@@ -27,21 +28,15 @@
         }
         finished = true;
 
-        if (openedFromMainWindow) {
-            try {
-                if (window.opener) {
-                    window.opener.focus();
-                }
-            } catch (error) {
-                // Ignore focus issues if the opener is not accessible anymore.
-            }
-
+        if (closeAfterPrint) {
             try {
                 window.close();
-            } catch (error) {
-                // The browser may block closing the tab if it was not opened programmatically.
-            }
-
+            } catch (e) {}
+            setTimeout(function () {
+                if (!window.closed && returnUrl) {
+                    window.location.replace(returnUrl);
+                }
+            }, 250);
             return;
         }
 

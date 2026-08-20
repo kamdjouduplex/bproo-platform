@@ -24,7 +24,7 @@ class AttendanceService
 
     public function resolveEmployeeForUser(User $user): ?object
     {
-        if (!Schema::connection('tenant')->hasTable('employees')) {
+        if (! Schema::connection('tenant')->hasTable('employees')) {
             return null;
         }
 
@@ -39,7 +39,7 @@ class AttendanceService
             return $employee;
         }
 
-        if (!empty($user->email)) {
+        if (! empty($user->email)) {
             return $employeeClass::query()
                 ->where('is_active', true)
                 ->where('email', $user->email)
@@ -54,7 +54,7 @@ class AttendanceService
      */
     public function isWorkday(Carbon $date): bool
     {
-        return !$date->isSunday();
+        return ! $date->isSunday();
     }
 
     public function punchTypeLabel(?string $type): string
@@ -72,7 +72,7 @@ class AttendanceService
      */
     public function punchesForUserOnDate(User $user, Carbon|string|null $date = null): Collection
     {
-        if (!$this->hasTable()) {
+        if (! $this->hasTable()) {
             return collect();
         }
 
@@ -123,9 +123,37 @@ class AttendanceService
     /**
      * @return array{success: bool, message: string, punch: ?AttendancePunch}
      */
+    public function punchIn(User $user, ?string $notes = null, string $source = 'manual'): array
+    {
+        return $this->recordPunch($user, AttendancePunch::TYPE_IN, $notes, $source);
+    }
+
+    /**
+     * @return array{success: bool, message: string, punch: ?AttendancePunch}
+     */
+    public function punchOut(User $user, ?string $notes = null, string $source = 'manual'): array
+    {
+        return $this->recordPunch($user, AttendancePunch::TYPE_OUT, $notes, $source);
+    }
+
+    /**
+     * @return array{success: bool, message: string, punch: ?AttendancePunch}
+     */
+    public function punch(User $user, ?string $notes = null, string $source = 'manual'): array
+    {
+        $status = $this->todayStatus($user);
+
+        return $status['can_punch_out']
+            ? $this->punchOut($user, $notes, $source)
+            : $this->punchIn($user, $notes, $source);
+    }
+
+    /**
+     * @return array{success: bool, message: string, punch: ?AttendancePunch}
+     */
     private function recordPunch(User $user, string $type, ?string $notes = null, string $source = 'manual'): array
     {
-        if (!$this->hasTable()) {
+        if (! $this->hasTable()) {
             return ['success' => false, 'message' => 'Module présence non installé (migration manquante).', 'punch' => null];
         }
 
@@ -140,7 +168,7 @@ class AttendanceService
 
         $status = $this->todayStatus($user);
 
-        if ($type === AttendancePunch::TYPE_IN && !$status['can_punch_in']) {
+        if ($type === AttendancePunch::TYPE_IN && ! $status['can_punch_in']) {
             return [
                 'success' => false,
                 'message' => 'Arrivée déjà pointée. Enregistrez d\'abord votre départ.',
@@ -148,7 +176,7 @@ class AttendanceService
             ];
         }
 
-        if ($type === AttendancePunch::TYPE_OUT && !$status['can_punch_out']) {
+        if ($type === AttendancePunch::TYPE_OUT && ! $status['can_punch_out']) {
             return [
                 'success' => false,
                 'message' => 'Pointez d\'abord votre arrivée avant le départ.',
@@ -182,71 +210,14 @@ class AttendanceService
 
         return [
             'success' => true,
-            'message' => $label . ' enregistrée à ' . $now->format('H:i') . '.',
+            'message' => $label.' enregistrée à '.$now->format('H:i').'.',
             'punch' => $punch,
         ];
     }
 
-    /**
-     * @return array{success: bool, message: string, punch: ?AttendancePunch}
-     */
-    public function punchIn(User $user, ?string $notes = null, string $source = 'manual'): array
-    {
-        return $this->recordPunch($user, AttendancePunch::TYPE_IN, $notes, $source);
-    }
-
-    /**
-     * @return array{success: bool, message: string, punch: ?AttendancePunch}
-     */
-    public function punchOut(User $user, ?string $notes = null, string $source = 'manual'): array
-    {
-        return $this->recordPunch($user, AttendancePunch::TYPE_OUT, $notes, $source);
-    }
-
-    /**
-     * @return array{success: bool, message: string, punch: ?AttendancePunch}
-     */
-    public function punch(User $user, ?string $notes = null, string $source = 'manual'): array
-    {
-        $status = $this->todayStatus($user);
-
-        return $status['can_punch_out']
-            ? $this->punchOut($user, $notes, $source)
-            : $this->punchIn($user, $notes, $source);
-    }
-
-    /**
-     * Quick period bounds for UI presets.
-     *
-     * @return array{from: string, to: string}
-     */
-    public function periodBounds(string $period): array
-    {
-        $today = now();
-
-        return match ($period) {
-            'last_month' => [
-                'from' => $today->copy()->subMonthNoOverflow()->startOfMonth()->format('Y-m-d'),
-                'to' => $today->copy()->subMonthNoOverflow()->endOfMonth()->format('Y-m-d'),
-            ],
-            'this_year' => [
-                'from' => $today->copy()->startOfYear()->format('Y-m-d'),
-                'to' => $today->format('Y-m-d'),
-            ],
-            'last_7_days' => [
-                'from' => $today->copy()->subDays(6)->format('Y-m-d'),
-                'to' => $today->format('Y-m-d'),
-            ],
-            default => [ // this_month
-                'from' => $today->copy()->startOfMonth()->format('Y-m-d'),
-                'to' => $today->format('Y-m-d'),
-            ],
-        };
-    }
-
     public function isPresentToday(User $user): bool
     {
-        if (!$this->hasTable()) {
+        if (! $this->hasTable()) {
             return false;
         }
 
@@ -263,7 +234,7 @@ class AttendanceService
      */
     public function activeEmployees(): Collection
     {
-        if (!Schema::connection('tenant')->hasTable('employees')) {
+        if (! Schema::connection('tenant')->hasTable('employees')) {
             return collect();
         }
 
@@ -272,6 +243,81 @@ class AttendanceService
             ->orderBy('last_name')
             ->orderBy('first_name')
             ->get();
+    }
+
+    /**
+     * Personnes à suivre en présence : fiches Paie + utilisateurs actifs non liés.
+     *
+     * @return Collection<int, array{
+     *   key: string,
+     *   employee_id: ?int,
+     *   user_id: ?int,
+     *   employee: ?object,
+     *   user: ?User,
+     *   display_name: string,
+     *   employee_number: ?string,
+     *   position: ?string
+     * }>
+     */
+    public function attendanceRoster(?string $search = null): Collection
+    {
+        $employees = $this->activeEmployees();
+        $linkedUserIds = $employees->pluck('user_id')->filter()->map(fn ($id) => (int) $id)->all();
+
+        $rows = $employees->map(function ($employee) {
+            $user = null;
+            if ($employee->user_id) {
+                $user = User::query()->find($employee->user_id);
+            }
+
+            return [
+                'key' => 'e:'.(int) $employee->id,
+                'employee_id' => (int) $employee->id,
+                'user_id' => $employee->user_id ? (int) $employee->user_id : null,
+                'employee' => $employee,
+                'user' => $user,
+                'display_name' => $this->displayName($employee, $user),
+                'employee_number' => $employee->employee_number ?? null,
+                'position' => $employee->position ?? null,
+            ];
+        });
+
+        $orphanUsers = User::query()
+            ->where('is_active', true)
+            ->when($linkedUserIds !== [], fn ($q) => $q->whereNotIn('id', $linkedUserIds))
+            ->orderBy('name')
+            ->get();
+
+        $userRows = $orphanUsers->map(function (User $user) {
+            return [
+                'key' => 'u:'.(int) $user->id,
+                'employee_id' => null,
+                'user_id' => (int) $user->id,
+                'employee' => null,
+                'user' => $user,
+                'display_name' => $user->name ?: ($user->email ?? 'Utilisateur #'.$user->id),
+                'employee_number' => null,
+                'position' => null,
+            ];
+        });
+
+        $roster = $rows->concat($userRows)->values();
+
+        if ($search !== null && trim($search) !== '') {
+            $term = mb_strtolower(trim($search));
+            $roster = $roster->filter(function (array $row) use ($term) {
+                $hay = mb_strtolower(trim(
+                    ($row['display_name'] ?? '').' '.
+                    ($row['employee_number'] ?? '').' '.
+                    ($row['position'] ?? '').' '.
+                    ($row['user']?->email ?? '')
+                ));
+
+                return str_contains($hay, $term);
+            })->values();
+        }
+
+        return $roster->sortBy(fn (array $row) => mb_strtolower($row['display_name']))->values();
     }
 
     /**
@@ -312,9 +358,9 @@ class AttendanceService
             }
         }
 
-        if (!$user && $userId) {
+        if (! $user && $userId) {
             $user = User::find($userId);
-            if (!$employee) {
+            if (! $employee) {
                 $employee = $this->resolveEmployeeForUser($user);
             }
         }
@@ -369,7 +415,7 @@ class AttendanceService
                 continue;
             }
 
-            if (!$this->isWorkday($date)) {
+            if (! $this->isWorkday($date)) {
                 continue;
             }
 
@@ -416,6 +462,173 @@ class AttendanceService
             'days' => $days,
             'punches' => $punches,
         ];
+    }
+
+    /**
+     * Synthèse légère pour la liste admin (1 requête punches + roster).
+     *
+     * @return array{
+     *   from: Carbon,
+     *   to: Carbon,
+     *   expected_days: int,
+     *   rows: array<int, array{
+     *     key: string,
+     *     employee_id: ?int,
+     *     user_id: ?int,
+     *     employee: ?object,
+     *     user: ?User,
+     *     display_name: string,
+     *     employee_number: ?string,
+     *     position: ?string,
+     *     present_days: int,
+     *     complete_days: int,
+     *     absent_days: int,
+     *     expected_days: int,
+     *     performance_percent: float,
+     *     performance_level: string,
+     *     performance_label: string
+     *   }>
+     * }
+     */
+    public function teamPresenceSummaries(Carbon $from, Carbon $to, ?string $search = null): array
+    {
+        $from = $from->copy()->startOfDay();
+        $to = $to->copy()->endOfDay();
+        $today = Carbon::today();
+        $periodEnd = $to->lt($today) ? $to->copy() : $today->copy();
+
+        $expectedDays = 0;
+        foreach (CarbonPeriod::create($from, $periodEnd) as $date) {
+            if ($this->isWorkday($date)) {
+                $expectedDays++;
+            }
+        }
+
+        $roster = $this->attendanceRoster($search);
+
+        $employeeIds = $roster->pluck('employee_id')->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
+        $userIds = $roster->pluck('user_id')->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
+
+        $punchesByEmployee = collect();
+        $punchesByUser = collect();
+
+        if ($this->hasTable() && ($employeeIds !== [] || $userIds !== [])) {
+            $allPunches = AttendancePunch::query()
+                ->whereBetween('attendance_date', [$this->dateKey($from), $this->dateKey($to)])
+                ->where(function ($q) use ($employeeIds, $userIds) {
+                    if ($employeeIds !== []) {
+                        $q->whereIn('employee_id', $employeeIds);
+                    }
+                    if ($userIds !== []) {
+                        $method = $employeeIds !== [] ? 'orWhereIn' : 'whereIn';
+                        $q->{$method}('user_id', $userIds);
+                    }
+                })
+                ->orderBy('punched_at')
+                ->get();
+
+            $punchesByEmployee = $allPunches
+                ->filter(fn (AttendancePunch $p) => $p->employee_id)
+                ->groupBy(fn (AttendancePunch $p) => (int) $p->employee_id);
+
+            $punchesByUser = $allPunches
+                ->groupBy(fn (AttendancePunch $p) => (int) $p->user_id);
+        }
+
+        $rows = $roster->map(function (array $person) use (
+            $expectedDays,
+            $punchesByEmployee,
+            $punchesByUser,
+            $from,
+            $periodEnd
+        ) {
+            $employeeId = $person['employee_id'];
+            $userId = $person['user_id'];
+
+            $punches = collect();
+            if ($employeeId) {
+                $punches = $punches->concat(collect($punchesByEmployee->get($employeeId, [])));
+            }
+            if ($userId) {
+                $punches = $punches->concat(collect($punchesByUser->get($userId, [])));
+            }
+            $punches = $punches->unique('id')->sortBy('punched_at')->values();
+
+            $presentDays = 0;
+            $completeDays = 0;
+
+            foreach (CarbonPeriod::create($from, $periodEnd) as $date) {
+                if (! $this->isWorkday($date)) {
+                    continue;
+                }
+                $dateKey = $this->dateKey($date);
+                $dayPunches = $punches->filter(
+                    fn (AttendancePunch $p) => $this->dateKey($p->attendance_date) === $dateKey
+                );
+                if ($dayPunches->isEmpty()) {
+                    continue;
+                }
+                $presentDays++;
+                $summary = $this->summarizeDayPunches($dayPunches);
+                if ($summary['complete']) {
+                    $completeDays++;
+                }
+            }
+
+            $absentDays = max(0, $expectedDays - $presentDays);
+            $percent = $expectedDays > 0 ? round($presentDays / $expectedDays * 100, 1) : 0.0;
+            [$level, $label] = $this->performanceMeta($percent);
+
+            return array_merge($person, [
+                'present_days' => $presentDays,
+                'complete_days' => $completeDays,
+                'absent_days' => $absentDays,
+                'expected_days' => $expectedDays,
+                'performance_percent' => $percent,
+                'performance_level' => $level,
+                'performance_label' => $label,
+            ]);
+        })->values()->all();
+
+        return [
+            'from' => $from,
+            'to' => $to,
+            'expected_days' => $expectedDays,
+            'rows' => $rows,
+        ];
+    }
+
+    /**
+     * Options de mois pour les filtres UI (12 derniers mois + mois courant).
+     *
+     * @return array<string, string> Y-m => label
+     */
+    public function monthOptions(int $monthsBack = 12): array
+    {
+        $options = [];
+        $cursor = now()->startOfMonth();
+
+        for ($i = 0; $i <= $monthsBack; $i++) {
+            $key = $cursor->format('Y-m');
+            $options[$key] = $cursor->locale('fr')->translatedFormat('F Y');
+            $cursor->subMonthNoOverflow();
+        }
+
+        return $options;
+    }
+
+    /**
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    public function monthBounds(string $monthYm): array
+    {
+        $start = Carbon::createFromFormat('Y-m', $monthYm)->startOfMonth();
+        $end = $start->copy()->endOfMonth();
+        if ($end->gt(now())) {
+            $end = now()->endOfDay();
+        }
+
+        return [$start, $end];
     }
 
     /**
@@ -479,7 +692,7 @@ class AttendanceService
         $firstIn = $sorted->first(fn (AttendancePunch $p) => $this->resolvePunchType($p) === AttendancePunch::TYPE_IN);
         $lastOut = $sorted->filter(fn (AttendancePunch $p) => $this->resolvePunchType($p) === AttendancePunch::TYPE_OUT)->last();
 
-        if (!$firstIn && $sorted->isNotEmpty() && !$this->hasPunchTypeColumn()) {
+        if (! $firstIn && $sorted->isNotEmpty() && ! $this->hasPunchTypeColumn()) {
             $firstIn = $sorted->first();
             $lastOut = $sorted->count() > 1 ? $sorted->last() : null;
         }
@@ -497,7 +710,7 @@ class AttendanceService
 
     private function resolvePunchType(AttendancePunch $punch): string
     {
-        if ($this->hasPunchTypeColumn() && !empty($punch->punch_type)) {
+        if ($this->hasPunchTypeColumn() && ! empty($punch->punch_type)) {
             return $punch->punch_type === AttendancePunch::TYPE_OUT
                 ? AttendancePunch::TYPE_OUT
                 : AttendancePunch::TYPE_IN;
@@ -530,7 +743,7 @@ class AttendanceService
             return $employee->full_name;
         }
         if ($employee) {
-            return trim(($employee->first_name ?? '') . ' ' . ($employee->last_name ?? ''));
+            return trim(($employee->first_name ?? '').' '.($employee->last_name ?? ''));
         }
 
         return $user?->name ?? '—';

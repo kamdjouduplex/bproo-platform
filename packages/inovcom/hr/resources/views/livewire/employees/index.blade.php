@@ -74,8 +74,8 @@
                                 @if ($canManage ?? false)
                                     <a class="btn btn-secondary btn-sm" href="{{ route('tenant.payroll.employees.edit', [$emp->id, 'tenant' => $tenantCode]) }}">Modifier</a>
                                 @endif
-                                @if (\Illuminate\Support\Facades\Route::has('tenant.attendance.sheet'))
-                                    <a class="btn btn-secondary btn-sm" href="{{ route('tenant.attendance.sheet', ['tenant' => $tenantCode, 'employee_id' => $emp->id]) }}">Présence</a>
+                                @if (\Illuminate\Support\Facades\Route::has('tenant.attendance.show'))
+                                    <a class="btn btn-secondary btn-sm" href="{{ route('tenant.attendance.show', ['tenant' => $tenantCode, 'employeeId' => $emp->id]) }}">Présence</a>
                                 @endif
                                 @if (($canManage ?? false) && $emp->is_active)
                                     <button class="btn btn-error btn-sm" wire:click="deactivate({{ $emp->id }})" onclick="return confirm('Désactiver cet employé ?')">Désactiver</button>
