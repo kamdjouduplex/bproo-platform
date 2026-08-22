@@ -86,7 +86,6 @@ class SchoolRoleCatalog
                     'school_years.view',
                     'school_classes.view',
                     'school_subjects.view',
-                    'school_teachers.view',
                     'school_students.view',
                     'school_enrollments.view',
                     'school_attendance.view', 'school_attendance.manage',

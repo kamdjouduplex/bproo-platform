@@ -11,6 +11,8 @@ class StudentIdCard extends TenantModel
 {
     use Auditable;
 
+    protected array $auditExclude = ['password', 'remember_token', 'updated_at', 'qr_svg'];
+
     protected $table = 'student_id_cards';
 
     protected $fillable = [

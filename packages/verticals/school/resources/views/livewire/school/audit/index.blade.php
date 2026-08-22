@@ -17,6 +17,7 @@
             'school_result_publications' => 'Publications',
             'student_id_cards' => 'Cartes ID',
             'school_student_documents' => 'Pièces',
+            'school_teachers' => 'Enseignants',
         ];
         $eventMeta = [
             'created' => ['label' => 'Créé', 'class' => 'badge-success'],
@@ -26,9 +27,14 @@
         ];
     @endphp
 
-    @if(! $hasTable)
+    @if($loadError !== '')
+        <section class="card app-table-card" style="padding:20px;">
+            <p>{{ $loadError }}</p>
+        </section>
+    @elseif(! $hasTable)
         <section class="card app-table-card" style="padding:20px;">
             <p>La table <code>audit_logs</code> n’est pas encore migrée sur ce tenant.</p>
+            <p style="margin:8px 0 0; font-size:13px; color:#64748b;">Sur le VPS : <code>php artisan tenant:migrate school</code></p>
         </section>
     @else
         <section class="card app-table-card">
@@ -71,34 +77,24 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @forelse($logs as $log)
+                        @forelse($rows as $row)
                             @php
-                                $em = $eventMeta[$log->event] ?? ['label' => $log->event, 'class' => 'badge-secondary'];
-                                $old = is_string($log->old_values) ? json_decode($log->old_values, true) : (array) $log->old_values;
-                                $new = is_string($log->new_values) ? json_decode($log->new_values, true) : (array) $log->new_values;
-                                $old = is_array($old) ? $old : [];
-                                $new = is_array($new) ? $new : [];
+                                $em = $eventMeta[$row['event']] ?? ['label' => $row['event'], 'class' => 'badge-secondary'];
                             @endphp
                             <tr>
-                                <td>{{ \Carbon\Carbon::parse($log->created_at)->format('d/m/Y H:i:s') }}</td>
-                                <td>{{ $log->user_id ? ($userMap[$log->user_id] ?? '#'.$log->user_id) : '—' }}</td>
-                                <td>{{ $tableLabels[$log->auditable_type] ?? $log->auditable_type }}</td>
-                                <td>{{ $log->auditable_id }}</td>
+                                <td>{{ $row['created'] }}</td>
+                                <td>{{ $row['user'] }}</td>
+                                <td>{{ $tableLabels[$row['type']] ?? $row['type'] }}</td>
+                                <td>{{ $row['id'] }}</td>
                                 <td><span class="badge {{ $em['class'] }}">{{ $em['label'] }}</span></td>
                                 <td style="max-width:320px; font-size:11px; color:#475569;">
-                                    @if($old || $new)
-                                        @foreach(array_unique(array_merge(array_keys($old), array_keys($new))) as $key)
-                                            <div><strong>{{ $key }}</strong>:
-                                                {{ is_scalar($old[$key] ?? null) || $old[$key] === null ? ($old[$key] ?? '∅') : json_encode($old[$key]) }}
-                                                →
-                                                {{ is_scalar($new[$key] ?? null) || $new[$key] === null ? ($new[$key] ?? '∅') : json_encode($new[$key]) }}
-                                            </div>
-                                        @endforeach
-                                    @else
+                                    @forelse($row['changes'] as $change)
+                                        <div><strong>{{ $change['key'] }}</strong>: {{ $change['old'] }} → {{ $change['new'] }}</div>
+                                    @empty
                                         —
-                                    @endif
+                                    @endforelse
                                 </td>
-                                <td>{{ $log->ip_address ?? '—' }}</td>
+                                <td>{{ $row['ip'] }}</td>
                             </tr>
                         @empty
                             <tr><td colspan="7">Aucune entrée pour ces critères.</td></tr>
@@ -106,8 +102,12 @@
                     </tbody>
                 </table>
             </div>
-            @if($logs)
-                <div style="margin:12px 16px 16px;">{{ $logs->links() }}</div>
+            @if($logs && $logs->hasPages())
+                <div style="margin:12px 16px 16px; display:flex; gap:8px; align-items:center;">
+                    <button type="button" class="btn btn-secondary btn-sm" wire:click="previousPage" @disabled($logs->onFirstPage())>Précédent</button>
+                    <span style="font-size:13px; color:#64748b;">Page {{ $logs->currentPage() }} / {{ $logs->lastPage() }}</span>
+                    <button type="button" class="btn btn-secondary btn-sm" wire:click="nextPage" @disabled(! $logs->hasMorePages())>Suivant</button>
+                </div>
             @endif
         </section>
     @endif

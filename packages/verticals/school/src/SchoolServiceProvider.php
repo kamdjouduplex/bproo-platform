@@ -15,6 +15,7 @@ use School\Http\Controllers\SchoolReportCardPrintController;
 use School\Http\Controllers\SchoolReportPrintController;
 use School\Http\Controllers\SchoolStudentDocumentController;
 use School\Http\Controllers\SchoolStudentPhotoController;
+use School\Http\Controllers\SchoolTeacherPhotoController;
 use School\Http\Controllers\SchoolTimetablePrintController;
 use School\Http\Livewire\SchoolAttendanceIndex;
 use School\Http\Livewire\SchoolAuditIndex;
@@ -199,8 +200,21 @@ class SchoolServiceProvider extends ServiceProvider
 
                 Route::middleware(['module:school_teachers'])->group(function () {
                     Route::get('/school/teachers', SchoolTeachersIndex::class)->name('tenant.school.teachers.index');
-                    Route::get('/school/teachers/{id}', SchoolTeachersDetail::class)->name('tenant.school.teachers.show');
-                    Route::get('/school/teachers/{id}/manage', SchoolTeachersDetail::class)->name('tenant.school.teachers.manage');
+                    Route::get('/school/teachers/me', function () {
+                        $teacher = \School\Models\SchoolTeacher::forUser(auth('tenant')->user());
+                        abort_unless($teacher, 404, 'Aucun dossier enseignant lié à ce compte.');
+                        $tenant = request()->query('tenant')
+                            ?? request()->attributes->get('tenant')?->code
+                            ?? session('tenant_code');
+
+                        return redirect()->route('tenant.school.teachers.show', [
+                            'tenant' => $tenant,
+                            'id' => $teacher->id,
+                        ]);
+                    })->name('tenant.school.teachers.me');
+                    Route::get('/school/teachers/{id}', SchoolTeachersDetail::class)->name('tenant.school.teachers.show')->whereNumber('id');
+                    Route::get('/school/teachers/{id}/manage', SchoolTeachersDetail::class)->name('tenant.school.teachers.manage')->whereNumber('id');
+                    Route::get('/school/teachers/{teacher}/photo', SchoolTeacherPhotoController::class)->name('tenant.school.teachers.photo')->whereNumber('teacher');
                 });
 
                 Route::middleware(['module:school_students'])->group(function () {

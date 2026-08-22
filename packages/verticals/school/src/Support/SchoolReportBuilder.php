@@ -363,11 +363,12 @@ final class SchoolReportBuilder
         }
 
         $rows = $teachers->map(fn ($t) => [
-            (string) $t->id,
+            (string) ($t->teacher_code ?: $t->id),
             (string) $t->full_name,
             (string) ($t->phone ?: '—'),
             (string) ($t->email ?: '—'),
-            (string) ($t->address ?: '—'),
+            (string) ($t->teaching_section ?: '—'),
+            $t->isValidated() ? 'Validé' : 'À remplir',
             $t->is_active ? 'Actif' : 'Inactif',
             (string) ($examCounts[$t->id] ?? 0),
         ])->all();
@@ -375,7 +376,7 @@ final class SchoolReportBuilder
         return $this->pack(
             'Enseignants',
             count($rows).' enseignant(s)',
-            ['N°', 'Nom', 'Téléphone', 'Email', 'Adresse', 'Statut', 'Examens'],
+            ['ID', 'Nom', 'Téléphone', 'Email', 'Section', 'Dossier', 'Statut', 'Examens'],
             $rows,
             [
                 ['label' => 'Enseignants', 'value' => (string) count($rows)],

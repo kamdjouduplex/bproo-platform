@@ -3,30 +3,56 @@
 namespace School\Http\Livewire;
 
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
+use School\Http\Livewire\Concerns\AuthorizesSchoolActions;
 use School\Http\Livewire\Concerns\ManagesSchoolCrudUi;
+use School\Http\Livewire\Concerns\ManagesTeacherProfileFields;
 use School\Http\Livewire\Concerns\ResolvesTenantCode;
 use School\Models\SchoolTeacher;
+use School\Support\SchoolOptionCatalog;
+use School\Support\TeacherAccountService;
+use School\Support\TeacherCodeGenerator;
+use School\Support\TeacherPhotoStorage;
 
 class SchoolTeachersIndex extends Component
 {
+    use AuthorizesSchoolActions;
     use ManagesSchoolCrudUi;
+    use ManagesTeacherProfileFields;
     use ResolvesTenantCode;
+    use WithFileUploads;
     use WithPagination;
 
     public string $search = '';
 
     public string $filterActive = '';
 
-    public string $fullName = '';
+    /** @var mixed */
+    public $photoFile = null;
 
-    public ?string $phone = null;
+    public bool $removePhoto = false;
 
-    public ?string $email = null;
+    public function mount(): void
+    {
+        try {
+            SchoolOptionCatalog::seedDefaults();
+        } catch (\Throwable) {
+        }
 
-    public ?string $address = null;
+        if (! $this->canSchool('school_teachers.view') && ! $this->canSchool('school_teachers.manage')) {
+            $own = SchoolTeacher::forUser(auth('tenant')->user());
+            if ($own) {
+                $this->redirect(route('tenant.school.teachers.show', [
+                    'tenant' => $this->tenantCode(),
+                    'id' => $own->id,
+                ]), navigate: false);
 
-    public bool $isActive = true;
+                return;
+            }
+            abort(403, 'Permission refusée.');
+        }
+    }
 
     public function updatedSearch(): void
     {
@@ -40,51 +66,82 @@ class SchoolTeachersIndex extends Component
 
     public function create(): void
     {
+        if (! $this->authorizeSchool('school_teachers.manage')) {
+            return;
+        }
+        $this->photoFile = null;
+        $this->removePhoto = false;
         $this->openCreateForm();
     }
 
     protected function resetFormFields(): void
     {
-        $this->fullName = '';
-        $this->phone = null;
-        $this->email = null;
-        $this->address = null;
-        $this->isActive = true;
+        $this->resetTeacherProfileFields();
+        $this->photoFile = null;
+        $this->removePhoto = false;
     }
 
     public function save(): void
     {
-        $this->validate([
-            'fullName' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:80'],
-            'email' => ['nullable', 'email', 'max:255'],
-            'address' => ['nullable', 'string'],
-            'isActive' => ['boolean'],
-        ]);
+        if (! $this->authorizeSchool('school_teachers.manage')) {
+            return;
+        }
 
-        $payload = [
-            'full_name' => $this->fullName,
-            'phone' => $this->phone !== '' && $this->phone !== null ? $this->phone : null,
-            'email' => $this->email !== '' && $this->email !== null ? $this->email : null,
-            'address' => $this->address !== '' && $this->address !== null ? $this->address : null,
-            'is_active' => $this->isActive,
-        ];
+        if (trim($this->teacherCode) === '') {
+            $this->teacherCode = TeacherCodeGenerator::next();
+        }
 
-        SchoolTeacher::query()->create($payload);
-        notify()->success('Enseignant ajouté.');
+        $locking = $this->lockOnSave;
+        $this->validate(array_merge($this->teacherProfileRules($locking), [
+            'photoFile' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
+        ]));
 
+        if ($locking && ! $this->photoFile) {
+            $this->addError('photoFile', 'La photo est obligatoire pour valider le dossier.');
+
+            return;
+        }
+
+        $photoPath = $this->photoFile ? TeacherPhotoStorage::store($this->photoFile) : null;
+        $teacher = SchoolTeacher::query()->create($this->teacherProfilePayload(
+            $photoPath,
+            $locking,
+            $locking ? auth('tenant')->id() : null
+        ));
+        $teacher->subjects()->sync(array_map('intval', $this->subjectIds));
+
+        $passwordHint = '';
+        if ($this->createAccess) {
+            try {
+                $password = filled($this->accessPassword)
+                    ? $this->accessPassword
+                    : TeacherAccountService::generatePassword();
+                TeacherAccountService::ensureUser($teacher->fresh(), $password, $this->isActive);
+                $passwordHint = ' Mot de passe initial : '.$password;
+            } catch (\Throwable $e) {
+                $passwordHint = ' Accès login non créé : '.$e->getMessage();
+            }
+        }
+
+        notify()->success('Enseignant ajouté.'.$passwordHint);
         $this->cancel();
     }
 
     public function render()
     {
-        $term = trim($this->search);
+        $canManage = $this->canSchool('school_teachers.manage');
+        $canView = $canManage || $this->canSchool('school_teachers.view');
 
+        $term = trim($this->search);
         $teachers = SchoolTeacher::query()
+            ->with('subjects')
             ->when($term !== '', function ($q) use ($term) {
                 $like = '%'.mb_strtolower($term).'%';
                 $q->where(function ($inner) use ($like) {
                     $inner->whereRaw('LOWER(full_name) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(COALESCE(teacher_code, \'\')) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(COALESCE(first_name, \'\')) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(COALESCE(last_name, \'\')) LIKE ?', [$like])
                         ->orWhereRaw('LOWER(COALESCE(phone, \'\')) LIKE ?', [$like])
                         ->orWhereRaw('LOWER(COALESCE(email, \'\')) LIKE ?', [$like]);
                 });
@@ -92,15 +149,18 @@ class SchoolTeachersIndex extends Component
             ->when($this->filterActive === '1', fn ($q) => $q->where('is_active', true))
             ->when($this->filterActive === '0', fn ($q) => $q->where('is_active', false))
             ->orderByDesc('is_active')
-            ->orderBy('full_name')
+            ->orderBy('last_name')
+            ->orderBy('first_name')
             ->paginate(12);
 
-        return view('school::livewire.school.teachers.index', [
+        return view('school::livewire.school.teachers.index', array_merge($this->teacherFormCatalogs(), [
             'teachers' => $teachers,
             'tenantCode' => $this->tenantCode(),
-        ])->layout('layouts.app', [
+            'canManage' => $canManage,
+            'canView' => $canView,
+        ]))->layout('layouts.app', [
             'title' => 'École — Enseignants',
-            'subtitle' => 'Gérer les enseignants.',
+            'subtitle' => 'Comptes et dossiers enseignants.',
         ]);
     }
 }

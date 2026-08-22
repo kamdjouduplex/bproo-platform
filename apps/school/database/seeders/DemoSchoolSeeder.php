@@ -68,8 +68,19 @@ class DemoSchoolSeeder extends Seeder
         SchoolTeacher::query()->updateOrCreate(
             ['email' => 'enseignant.demo@school.test'],
             [
+                'teacher_code' => 'ENS-2025-0001',
+                'first_name' => 'Marie',
+                'last_name' => 'Nguema',
                 'full_name' => 'Marie Nguema',
+                'gender' => 'F',
                 'phone' => '670000001',
+                'address' => 'Yaoundé',
+                'education_level' => 'licence',
+                'diploma_kind' => 'licence',
+                'teaching_section' => 'lycee',
+                'schedule_note' => 'Temps plein',
+                'remuneration_amount' => 150000,
+                'profile_status' => 'draft',
                 'is_active' => true,
             ]
         );

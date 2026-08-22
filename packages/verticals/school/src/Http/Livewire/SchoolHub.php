@@ -186,6 +186,25 @@ class SchoolHub extends Component
             $quickActions[] = $action;
         }
 
+        $ownTeacher = SchoolTeacher::forUser($user);
+        if ($ownTeacher && Route::has('tenant.school.teachers.me')) {
+            array_unshift($quickActions, [
+                'module' => 'school_teachers',
+                'label' => $ownTeacher->isValidated() ? 'Mon dossier' : 'Remplir mon dossier',
+                'route' => 'tenant.school.teachers.me',
+                'style' => 'primary',
+            ]);
+            if (! $ownTeacher->isValidated()) {
+                array_unshift($alerts, [
+                    'tone' => 'warning',
+                    'title' => 'Votre dossier enseignant n’est pas encore validé',
+                    'hint' => 'Remplissez-le une seule fois. Ensuite, seule l’ADM pourra le modifier.',
+                    'route' => 'tenant.school.teachers.me',
+                    'action' => 'Ouvrir mon dossier',
+                ]);
+            }
+        }
+
         return view('school::livewire.hub', [
             'groupedLinks' => $groupedLinks,
             'stats' => $stats,
