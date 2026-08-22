@@ -447,6 +447,7 @@ return [
         'enabled_by_default' => true,
         'migration_tag' => 'bproo-pharma-migrations',
         'group' => 'pharmacy',
+        'sidebar' => false,
         'sidebar_order' => 1,
         'icon' => 'beaker',
         'permission' => 'pharma.view',
