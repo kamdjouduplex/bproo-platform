@@ -83,15 +83,15 @@
                 <div class="sch-modal__head">
                     <div>
                         <h3 class="sch-modal__title">Nouvel enseignant</h3>
-                        <p class="sch-modal__hint">Le téléphone est obligatoire. L’enseignant ne pourra remplir son dossier qu’une fois ; ensuite seule l’ADM pourra corriger.</p>
+                        <p class="sch-modal__hint">Choisissez l’utilisateur : nom, téléphone et email sont repris. Complétez ensuite le dossier scolaire. Login, rôle et salaire se gèrent ailleurs.</p>
                     </div>
                     <button type="button" class="sch-modal__close" wire:click="cancel" aria-label="Fermer">&times;</button>
                 </div>
                 <div class="sch-modal__body">
                     <div class="form-grid">
                         @include('school::livewire.partials.teacher-form-fields', [
-                            'showAccess' => true,
-                            'showLock' => true,
+                            'showUserPicker' => true,
+                            'showLock' => false,
                             'showActive' => true,
                             'photoUrl' => null,
                         ])

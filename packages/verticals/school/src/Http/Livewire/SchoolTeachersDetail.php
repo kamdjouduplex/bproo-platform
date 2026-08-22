@@ -11,7 +11,6 @@ use School\Http\Livewire\Concerns\ResolvesTenantCode;
 use School\Models\SchoolOption;
 use School\Models\SchoolTeacher;
 use School\Support\SchoolOptionCatalog;
-use School\Support\TeacherAccountService;
 use School\Support\TeacherPhotoStorage;
 
 class SchoolTeachersDetail extends Component
@@ -69,8 +68,8 @@ class SchoolTeachersDetail extends Component
         if (! $this->authorizeSchool('school_teachers.manage')) {
             return;
         }
-        TeacherAccountService::setActive($this->entity(), true);
-        notify()->success('Compte enseignant réactivé.');
+        $this->entity()->update(['is_active' => true]);
+        notify()->success('Dossier enseignant réactivé.');
     }
 
     public function deactivate(): void
@@ -78,8 +77,8 @@ class SchoolTeachersDetail extends Component
         if (! $this->authorizeSchool('school_teachers.manage')) {
             return;
         }
-        TeacherAccountService::setActive($this->entity(), false);
-        notify()->success('Compte enseignant désactivé. L’accès est bloqué.');
+        $this->entity()->update(['is_active' => false]);
+        notify()->success('Dossier enseignant désactivé.');
     }
 
     protected function resetFormFields(): void
@@ -130,25 +129,9 @@ class SchoolTeachersDetail extends Component
         ));
         $teacher->subjects()->sync(array_map('intval', $this->subjectIds));
 
-        $fresh = $teacher->fresh();
-        $passwordHint = '';
-        if ($isAdmin && $this->createAccess && ! $fresh->user_id) {
-            try {
-                $password = filled($this->accessPassword)
-                    ? $this->accessPassword
-                    : TeacherAccountService::generatePassword();
-                TeacherAccountService::ensureUser($fresh, $password, $this->isActive);
-                $passwordHint = ' Mot de passe initial : '.$password;
-            } catch (\Throwable $e) {
-                $passwordHint = ' Accès login non créé : '.$e->getMessage();
-            }
-        } else {
-            TeacherAccountService::syncUser($fresh);
-        }
-
         notify()->success($locking
-            ? 'Dossier validé. Il ne peut plus être modifié par l’enseignant.'.$passwordHint
-            : 'Enseignant mis à jour.'.$passwordHint);
+            ? 'Dossier validé. Il ne peut plus être modifié par l’enseignant.'
+            : 'Enseignant mis à jour.');
         $this->cancel();
     }
 
@@ -163,7 +146,7 @@ class SchoolTeachersDetail extends Component
 
     protected function entity(): SchoolTeacher
     {
-        return SchoolTeacher::query()->with('subjects')->findOrFail($this->teacherId);
+        return SchoolTeacher::query()->with(['subjects', 'user'])->findOrFail($this->teacherId);
     }
 
     public function render()
@@ -182,7 +165,7 @@ class SchoolTeachersDetail extends Component
             return $row?->label ?? $value;
         };
 
-        return view('school::livewire.school.teachers.detail', array_merge($this->teacherFormCatalogs(), [
+        return view('school::livewire.school.teachers.detail', array_merge($this->teacherFormCatalogs($teacher->user_id ? (int) $teacher->user_id : null), [
             'teacher' => $teacher,
             'isManage' => $isManage,
             'isOwn' => $isOwn,

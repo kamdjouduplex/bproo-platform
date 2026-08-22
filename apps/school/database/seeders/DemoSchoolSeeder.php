@@ -79,7 +79,6 @@ class DemoSchoolSeeder extends Seeder
                 'diploma_kind' => 'licence',
                 'teaching_section' => 'lycee',
                 'schedule_note' => 'Temps plein',
-                'remuneration_amount' => 150000,
                 'profile_status' => 'draft',
                 'is_active' => true,
             ]

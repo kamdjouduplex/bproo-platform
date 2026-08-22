@@ -11,7 +11,6 @@ use School\Http\Livewire\Concerns\ManagesTeacherProfileFields;
 use School\Http\Livewire\Concerns\ResolvesTenantCode;
 use School\Models\SchoolTeacher;
 use School\Support\SchoolOptionCatalog;
-use School\Support\TeacherAccountService;
 use School\Support\TeacherCodeGenerator;
 use School\Support\TeacherPhotoStorage;
 
@@ -110,20 +109,7 @@ class SchoolTeachersIndex extends Component
         ));
         $teacher->subjects()->sync(array_map('intval', $this->subjectIds));
 
-        $passwordHint = '';
-        if ($this->createAccess) {
-            try {
-                $password = filled($this->accessPassword)
-                    ? $this->accessPassword
-                    : TeacherAccountService::generatePassword();
-                TeacherAccountService::ensureUser($teacher->fresh(), $password, $this->isActive);
-                $passwordHint = ' Mot de passe initial : '.$password;
-            } catch (\Throwable $e) {
-                $passwordHint = ' Accès login non créé : '.$e->getMessage();
-            }
-        }
-
-        notify()->success('Enseignant ajouté.'.$passwordHint);
+        notify()->success('Enseignant ajouté.');
         $this->cancel();
     }
 
@@ -160,7 +146,7 @@ class SchoolTeachersIndex extends Component
             'canView' => $canView,
         ]))->layout('layouts.app', [
             'title' => 'École — Enseignants',
-            'subtitle' => 'Comptes et dossiers enseignants.',
+            'subtitle' => 'Dossiers enseignants liés aux utilisateurs.',
         ]);
     }
 }

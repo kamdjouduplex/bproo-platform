@@ -2,7 +2,9 @@
 
 namespace School\Http\Livewire\Concerns;
 
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
+use InovCom\Users\Models\User;
 use School\Models\SchoolOption;
 use School\Models\SchoolSubject;
 use School\Models\SchoolTeacher;
@@ -11,6 +13,8 @@ use School\Support\TeacherCodeGenerator;
 
 trait ManagesTeacherProfileFields
 {
+    public string $userId = '';
+
     public string $teacherCode = '';
 
     public string $firstName = '';
@@ -37,23 +41,27 @@ trait ManagesTeacherProfileFields
 
     public ?string $scheduleNote = null;
 
-    public ?string $remunerationAmount = null;
-
     /** @var list<int|string> */
     public array $subjectIds = [];
 
     public bool $isActive = true;
 
-    public bool $createAccess = true;
-
-    public string $accessPassword = '';
-
     public bool $lockOnSave = false;
 
     public ?string $photoPath = null;
 
+    public function updatedUserId(?string $value): void
+    {
+        $id = (int) $value;
+        if ($id < 1) {
+            return;
+        }
+        $this->applyUserPrefill($id);
+    }
+
     protected function resetTeacherProfileFields(): void
     {
+        $this->userId = '';
         $this->teacherCode = TeacherCodeGenerator::next();
         $this->firstName = '';
         $this->lastName = '';
@@ -67,17 +75,15 @@ trait ManagesTeacherProfileFields
         $this->studiesInProgress = null;
         $this->teachingSection = null;
         $this->scheduleNote = null;
-        $this->remunerationAmount = null;
         $this->subjectIds = [];
         $this->isActive = true;
-        $this->createAccess = true;
-        $this->accessPassword = '';
         $this->lockOnSave = false;
         $this->photoPath = null;
     }
 
     protected function fillTeacherProfileFields(SchoolTeacher $teacher): void
     {
+        $this->userId = $teacher->user_id ? (string) $teacher->user_id : '';
         $this->teacherCode = (string) ($teacher->teacher_code ?: TeacherCodeGenerator::next());
         $this->firstName = (string) ($teacher->first_name ?: '');
         $this->lastName = (string) ($teacher->last_name ?: '');
@@ -91,13 +97,34 @@ trait ManagesTeacherProfileFields
         $this->studiesInProgress = $teacher->studies_in_progress;
         $this->teachingSection = $teacher->teaching_section;
         $this->scheduleNote = $teacher->schedule_note;
-        $this->remunerationAmount = $teacher->remuneration_amount !== null ? (string) $teacher->remuneration_amount : null;
         $this->subjectIds = $teacher->subjects()->pluck('school_subjects.id')->map(fn ($id) => (string) $id)->all();
         $this->isActive = (bool) $teacher->is_active;
-        $this->createAccess = ! $teacher->user_id;
-        $this->accessPassword = '';
         $this->lockOnSave = false;
         $this->photoPath = $teacher->photo_path;
+    }
+
+    protected function applyUserPrefill(int $userId): void
+    {
+        $user = User::on('tenant')->find($userId);
+        if (! $user) {
+            return;
+        }
+
+        $name = trim((string) $user->name);
+        $parts = preg_split('/\s+/', $name, 2) ?: [];
+        $this->firstName = $parts[0] ?? '';
+        $this->lastName = $parts[1] ?? '';
+        if ($this->lastName === '' && $this->firstName !== '') {
+            $this->lastName = $this->firstName;
+        }
+
+        $phone = (string) ($user->phone ?? '');
+        if ($phone !== '') {
+            $this->phone = $phone;
+        }
+
+        $email = strtolower(trim((string) ($user->email ?? '')));
+        $this->email = ($email !== '' && ! str_ends_with($email, '@compte.local')) ? $email : null;
     }
 
     /**
@@ -112,7 +139,13 @@ trait ManagesTeacherProfileFields
 
         $req = $locking ? 'required' : 'nullable';
 
-        $rules = [
+        return [
+            'userId' => [
+                'required',
+                'integer',
+                Rule::exists(User::class, 'id'),
+                Rule::unique(SchoolTeacher::class, 'user_id')->ignore($ignoreId),
+            ],
             'teacherCode' => ['required', 'string', 'max:40', Rule::unique(SchoolTeacher::class, 'teacher_code')->ignore($ignoreId)],
             'firstName' => ['required', 'string', 'max:120'],
             'lastName' => ['required', 'string', 'max:120'],
@@ -131,14 +164,10 @@ trait ManagesTeacherProfileFields
             'studiesInProgress' => ['nullable', 'string', 'max:255'],
             'teachingSection' => [$req, 'string', Rule::in($sectionValues ?: ['lycee'])],
             'scheduleNote' => [$req, 'string', 'max:255'],
-            'remunerationAmount' => [$req, 'numeric', 'min:0'],
             'subjectIds' => [$locking ? 'required' : 'nullable', 'array'],
             'subjectIds.*' => ['integer', Rule::exists(SchoolSubject::class, 'id')],
             'isActive' => ['boolean'],
-            'accessPassword' => ['nullable', 'string', 'min:8'],
         ];
-
-        return $rules;
     }
 
     /**
@@ -151,6 +180,7 @@ trait ManagesTeacherProfileFields
         $nullable = fn (?string $v) => filled($v) ? trim($v) : null;
 
         $payload = [
+            'user_id' => (int) $this->userId,
             'teacher_code' => trim($this->teacherCode),
             'first_name' => $first,
             'last_name' => $last,
@@ -165,7 +195,6 @@ trait ManagesTeacherProfileFields
             'studies_in_progress' => $nullable($this->studiesInProgress),
             'teaching_section' => $nullable($this->teachingSection),
             'schedule_note' => $nullable($this->scheduleNote),
-            'remuneration_amount' => filled($this->remunerationAmount) ? $this->remunerationAmount : null,
             'is_active' => $this->isActive,
         ];
 
@@ -185,7 +214,7 @@ trait ManagesTeacherProfileFields
     /**
      * @return array<string, mixed>
      */
-    protected function teacherFormCatalogs(): array
+    protected function teacherFormCatalogs(?int $keepUserId = null): array
     {
         return [
             'genders' => SchoolOption::forGroup(SchoolOptionCatalog::GROUP_GENDER),
@@ -193,6 +222,27 @@ trait ManagesTeacherProfileFields
             'diplomaKinds' => SchoolOption::forGroup(SchoolOptionCatalog::GROUP_DIPLOMA_KIND),
             'teachingSections' => SchoolOption::forGroup(SchoolOptionCatalog::GROUP_TEACHING_SECTION),
             'subjects' => SchoolSubject::query()->where('is_active', true)->orderBy('name')->get(),
+            'availableUsers' => $this->availableUsers($keepUserId),
         ];
+    }
+
+    protected function availableUsers(?int $keepUserId = null)
+    {
+        $taken = SchoolTeacher::query()
+            ->whereNotNull('user_id')
+            ->when($keepUserId, fn ($q) => $q->where('user_id', '!=', $keepUserId))
+            ->pluck('user_id');
+
+        $query = User::on('tenant')->orderBy('name');
+        try {
+            if (Schema::connection('tenant')->hasColumn('users', 'is_active')) {
+                $query->where('is_active', true);
+            }
+        } catch (\Throwable) {
+        }
+
+        return $query
+            ->when($taken->isNotEmpty(), fn ($q) => $q->whereNotIn('id', $taken))
+            ->get();
     }
 }

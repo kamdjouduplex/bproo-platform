@@ -1,4 +1,24 @@
-{{-- Shared teacher form. Expects Livewire fields + catalogs. $showAccess optional, $showLock optional. --}}
+{{-- Shared teacher form. $showUserPicker / $showLock / $showActive optional. --}}
+@if(!empty($showUserPicker))
+    <div class="form-span-2">
+        <label class="label">Utilisateur <span style="color:#b91c1c;">*</span></label>
+        <select class="input" wire:model.live="userId">
+            <option value="">Choisir un utilisateur…</option>
+            @foreach($availableUsers as $u)
+                <option value="{{ $u->id }}">
+                    {{ $u->name }}
+                    @if($u->phone) — {{ $u->phone }} @endif
+                    @if($u->email) — {{ $u->email }} @endif
+                </option>
+            @endforeach
+        </select>
+        @error('userId') <span class="text-error">{{ $message }}</span> @enderror
+        @if($availableUsers->isEmpty())
+            <p style="margin:4px 0 0; font-size:12px; color:#b45309;">Aucun utilisateur libre. Créez d’abord le compte dans Utilisateurs.</p>
+        @endif
+    </div>
+@endif
+
 @include('school::livewire.partials.student-photo-field', [
     'photoFile' => $photoFile ?? null,
     'photoPath' => $photoPath ?? null,
@@ -34,7 +54,7 @@
 </div>
 <div>
     <label class="label">Téléphone <span style="color:#b91c1c;">*</span></label>
-    <input class="input" wire:model="phone" type="text" placeholder="Obligatoire — sert aussi de login">
+    <input class="input" wire:model="phone" type="text">
     @error('phone') <span class="text-error">{{ $message }}</span> @enderror
 </div>
 <div>
@@ -67,7 +87,7 @@
     </select>
     @error('diplomaKind') <span class="text-error">{{ $message }}</span> @enderror
 </div>
-<div class="form-span-2" x-data>
+<div class="form-span-2">
     <label class="label">Intitulé (si Autre)</label>
     <input class="input" wire:model="diplomaLabel" type="text" placeholder="Précisez le diplôme">
     @error('diplomaLabel') <span class="text-error">{{ $message }}</span> @enderror
@@ -106,24 +126,6 @@
     <input class="input" wire:model="scheduleNote" type="text" placeholder="Ex. Temps plein, Lun–Ven 7h30–15h40">
     @error('scheduleNote') <span class="text-error">{{ $message }}</span> @enderror
 </div>
-<div>
-    <label class="label">Rémunération</label>
-    <input class="input" wire:model="remunerationAmount" type="number" min="0" step="0.01" placeholder="Montant">
-    @error('remunerationAmount') <span class="text-error">{{ $message }}</span> @enderror
-</div>
-@if(!empty($showAccess))
-    <div class="form-span-2" style="border-top:1px solid #e2e8f0; padding-top:12px;">
-        <label class="label" style="margin:0 0 8px;">
-            <input type="checkbox" wire:model.live="createAccess"> Créer un accès de connexion (rôle enseignant)
-        </label>
-        @if($createAccess)
-            <label class="label">Mot de passe initial</label>
-            <input class="input" wire:model="accessPassword" type="text" placeholder="Laissé vide = généré automatiquement">
-            @error('accessPassword') <span class="text-error">{{ $message }}</span> @enderror
-            <p style="margin:4px 0 0; font-size:12px; color:#64748b;">Login : téléphone (ou email s’il est renseigné).</p>
-        @endif
-    </div>
-@endif
 @if(!empty($showLock))
     <div class="form-span-2">
         <label class="label" style="margin:0;">
@@ -134,7 +136,7 @@
 @if(!empty($showActive))
     <div class="form-span-2">
         <label class="label" style="margin:0;">
-            <input type="checkbox" wire:model="isActive"> Compte actif
+            <input type="checkbox" wire:model="isActive"> Dossier actif
         </label>
     </div>
 @endif

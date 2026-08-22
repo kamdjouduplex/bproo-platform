@@ -39,6 +39,7 @@
         <div class="sch-info-grid">
             @foreach([
                 'ID' => $teacher->teacher_code ?? '—',
+                'Utilisateur' => $teacher->user?->name ?? '—',
                 'Nom' => $teacher->last_name ?: '—',
                 'Prénom' => $teacher->first_name ?: '—',
                 'Sexe' => $genderLabel,
@@ -51,9 +52,6 @@
                 'Matières' => $teacher->subjects->pluck('name')->join(', ') ?: '—',
                 'Section' => $sectionLabel,
                 'Horaire' => $teacher->schedule_note ?? '—',
-                'Rémunération' => $teacher->remuneration_amount !== null ? number_format((float) $teacher->remuneration_amount, 0, ',', ' ') : '—',
-                'Compte' => $teacher->user_id ? 'Accès créé' : 'Pas d’accès',
-                'Statut compte' => $teacher->is_active ? 'Actif' : 'Désactivé',
                 'Dossier' => $teacher->isValidated() ? ('Validé le '.($teacher->validated_at?->format('d/m/Y H:i') ?? '—')) : 'À remplir',
             ] as $label => $value)
                 <div class="sch-info-item"><span class="sch-info-item__label">{{ $label }}</span><div class="sch-info-item__value">{{ $value }}</div></div>
@@ -64,7 +62,7 @@
                 <div class="sch-actions-panel__label">Actions ADM</div>
                 <button class="btn btn-primary btn-sm" wire:click="edit">Modifier</button>
                 <button class="btn btn-secondary btn-sm" wire:click="{{ $teacher->is_active ? 'deactivate' : 'activate' }}">
-                    {{ $teacher->is_active ? 'Désactiver le compte' : 'Réactiver le compte' }}
+                    {{ $teacher->is_active ? 'Désactiver le dossier' : 'Réactiver le dossier' }}
                 </button>
             </div>
         @endif
@@ -84,7 +82,7 @@
                 <div class="sch-modal__body">
                     <div class="form-grid">
                         @include('school::livewire.partials.teacher-form-fields', [
-                            'showAccess' => $isManage && ! $teacher->user_id,
+                            'showUserPicker' => false,
                             'showLock' => $isManage,
                             'showActive' => $isManage,
                             'photoUrl' => $photoUrl,
