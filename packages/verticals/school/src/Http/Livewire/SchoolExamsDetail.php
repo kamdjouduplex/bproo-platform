@@ -15,6 +15,8 @@ use School\Models\SchoolExam;
 use School\Models\SchoolExamMark;
 use School\Models\SchoolSubject;
 use School\Models\SchoolTeacher;
+use School\Support\SchoolExamCatalog;
+use School\Support\SchoolOptionCatalog;
 
 class SchoolExamsDetail extends Component
 {
@@ -30,6 +32,9 @@ class SchoolExamsDetail extends Component
     public ?int $subjectId = null;
     public ?int $teacherId = null;
     public string $title = '';
+    public string $kind = 'devoir';
+    public string $period = 'seq_1';
+    public string $lastSuggestedTitle = '';
     public ?string $examDate = null;
     public float $maxScore = 20;
     public float $coefficient = 1;
@@ -44,6 +49,10 @@ class SchoolExamsDetail extends Component
         $this->examId = $id;
         SchoolExam::query()->findOrFail($id);
         $this->mode = str_ends_with(request()->route()?->getName() ?? '', '.manage') ? 'manage' : 'show';
+        try {
+            SchoolOptionCatalog::seedDefaults();
+        } catch (\Throwable) {
+        }
         $this->loadMarkRows();
     }
 
@@ -55,6 +64,9 @@ class SchoolExamsDetail extends Component
         $this->subjectId = $exam->subject_id;
         $this->teacherId = $exam->teacher_id;
         $this->title = $exam->title;
+        $this->kind = (string) ($exam->kind ?: 'devoir');
+        $this->period = (string) ($exam->period ?: 'seq_1');
+        $this->lastSuggestedTitle = SchoolExamCatalog::suggestTitle($this->kind, $this->period);
         $this->examDate = $exam->exam_date?->format('Y-m-d');
         $this->maxScore = (float) $exam->max_score;
         $this->coefficient = (float) $exam->coefficient;
@@ -67,11 +79,33 @@ class SchoolExamsDetail extends Component
     {
         $this->academicYearId = $this->classId = $this->subjectId = $this->teacherId = null;
         $this->title = '';
+        $this->kind = 'devoir';
+        $this->period = 'seq_1';
+        $this->lastSuggestedTitle = '';
         $this->examDate = null;
         $this->maxScore = 20;
         $this->coefficient = 1;
         $this->status = 'draft';
         $this->notes = null;
+    }
+
+    public function updatedKind(): void
+    {
+        $this->suggestTitleIfEmpty();
+    }
+
+    public function updatedPeriod(): void
+    {
+        $this->suggestTitleIfEmpty();
+    }
+
+    protected function suggestTitleIfEmpty(): void
+    {
+        $suggested = SchoolExamCatalog::suggestTitle($this->kind, $this->period);
+        if (trim($this->title) === '' || $this->title === $this->lastSuggestedTitle) {
+            $this->title = $suggested;
+        }
+        $this->lastSuggestedTitle = $suggested;
     }
 
     public function save(): void
@@ -81,11 +115,16 @@ class SchoolExamsDetail extends Component
             // allow editing notes? block structural edits when already closed unless reopening
         }
 
+        $kindValues = SchoolExamCatalog::kindValues();
+        $periodValues = SchoolExamCatalog::periodValues();
+
         $this->validate([
             'academicYearId' => ['required', 'integer', Rule::exists(AcademicYear::class, 'id')],
             'classId' => ['required', 'integer', Rule::exists(SchoolClass::class, 'id')],
             'subjectId' => ['required', 'integer', Rule::exists(SchoolSubject::class, 'id')],
             'teacherId' => ['nullable', 'integer', Rule::exists(SchoolTeacher::class, 'id')],
+            'kind' => ['required', 'string', Rule::in($kindValues !== [] ? $kindValues : [$this->kind])],
+            'period' => ['required', 'string', Rule::in($periodValues !== [] ? $periodValues : [$this->period])],
             'title' => ['required', 'string', 'max:255'],
             'examDate' => ['nullable', 'date'],
             'maxScore' => ['required', 'numeric', 'min:0.01'],
@@ -100,6 +139,8 @@ class SchoolExamsDetail extends Component
             'subject_id' => $this->subjectId,
             'teacher_id' => $this->teacherId,
             'title' => $this->title,
+            'kind' => $this->kind,
+            'period' => $this->period,
             'exam_date' => $this->examDate,
             'max_score' => $this->maxScore,
             'coefficient' => $this->coefficient,
@@ -279,6 +320,8 @@ class SchoolExamsDetail extends Component
             'subjects' => $subjects,
             'teachers' => $teachers,
             'statusLabels' => $statusLabels,
+            'examKinds' => SchoolExamCatalog::kinds(),
+            'examPeriods' => SchoolExamCatalog::periods(),
             'tenantCode' => $this->tenantCode(),
         ])->layout('layouts.app', [
             'title' => ($isManage ? 'Gérer — ' : 'Voir — ').$exam->title,

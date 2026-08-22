@@ -57,6 +57,7 @@
                             <td class="right">
                                 <div class="sch-row-actions">
                                     <a class="btn btn-secondary btn-sm" href="{{ route('tenant.school.enrollments.show', ['tenant' => $tenantCode, 'id' => $e->id]) }}">Voir</a>
+                                    <a class="btn btn-secondary btn-sm" href="{{ route('tenant.school.enrollments.print', ['tenant' => $tenantCode, 'enrollment' => $e->id]) }}" target="_blank">Fiche</a>
                                     <a class="btn btn-primary btn-sm" href="{{ route('tenant.school.enrollments.manage', ['tenant' => $tenantCode, 'id' => $e->id]) }}">Gérer</a>
                                 </div>
                             </td>

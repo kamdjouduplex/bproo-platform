@@ -29,6 +29,18 @@
                     <option value="{{ $s->id }}">{{ $s->name }}</option>
                 @endforeach
             </select>
+            <select class="input" wire:model.live="filterKind" style="max-width:180px;">
+                <option value="">Tous types</option>
+                @foreach($examKinds as $kindOpt)
+                    <option value="{{ $kindOpt['value'] }}">{{ $kindOpt['label'] }}</option>
+                @endforeach
+            </select>
+            <select class="input" wire:model.live="filterPeriod" style="max-width:170px;">
+                <option value="">Toutes périodes</option>
+                @foreach($examPeriods as $periodOpt)
+                    <option value="{{ $periodOpt['value'] }}">{{ $periodOpt['label'] }}</option>
+                @endforeach
+            </select>
             <select class="input" wire:model.live="filterStatus" style="max-width:140px;">
                 <option value="">Tous statuts</option>
                 <option value="draft">Brouillon</option>
@@ -42,7 +54,8 @@
                 <thead>
                     <tr>
                         <th>Épreuve</th>
-                        <th>Année</th>
+                        <th>Type</th>
+                        <th>Période</th>
                         <th>Classe</th>
                         <th>Matière</th>
                         <th>Date</th>
@@ -53,8 +66,12 @@
                 <tbody>
                     @forelse($exams as $exam)
                         <tr>
-                            <td><strong>{{ $exam->title }}</strong></td>
-                            <td>{{ $exam->academicYear?->name ?? '—' }}</td>
+                            <td>
+                                <strong>{{ $exam->title }}</strong>
+                                <div style="font-size:12px; color:#64748b;">{{ $exam->academicYear?->name ?? '—' }}</div>
+                            </td>
+                            <td>{{ $exam->kindLabel() ?: '—' }}</td>
+                            <td>{{ $exam->periodLabel() ?: '—' }}</td>
                             <td>{{ $exam->schoolClass?->name ?? '—' }}</td>
                             <td>{{ $exam->subject?->name ?? '—' }}</td>
                             <td>{{ $exam->exam_date?->format('d/m/Y') ?? '—' }}</td>
@@ -75,7 +92,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="7">Aucun examen.</td></tr>
+                        <tr><td colspan="8">Aucun examen.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -91,78 +108,8 @@
                     <button type="button" class="sch-modal__close" wire:click="cancel" aria-label="Fermer">&times;</button>
                 </div>
                 <div class="sch-modal__body">
-                    <div class="form-grid">
-                        <div class="form-span-2">
-                            <label class="label">Titre</label>
-                            <input class="input" type="text" wire:model="title" placeholder="Devoir 1 — Trimestre 1">
-                            @error('title') <span class="text-error">{{ $message }}</span> @enderror
-                        </div>
-                        <div>
-                            <label class="label">Année académique</label>
-                            <select class="input" wire:model="academicYearId">
-                                <option value="">—</option>
-                                @foreach($years as $y)
-                                    <option value="{{ $y->id }}">{{ $y->name }}</option>
-                                @endforeach
-                            </select>
-                            @error('academicYearId') <span class="text-error">{{ $message }}</span> @enderror
-                        </div>
-                        <div>
-                            <label class="label">Classe</label>
-                            <select class="input" wire:model="classId">
-                                <option value="">—</option>
-                                @foreach($classes as $c)
-                                    <option value="{{ $c->id }}">{{ $c->name }}</option>
-                                @endforeach
-                            </select>
-                            @error('classId') <span class="text-error">{{ $message }}</span> @enderror
-                        </div>
-                        <div>
-                            <label class="label">Matière</label>
-                            <select class="input" wire:model="subjectId">
-                                <option value="">—</option>
-                                @foreach($subjects as $s)
-                                    <option value="{{ $s->id }}">{{ $s->name }}</option>
-                                @endforeach
-                            </select>
-                            @error('subjectId') <span class="text-error">{{ $message }}</span> @enderror
-                        </div>
-                        <div>
-                            <label class="label">Enseignant</label>
-                            <select class="input" wire:model="teacherId">
-                                <option value="">—</option>
-                                @foreach($teachers as $t)
-                                    <option value="{{ $t->id }}">{{ $t->full_name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="label">Date</label>
-                            <input class="input" type="date" wire:model="examDate">
-                        </div>
-                        <div>
-                            <label class="label">Note max</label>
-                            <input class="input" type="number" step="0.01" wire:model="maxScore">
-                            @error('maxScore') <span class="text-error">{{ $message }}</span> @enderror
-                        </div>
-                        <div>
-                            <label class="label">Coefficient</label>
-                            <input class="input" type="number" step="0.01" wire:model="coefficient">
-                            @error('coefficient') <span class="text-error">{{ $message }}</span> @enderror
-                        </div>
-                        <div>
-                            <label class="label">Statut</label>
-                            <select class="input" wire:model="status">
-                                <option value="draft">Brouillon</option>
-                                <option value="open">Ouvert</option>
-                                <option value="closed">Clôturé</option>
-                            </select>
-                        </div>
-                        <div class="form-span-2">
-                            <label class="label">Notes</label>
-                            <textarea class="input" rows="2" wire:model="notes"></textarea>
-                        </div>
-                    </div>
+                    <p class="sch-modal__hint" style="margin:0 0 12px;">Précisez le type (devoir, séquence, trimestre…) et la période. C’est ainsi que le bulletin pourra ensuite regrouper les notes.</p>
+                    @include('school::livewire.partials.exam-form-fields')
                 </div>
                 <div class="sch-modal__foot">
                     <button type="button" class="btn btn-secondary" wire:click="cancel">Annuler</button>

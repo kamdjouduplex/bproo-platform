@@ -35,17 +35,17 @@
 
     <section class="card app-table-card">
         <div class="sch-detail-toolbar">
-            <div><h3 class="sch-detail-toolbar__title" style="font-size:1rem;">Barème (tranches %)</h3></div>
+            <div><h3 class="sch-detail-toolbar__title" style="font-size:1rem;">Barème (notes /{{ rtrim(rtrim(number_format((float) $system->scale_base, 2, ',', ' '), '0'), ',') }})</h3></div>
         </div>
         <div class="table-scroll">
             <table>
-                <thead><tr><th>Libellé</th><th>Min %</th><th>Max %</th><th>Réussite</th><th>Ordre</th>@if($isManage)<th class="right">Actions</th>@endif</tr></thead>
+                <thead><tr><th>Libellé</th><th>Min</th><th>Max</th><th>Réussite</th><th>Ordre</th>@if($isManage)<th class="right">Actions</th>@endif</tr></thead>
                 <tbody>
                     @forelse($system->scales as $scale)
                         <tr>
                             <td><strong>{{ $scale->label }}</strong></td>
-                            <td>{{ $scale->min_percent }}</td>
-                            <td>{{ $scale->max_percent }}</td>
+                            <td>{{ rtrim(rtrim(number_format((float) $scale->min_percent, 2, ',', ' '), '0'), ',') }}</td>
+                            <td>{{ rtrim(rtrim(number_format((float) $scale->max_percent, 2, ',', ' '), '0'), ',') }}</td>
                             <td>{{ $scale->is_pass ? 'Oui' : 'Non' }}</td>
                             <td>{{ $scale->sort_order }}</td>
                             @if($isManage)
@@ -58,7 +58,7 @@
                             @endif
                         </tr>
                     @empty
-                        <tr><td colspan="{{ $isManage ? 6 : 5 }}">Aucune tranche. Ajoutez un barème (ex. Excellent 80–100).</td></tr>
+                        <tr><td colspan="{{ $isManage ? 6 : 5 }}">Aucune tranche. Ajoutez un barème (ex. Excellent 16–20).</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -87,8 +87,8 @@
                 <div class="sch-modal__head"><h3 class="sch-modal__title">{{ $editingScaleId ? 'Modifier la tranche' : 'Nouvelle tranche' }}</h3><button class="sch-modal__close" wire:click="cancelScale">&times;</button></div>
                 <div class="sch-modal__body"><div class="form-grid">
                     <div class="form-span-2"><label class="label">Libellé</label><input class="input" wire:model="scaleLabel">@error('scaleLabel') <span class="text-error">{{ $message }}</span> @enderror</div>
-                    <div><label class="label">Min %</label><input class="input" type="number" step="0.01" wire:model="scaleMin"></div>
-                    <div><label class="label">Max %</label><input class="input" type="number" step="0.01" wire:model="scaleMax">@error('scaleMax') <span class="text-error">{{ $message }}</span> @enderror</div>
+                    <div><label class="label">Min /{{ rtrim(rtrim(number_format((float) $system->scale_base, 2, ',', ' '), '0'), ',') }}</label><input class="input" type="number" step="0.01" min="0" max="{{ $system->scale_base }}" wire:model="scaleMin">@error('scaleMin') <span class="text-error">{{ $message }}</span> @enderror</div>
+                    <div><label class="label">Max /{{ rtrim(rtrim(number_format((float) $system->scale_base, 2, ',', ' '), '0'), ',') }}</label><input class="input" type="number" step="0.01" min="0" max="{{ $system->scale_base }}" wire:model="scaleMax">@error('scaleMax') <span class="text-error">{{ $message }}</span> @enderror</div>
                     <div><label class="label">Ordre</label><input class="input" type="number" wire:model="scaleSort"></div>
                     <div><label class="label"><input type="checkbox" wire:model="scaleIsPass"> Compte comme réussite</label></div>
                 </div></div>

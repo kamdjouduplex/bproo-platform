@@ -13,13 +13,20 @@ class SchoolStudent extends TenantModel
 
     protected $fillable = [
         'student_code',
+        'nisu',
         'first_name',
         'last_name',
         'gender',
         'birth_date',
+        'birth_place',
+        'address',
         'parent_full_name',
         'parent_phone',
         'parent_email',
+        'parent_relationship',
+        'emergency_contact_name',
+        'emergency_contact_phone',
+        'previous_school',
         'photo_path',
         'notes',
         'is_active',
@@ -48,6 +55,21 @@ class SchoolStudent extends TenantModel
     public function idCards()
     {
         return $this->hasMany(StudentIdCard::class, 'student_id');
+    }
+
+    public function attendanceRecords()
+    {
+        return $this->hasMany(SchoolAttendanceRecord::class, 'student_id');
+    }
+
+    public function documents()
+    {
+        return $this->hasMany(SchoolStudentDocument::class, 'student_id');
+    }
+
+    public function currentEnrollment()
+    {
+        return $this->hasOne(SchoolEnrollment::class, 'student_id')->latestOfMany();
     }
 
     public function getFullNameAttribute(): string

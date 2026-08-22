@@ -22,5 +22,10 @@ class SchoolClass extends TenantModel
     {
         return $this->hasMany(SchoolEnrollment::class, 'class_id');
     }
+
+    public function courses()
+    {
+        return $this->hasMany(SchoolCourse::class, 'class_id');
+    }
 }
 

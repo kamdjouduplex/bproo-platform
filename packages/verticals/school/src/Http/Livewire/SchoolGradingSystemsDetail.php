@@ -26,7 +26,7 @@ class SchoolGradingSystemsDetail extends Component
     public ?int $editingScaleId = null;
     public string $scaleLabel = '';
     public float $scaleMin = 0;
-    public float $scaleMax = 100;
+    public float $scaleMax = 20;
     public bool $scaleIsPass = true;
     public int $scaleSort = 100;
 
@@ -85,7 +85,7 @@ class SchoolGradingSystemsDetail extends Component
         $this->editingScaleId = null;
         $this->scaleLabel = '';
         $this->scaleMin = 0;
-        $this->scaleMax = 100;
+        $this->scaleMax = (float) $this->entity()->scale_base ?: 20;
         $this->scaleIsPass = true;
         $this->scaleSort = 100;
         $this->showScaleForm = true;
@@ -113,12 +113,17 @@ class SchoolGradingSystemsDetail extends Component
 
     public function saveScale(): void
     {
+        $base = (float) $this->entity()->scale_base ?: 20;
+
         $this->validate([
             'scaleLabel' => ['required', 'string', 'max:80'],
-            'scaleMin' => ['required', 'numeric', 'min:0', 'max:100'],
-            'scaleMax' => ['required', 'numeric', 'min:0', 'max:100', 'gte:scaleMin'],
+            'scaleMin' => ['required', 'numeric', 'min:0', 'max:'.$base],
+            'scaleMax' => ['required', 'numeric', 'min:0', 'max:'.$base, 'gte:scaleMin'],
             'scaleIsPass' => ['boolean'],
             'scaleSort' => ['integer', 'min:0'],
+        ], [
+            'scaleMax.max' => 'La note max ne peut pas dépasser /'.rtrim(rtrim(number_format($base, 2, ',', ' '), '0'), ',').'.',
+            'scaleMin.max' => 'La note min ne peut pas dépasser /'.rtrim(rtrim(number_format($base, 2, ',', ' '), '0'), ',').'.',
         ]);
 
         $payload = [

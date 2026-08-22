@@ -15,7 +15,7 @@ class SchoolRoleCatalog
         return [
             [
                 'name' => 'directeur',
-                'description' => 'Directeur — configuration, publication et supervision',
+                'description' => 'Directeur — supervision, publication et configuration',
                 'permissions' => [
                     'school.view', 'school.manage',
                     'school_years.view', 'school_years.manage',
@@ -23,6 +23,7 @@ class SchoolRoleCatalog
                     'school_subjects.view', 'school_subjects.manage',
                     'school_teachers.view', 'school_teachers.manage',
                     'school_students.view', 'school_students.manage',
+                    'school_documents.view', 'school_documents.manage',
                     'school_enrollments.view', 'school_enrollments.manage',
                     'school_payments.view', 'school_payments.manage', 'school_payments.verify',
                     'school_id_cards.view', 'school_id_cards.manage',
@@ -33,13 +34,53 @@ class SchoolRoleCatalog
                     'school_fees.view', 'school_fees.manage',
                     'school_notifications.view', 'school_notifications.manage',
                     'school_settings.view', 'school_settings.manage',
+                    'school_attendance.view', 'school_attendance.manage',
+                    'school_timetable.view', 'school_timetable.manage',
+                    'school_reports.view',
+                    'school_pilotage.view',
                     'users.view', 'users.manage',
                     'configuration.view', 'configuration.edit',
                 ],
             ],
             [
+                'name' => 'secretaire',
+                'description' => 'Secrétaire — élèves, inscriptions, cartes et présences',
+                'permissions' => [
+                    'school.view',
+                    'school_years.view',
+                    'school_classes.view',
+                    'school_subjects.view',
+                    'school_teachers.view',
+                    'school_students.view', 'school_students.manage',
+                    'school_documents.view', 'school_documents.manage',
+                    'school_enrollments.view', 'school_enrollments.manage',
+                    'school_id_cards.view', 'school_id_cards.manage',
+                    'school_attendance.view', 'school_attendance.manage',
+                    'school_timetable.view', 'school_timetable.manage',
+                    'school_reports.view',
+                    'school_pilotage.view',
+                    'school_notifications.view',
+                ],
+            ],
+            [
+                'name' => 'econome',
+                'description' => 'Économe — frais, paiements, débiteurs et rapports financiers',
+                'permissions' => [
+                    'school.view',
+                    'school_years.view',
+                    'school_classes.view',
+                    'school_students.view',
+                    'school_enrollments.view',
+                    'school_fees.view', 'school_fees.manage',
+                    'school_payments.view', 'school_payments.manage', 'school_payments.verify',
+                    'school_reports.view',
+                    'school_pilotage.view',
+                    'school_notifications.view',
+                ],
+            ],
+            [
                 'name' => 'enseignant',
-                'description' => 'Enseignant — élèves, examens, notes et bulletins (lecture)',
+                'description' => 'Enseignant — élèves, présences, notes et bulletins',
                 'permissions' => [
                     'school.view',
                     'school_years.view',
@@ -48,6 +89,8 @@ class SchoolRoleCatalog
                     'school_teachers.view',
                     'school_students.view',
                     'school_enrollments.view',
+                    'school_attendance.view', 'school_attendance.manage',
+                    'school_timetable.view',
                     'school_exams.view', 'school_exams.manage', 'school_exams.marks',
                     'school_grading.view',
                     'school_publications.view',
@@ -67,6 +110,7 @@ class SchoolRoleCatalog
                     'school_payments.view', 'school_payments.manage', 'school_payments.verify',
                     'school_id_cards.view', 'school_id_cards.manage',
                     'school_notifications.view',
+                    'school_reports.view',
                 ],
             ],
         ];
@@ -90,7 +134,6 @@ class SchoolRoleCatalog
                 ->all();
 
             if ($permIds !== []) {
-                // Full sync so role definitions stay accurate in real usage.
                 $role->permissions()->sync($permIds);
             }
         }

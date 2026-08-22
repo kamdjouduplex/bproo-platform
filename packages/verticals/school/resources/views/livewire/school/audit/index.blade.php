@@ -5,6 +5,10 @@
         $tableLabels = [
             'school_students' => 'Élèves',
             'school_enrollments' => 'Inscriptions',
+            'school_attendance_records' => 'Présences',
+            'school_courses' => 'Cours',
+            'school_timetable_slots' => 'Emploi du temps',
+            'school_rooms' => 'Salles',
             'school_payments' => 'Paiements',
             'school_exams' => 'Examens',
             'school_exam_marks' => 'Notes',
@@ -12,6 +16,7 @@
             'academic_years' => 'Années',
             'school_result_publications' => 'Publications',
             'student_id_cards' => 'Cartes ID',
+            'school_student_documents' => 'Pièces',
         ];
         $eventMeta = [
             'created' => ['label' => 'Créé', 'class' => 'badge-success'],

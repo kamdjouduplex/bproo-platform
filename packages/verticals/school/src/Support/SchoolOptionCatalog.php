@@ -9,6 +9,11 @@ final class SchoolOptionCatalog
     public const GROUP_SECTION = 'section';
     public const GROUP_GENDER = 'gender';
     public const GROUP_ENROLLMENT_STATUS = 'enrollment_status';
+    public const GROUP_PARENT_RELATIONSHIP = 'parent_relationship';
+    public const GROUP_COURSE_PERIOD = 'course_period';
+    public const GROUP_DOCUMENT_TYPE = 'document_type';
+    public const GROUP_EXAM_KIND = 'exam_kind';
+    public const GROUP_EXAM_PERIOD = 'exam_period';
 
     /**
      * @return array<string, array{label: string, hint: string, defaults: list<array{value: string, label: string, sort_order: int}>}>
@@ -42,6 +47,49 @@ final class SchoolOptionCatalog
                     ['value' => 'graduated', 'label' => 'Diplômé', 'sort_order' => 30],
                     ['value' => 'inactive', 'label' => 'Inactif', 'sort_order' => 40],
                 ],
+            ],
+            self::GROUP_PARENT_RELATIONSHIP => [
+                'label' => 'Lien parent / tuteur',
+                'hint' => 'Qualité du responsable légal',
+                'defaults' => [
+                    ['value' => 'father', 'label' => 'Père', 'sort_order' => 10],
+                    ['value' => 'mother', 'label' => 'Mère', 'sort_order' => 20],
+                    ['value' => 'guardian', 'label' => 'Tuteur', 'sort_order' => 30],
+                    ['value' => 'other', 'label' => 'Autre', 'sort_order' => 40],
+                ],
+            ],
+            self::GROUP_COURSE_PERIOD => [
+                'label' => 'Tranches de cours',
+                'hint' => 'Heures de la journée pour l’emploi du temps (1ère heure, 2e heure…).',
+                'defaults' => [
+                    ['value' => '07:30-08:20', 'label' => '1ère heure', 'sort_order' => 10],
+                    ['value' => '08:25-09:15', 'label' => '2e heure', 'sort_order' => 20],
+                    ['value' => '09:20-10:10', 'label' => '3e heure', 'sort_order' => 30],
+                    ['value' => '10:30-11:20', 'label' => '4e heure', 'sort_order' => 40],
+                    ['value' => '11:25-12:15', 'label' => '5e heure', 'sort_order' => 50],
+                    ['value' => '13:00-13:50', 'label' => '6e heure', 'sort_order' => 60],
+                    ['value' => '13:55-14:45', 'label' => '7e heure', 'sort_order' => 70],
+                    ['value' => '14:50-15:40', 'label' => '8e heure', 'sort_order' => 80],
+                ],
+            ],
+            self::GROUP_DOCUMENT_TYPE => [
+                'label' => 'Types de pièces',
+                'hint' => 'Documents du dossier élève. L’acte de naissance et la pièce d’identité du parent restent obligatoires.',
+                'defaults' => array_map(fn ($row) => [
+                    'value' => $row['value'],
+                    'label' => $row['label'],
+                    'sort_order' => $row['sort_order'],
+                ], SchoolDocumentCatalog::defaults()),
+            ],
+            self::GROUP_EXAM_KIND => [
+                'label' => 'Types d’évaluation',
+                'hint' => 'Devoir, interrogation, épreuve de séquence, composition trimestrielle…',
+                'defaults' => SchoolExamCatalog::kindDefaults(),
+            ],
+            self::GROUP_EXAM_PERIOD => [
+                'label' => 'Périodes d’évaluation',
+                'hint' => 'Séquences et trimestres. Désactivez ce que votre école n’utilise pas.',
+                'defaults' => SchoolExamCatalog::periodDefaults(),
             ],
         ];
     }

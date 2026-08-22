@@ -22,13 +22,15 @@ Prod beta : `https://school.afroinov.com` (port **8095**).
 | `school` | Hub / tableau de bord |
 | `school_years` | Années académiques (+ carry-over) |
 | `school_classes` / `school_subjects` / `school_teachers` | Référentiel |
-| `school_students` / `school_enrollments` | Élèves & inscriptions |
+| `school_students` / `school_enrollments` | Élèves, parents & inscriptions |
+| `school_attendance` | Appel quotidien (présent / absent / retard) |
 | `school_id_cards` | Cartes ID (QR, lot 12/A4) |
 | `school_fees` / `school_payments` | Frais, paiements, soldes |
 | `school_exams` / `school_grading` | Examens & barèmes |
 | `school_publications` / `school_report_cards` | Publication & bulletins |
+| `school_reports` | Listes, débiteurs, paiements (PDF) |
 | `school_notifications` | Journal SMS/email (channels optionnels) |
-| `school_settings` | Listes, langues, audit |
+| `school_settings` | Listes, matricules, langues, audit |
 | `users` / `configuration` | Core tenant |
 
 Les modules commerce / pharmacie restent dans le host mais **ne s’activent pas** pour un tenant `school`.
@@ -61,9 +63,7 @@ Comptes typiques (voir seeder) : `directeur.demo@school.test` / `Directeur#2025`
 
 - SMS / email : non requis ; sans config les notifs sont journalisées en `skipped`.
 - Cartes ID : QR oui, code-barres (rendu) plus tard.
-- IDs élèves : motif fixe `SCH-{année}-{####}` pour l’instant.
-- Emplois du temps / présences : hors scope beta.
-- UI principalement en français (switcher locale présent, traductions school partielles).
+- Hors v2 : bibliothèque, internat, transport, inventaire, sponsors, paie, emploi du temps.
 
 ## Déploiement
 

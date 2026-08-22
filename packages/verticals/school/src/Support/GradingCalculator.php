@@ -107,6 +107,8 @@ class GradingCalculator
             $bySubject[$sid]['exams'][] = [
                 'exam_id' => $exam->id,
                 'title' => $exam->title,
+                'kind' => $exam->kind,
+                'period' => $exam->period,
                 'raw_score' => $mark?->score,
                 'is_absent' => (bool) ($mark?->is_absent),
                 'normalized_score' => $score,
@@ -163,7 +165,7 @@ class GradingCalculator
         }
 
         $gradeLabel = $average !== null
-            ? $this->resolveGradeLabel($system, ($average / $scaleBase) * 100)
+            ? $this->resolveGradeLabel($system, $average)
             : null;
 
         $passedOverall = $average !== null && $average >= $passMark;
@@ -207,7 +209,7 @@ class GradingCalculator
         return $query->whereNull('class_id')->first();
     }
 
-    public function resolveGradeLabel(?SchoolGradingSystem $system, float $percent): ?string
+    public function resolveGradeLabel(?SchoolGradingSystem $system, float $score): ?string
     {
         if (! $system) {
             return null;
@@ -219,7 +221,7 @@ class GradingCalculator
 
         foreach ($scales as $scale) {
             /** @var SchoolGradeScale $scale */
-            if ($percent >= (float) $scale->min_percent && $percent <= (float) $scale->max_percent) {
+            if ($score >= (float) $scale->min_percent && $score <= (float) $scale->max_percent) {
                 return $scale->label;
             }
         }

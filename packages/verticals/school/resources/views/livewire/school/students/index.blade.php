@@ -5,6 +5,7 @@
         <div class="sch-list-head">
             <h2 class="sch-list-head__title">Élèves</h2>
             <div class="sch-list-head__actions">
+                <button type="button" class="btn btn-secondary btn-sm" wire:click="exportExcel">Excel ministère</button>
                 @if($canManage ?? true)
                     <button type="button" class="btn btn-primary btn-sm" wire:click="create">Nouvel élève</button>
                 @endif
@@ -12,7 +13,7 @@
         </div>
 
         <div class="sch-filters">
-            <input class="input input--grow" type="search" wire:model.live.debounce.300ms="search" placeholder="ID, nom, parent, téléphone…">
+            <input class="input input--grow" type="search" wire:model.live.debounce.300ms="search" placeholder="NISU, matricule, nom, parent…">
             <select class="input" wire:model.live="filterGender" style="max-width:160px;">
                 <option value="">Tous genres</option>
                 @foreach($genders as $g)
@@ -31,8 +32,10 @@
                 <thead>
                     <tr>
                         <th style="width:56px;"></th>
-                        <th>Student ID</th>
+                        <th>Matricule</th>
+                        <th>NISU</th>
                         <th>Élève</th>
+                        <th>Classe</th>
                         <th>Parent</th>
                         <th>Téléphone</th>
                         <th>Profil</th>
@@ -57,7 +60,9 @@
                                 @endif
                             </td>
                             <td><strong>{{ $s->student_code }}</strong></td>
+                            <td>{{ $s->nisu ?: '—' }}</td>
                             <td>{{ $s->first_name }} {{ $s->last_name }}</td>
+                            <td>{{ $s->currentEnrollment?->schoolClass?->name ?? '—' }}</td>
                             <td>{{ $s->parent_full_name ?? '—' }}</td>
                             <td>{{ $s->parent_phone ?? '—' }}</td>
                             <td>{{ $pct }}%</td>
@@ -78,7 +83,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="8">Aucun élève.</td></tr>
+                        <tr><td colspan="10">Aucun élève.</td></tr>
                     @endforelse
                 </tbody>
             </table>
@@ -97,48 +102,7 @@
                     <button type="button" class="sch-modal__close" wire:click="cancel" aria-label="Fermer">&times;</button>
                 </div>
                 <div class="sch-modal__body">
-                    <div class="form-grid">
-                        <div>
-                            <label class="label">Student ID</label>
-                            <input class="input" wire:model="studentCode" type="text" placeholder="SCH-2026-0001">
-                            @error('studentCode') <span class="text-error">{{ $message }}</span> @enderror
-                        </div>
-                        <div>
-                            <label class="label">Genre</label>
-                            <select class="input" wire:model="gender">
-                                <option value="">—</option>
-                                @foreach ($genders as $opt)
-                                    <option value="{{ $opt->value }}">{{ $opt->label }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="label">Prénom</label>
-                            <input class="input" wire:model="firstName" type="text">
-                            @error('firstName') <span class="text-error">{{ $message }}</span> @enderror
-                        </div>
-                        <div>
-                            <label class="label">Nom</label>
-                            <input class="input" wire:model="lastName" type="text">
-                            @error('lastName') <span class="text-error">{{ $message }}</span> @enderror
-                        </div>
-                        <div>
-                            <label class="label">Naissance</label>
-                            <input class="input" wire:model="birthDate" type="date">
-                        </div>
-                        <div>
-                            <label class="label">Parent / Tuteur</label>
-                            <input class="input" wire:model="parentFullName" type="text">
-                        </div>
-                        <div>
-                            <label class="label">Téléphone parent</label>
-                            <input class="input" wire:model="parentPhone" type="text">
-                        </div>
-                        <div>
-                            <label class="label">Email parent</label>
-                            <input class="input" wire:model="parentEmail" type="email">
-                            @error('parentEmail') <span class="text-error">{{ $message }}</span> @enderror
-                        </div>
+                    @include('school::livewire.partials.student-form-fields')
                         @include('school::livewire.partials.student-photo-cropper', [
                             'wireMethod' => 'setCroppedPhoto',
                             'currentUrl' => $croppedPreview ?? null,

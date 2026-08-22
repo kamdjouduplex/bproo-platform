@@ -3992,7 +3992,7 @@ tbody tr.client-row--debt-active {
     color: var(--ph-ink);
 }
 
-.app-sidebar-link:first-child {
+.app-sidebar-nav > a.app-sidebar-link:first-child {
     font-weight: 600;
     color: #0f172a;
 }
@@ -4044,26 +4044,81 @@ tbody tr.client-row--debt-active {
     cursor: pointer;
     text-align: left;
     font: inherit;
+    font-weight: 400;
+    color: #475569;
 }
 
-.app-sidebar-caret {
-    width: 16px;
-    height: 16px;
+.app-sidebar-link--parent:hover {
+    color: #0f172a;
+}
+
+.app-sidebar-plus {
+    position: relative;
+    width: 12px;
+    height: 12px;
     margin-left: auto;
-    color: #94a3b8;
-    transition: transform 0.15s ease;
     flex-shrink: 0;
+    color: #94a3b8;
 }
 
-.app-sidebar-caret--open {
-    transform: rotate(180deg);
+.app-sidebar-link--parent:hover .app-sidebar-plus {
+    color: #64748b;
+}
+
+.app-sidebar-plus::before,
+.app-sidebar-plus::after {
+    content: "";
+    position: absolute;
+    background: currentColor;
+    border-radius: 1px;
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease;
+}
+
+.app-sidebar-plus::before {
+    width: 12px;
+    height: 1.5px;
+    top: 5.25px;
+    left: 0;
+}
+
+.app-sidebar-plus::after {
+    width: 1.5px;
+    height: 12px;
+    top: 0;
+    left: 5.25px;
+}
+
+.app-sidebar-plus.is-open::after {
+    transform: rotate(90deg) scaleY(0);
+    opacity: 0;
+}
+
+.app-sidebar-sub-panel {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.app-sidebar-sub-panel.is-open {
+    grid-template-rows: 1fr;
 }
 
 .app-sidebar-sub {
     display: flex;
     flex-direction: column;
     gap: 2px;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.22s ease, transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), padding 0.28s ease;
+}
+
+.app-sidebar-sub-panel.is-open .app-sidebar-sub {
     padding: 2px 0 6px;
+    opacity: 1;
+    transform: translateY(0);
 }
 
 .app-sidebar-link--child {

@@ -8,6 +8,7 @@
                 <button type="button" class="btn btn-secondary btn-sm" wire:click="syncFeesForVisible" wire:confirm="Imputer les structures de frais manquantes pour l’année / classe filtrées ?">
                     Imputer les frais
                 </button>
+                <a class="btn btn-secondary btn-sm" href="{{ route('tenant.school.reports.print', ['tenant' => $tenantCode, 'type' => 'debtors', 'year' => $filterYearId, 'class' => $filterClassId]) }}" target="_blank">PDF débiteurs</a>
                 <a class="btn btn-primary btn-sm" href="{{ route('tenant.school.payments.index', ['tenant' => $tenantCode]) }}">Nouveau paiement</a>
             </div>
         </div>
@@ -24,7 +25,14 @@
                 <div style="font-size:11px; color:#991b1b;">Impayé</div>
                 <div style="font-size:20px; font-weight:700;">{{ $counts['unpaid'] }}</div>
             </div>
-            <div style="padding:10px 14px; border:1px solid #e2e8f0; background:#f8fafc; border-radius:8px; min-width:140px;">
+            <div style="padding:10px 14px; border:1px solid #99f6e4; background:#f0fdfa; border-radius:8px; min-width:160px;">
+                <div style="font-size:11px; color:#0f766e;">Solde déjà perçu</div>
+                <div style="font-size:20px; font-weight:700;">{{ number_format($counts['paid_total'], 0, ',', ' ') }}</div>
+                @if(($counts['charged_total'] ?? 0) > 0)
+                    <div style="font-size:11px; color:#64748b; margin-top:2px;">sur {{ number_format($counts['charged_total'], 0, ',', ' ') }} imputés</div>
+                @endif
+            </div>
+            <div style="padding:10px 14px; border:1px solid #e2e8f0; background:#f8fafc; border-radius:8px; min-width:160px;">
                 <div style="font-size:11px; color:#475569;">Reste à recouvrer</div>
                 <div style="font-size:20px; font-weight:700;">{{ number_format($counts['due_total'], 0, ',', ' ') }}</div>
             </div>

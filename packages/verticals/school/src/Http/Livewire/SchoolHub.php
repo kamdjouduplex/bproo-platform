@@ -14,11 +14,14 @@ use School\Models\SchoolExam;
 use School\Models\SchoolPayment;
 use School\Models\SchoolStudent;
 use School\Models\SchoolTeacher;
+use School\Support\SchoolBootstrap;
 
 class SchoolHub extends Component
 {
     public function render()
     {
+        SchoolBootstrap::ensure();
+
         $tenant = App::bound('tenant') ? App::make('tenant') : null;
         $registry = App::bound(ModuleRegistry::class) ? App::make(ModuleRegistry::class) : null;
         $tenantCode = request()->query('tenant')
@@ -34,7 +37,13 @@ class SchoolHub extends Component
                 'items' => [
                     ['module' => 'school_teachers', 'label' => 'Enseignants', 'route' => 'tenant.school.teachers.index', 'hint' => 'Profils enseignants'],
                     ['module' => 'school_students', 'label' => 'Élèves', 'route' => 'tenant.school.students.index', 'hint' => 'Profils + historique'],
-                    ['module' => 'school_enrollments', 'label' => 'Inscriptions', 'route' => 'tenant.school.enrollments.index', 'hint' => 'Enrollement par année'],
+                    ['module' => 'school_students', 'label' => 'Parents', 'route' => 'tenant.school.parents.index', 'hint' => 'Tuteurs et enfants'],
+                    ['module' => 'school_documents', 'label' => 'Pièces', 'route' => 'tenant.school.documents.index', 'hint' => 'Acte de naissance et autres documents'],
+                    ['module' => 'school_enrollments', 'label' => 'Inscriptions', 'route' => 'tenant.school.enrollments.index', 'hint' => 'Inscription par année'],
+                    ['module' => 'school_timetable', 'label' => 'Cours', 'route' => 'tenant.school.courses.index', 'hint' => 'Matière + enseignant par classe'],
+                    ['module' => 'school_timetable', 'label' => 'Emploi du temps', 'route' => 'tenant.school.timetable.index', 'hint' => 'Grille semaine par classe / enseignant'],
+                    ['module' => 'school_timetable', 'label' => 'Salles', 'route' => 'tenant.school.rooms.index', 'hint' => 'Locaux (distincts des classes)'],
+                    ['module' => 'school_attendance', 'label' => 'Présences', 'route' => 'tenant.school.attendance.index', 'hint' => 'Appel par cours'],
                     ['module' => 'school_id_cards', 'label' => 'Cartes ID', 'route' => 'tenant.school.id_cards.index', 'hint' => 'QR / impression'],
                 ],
             ],
@@ -44,6 +53,7 @@ class SchoolHub extends Component
                     ['module' => 'school_fees', 'label' => 'Structures de frais', 'route' => 'tenant.school.fees.index', 'hint' => 'Barèmes par année / classe'],
                     ['module' => 'school_payments', 'label' => 'Paiements', 'route' => 'tenant.school.payments.index', 'hint' => 'Banque & paiements à l’école'],
                     ['module' => 'school_payments', 'label' => 'Soldes scolarité', 'route' => 'tenant.school.tuition.index', 'hint' => 'À jour / partiel / impayé'],
+                    ['module' => 'school_reports', 'label' => 'Rapports', 'route' => 'tenant.school.reports.index', 'hint' => 'Listes, finances, présences, notes'],
                 ],
             ],
             'school_examens' => [
@@ -66,8 +76,10 @@ class SchoolHub extends Component
             'school_admin' => [
                 'label' => 'Administration',
                 'items' => [
+                    ['module' => 'school_pilotage', 'label' => 'Pilotage', 'route' => 'tenant.school.pilotage.index', 'hint' => 'Cockpit direction'],
                     ['module' => 'school_notifications', 'label' => 'Notifications', 'route' => 'tenant.school.notifications.index', 'hint' => 'SMS / Email'],
                     ['module' => 'school_settings', 'label' => 'Paramétrage', 'route' => 'tenant.school.options.index', 'hint' => 'Listes configurables'],
+                    ['module' => 'school_settings', 'label' => 'Matricules', 'route' => 'tenant.school.id_settings.index', 'hint' => 'Modèle d’identifiants'],
                     ['module' => 'school_settings', 'label' => 'Langues', 'route' => 'tenant.school.languages.index', 'hint' => 'FR / EN / ES / PT / AR'],
                     ['module' => 'school_settings', 'label' => 'Audit', 'route' => 'tenant.school.audit.index', 'hint' => 'Journal des actions'],
                 ],
@@ -159,6 +171,8 @@ class SchoolHub extends Component
         foreach ([
             ['module' => 'school_students', 'label' => 'Élèves', 'route' => 'tenant.school.students.index', 'style' => 'primary'],
             ['module' => 'school_enrollments', 'label' => 'Inscriptions', 'route' => 'tenant.school.enrollments.index', 'style' => 'secondary'],
+            ['module' => 'school_attendance', 'label' => 'Présences', 'route' => 'tenant.school.attendance.index', 'style' => 'secondary'],
+            ['module' => 'school_timetable', 'label' => 'Emploi du temps', 'route' => 'tenant.school.timetable.index', 'style' => 'secondary'],
             ['module' => 'school_payments', 'label' => 'Paiements', 'route' => 'tenant.school.payments.index', 'style' => 'secondary'],
             ['module' => 'school_exams', 'label' => 'Examens', 'route' => 'tenant.school.exams.index', 'style' => 'secondary'],
             ['module' => 'school_report_cards', 'label' => 'Bulletins', 'route' => 'tenant.school.report_cards.index', 'style' => 'secondary'],

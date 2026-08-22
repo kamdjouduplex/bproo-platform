@@ -144,6 +144,8 @@ class SchoolTuitionIndex extends Component
             'partial' => $rows->where('status', 'partial')->count(),
             'unpaid' => $rows->where('status', 'unpaid')->count(),
             'none' => $rows->where('status', 'none')->count(),
+            'charged_total' => round((float) $rows->sum('charged'), 0),
+            'paid_total' => round((float) $rows->sum('paid'), 0),
             'due_total' => round((float) $rows->sum('due'), 0),
         ];
 

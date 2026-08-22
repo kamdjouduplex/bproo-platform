@@ -2,16 +2,21 @@
 
 namespace School\Http\Livewire;
 
-use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 use School\Http\Livewire\Concerns\AuthorizesSchoolActions;
 use School\Http\Livewire\Concerns\ManagesSchoolCrudUi;
+use School\Http\Livewire\Concerns\ManagesStudentDocuments;
+use School\Http\Livewire\Concerns\ManagesStudentProfileFields;
 use School\Http\Livewire\Concerns\ResolvesTenantCode;
+use School\Models\SchoolAttendanceRecord;
 use School\Models\SchoolExamMark;
 use School\Models\SchoolOption;
 use School\Models\SchoolStudent;
 use School\Models\SchoolStudentLedgerEntry;
+use School\Support\SchoolDocumentCatalog;
 use School\Support\SchoolOptionCatalog;
 use School\Support\StudentLedgerService;
 use School\Support\StudentPhotoStorage;
@@ -21,6 +26,8 @@ class SchoolStudentsDetail extends Component
 {
     use AuthorizesSchoolActions;
     use ManagesSchoolCrudUi;
+    use ManagesStudentDocuments;
+    use ManagesStudentProfileFields;
     use ResolvesTenantCode;
     use WithFileUploads;
 
@@ -28,39 +35,17 @@ class SchoolStudentsDetail extends Component
 
     public string $mode = 'show';
 
-    public string $studentCode = '';
-
-    public string $firstName = '';
-
-    public string $lastName = '';
-
-    public ?string $gender = null;
-
-    public ?string $birthDate = null;
-
-    public ?string $parentFullName = null;
-
-    public ?string $parentPhone = null;
-
-    public ?string $parentEmail = null;
-
-    public ?string $photoPath = null;
-
     /** @var mixed */
     public $photoFile = null;
 
     public bool $removePhoto = false;
 
-    /** Dedicated quick upload on manage page (independent from edit modal). */
     /** @var mixed */
     public $profilePhotoFile = null;
 
-    /** Cropped data URI waiting to be saved with create/edit form. */
     public ?string $croppedPhotoData = null;
 
-    public ?string $notes = null;
-
-    public bool $isActive = true;
+    public string $dossierTab = 'scolarite';
 
     public function mount(int $id): void
     {
@@ -69,6 +54,13 @@ class SchoolStudentsDetail extends Component
         $this->mode = str_ends_with(request()->route()?->getName() ?? '', '.manage') ? 'manage' : 'show';
         if ($this->mode === 'manage' && ! $this->canSchool('school_students.manage')) {
             $this->mode = 'show';
+        }
+        $tab = (string) request()->query('tab', '');
+        if ($tab === 'pieces' && ! $this->canSchool('school_documents.view')) {
+            $tab = 'scolarite';
+        }
+        if (in_array($tab, ['scolarite', 'finances', 'notes', 'presences', 'pieces'], true)) {
+            $this->dossierTab = $tab;
         }
     }
 
@@ -140,13 +132,7 @@ class SchoolStudentsDetail extends Component
             return;
         }
         $student = $this->entity();
-        foreach (['studentCode' => 'student_code', 'firstName' => 'first_name', 'lastName' => 'last_name',
-            'gender' => 'gender', 'parentFullName' => 'parent_full_name', 'parentPhone' => 'parent_phone',
-            'parentEmail' => 'parent_email', 'photoPath' => 'photo_path', 'notes' => 'notes'] as $property => $column) {
-            $this->{$property} = $student->{$column};
-        }
-        $this->birthDate = $student->birth_date?->format('Y-m-d');
-        $this->isActive = (bool) $student->is_active;
+        $this->fillStudentProfileFields($student);
         $this->photoFile = null;
         $this->removePhoto = false;
         $this->openEditForm($student->id);
@@ -172,13 +158,10 @@ class SchoolStudentsDetail extends Component
 
     protected function resetFormFields(): void
     {
-        $this->studentCode = $this->firstName = $this->lastName = '';
-        $this->gender = $this->birthDate = $this->parentFullName = $this->parentPhone = null;
-        $this->parentEmail = $this->photoPath = $this->notes = null;
+        $this->resetStudentProfileFields();
         $this->photoFile = null;
         $this->removePhoto = false;
         $this->croppedPhotoData = null;
-        $this->isActive = true;
     }
 
     public function save(): void
@@ -187,20 +170,9 @@ class SchoolStudentsDetail extends Component
             return;
         }
 
-        $genderValues = SchoolOption::forGroup(SchoolOptionCatalog::GROUP_GENDER)->pluck('value')->all();
-        $this->validate([
-            'studentCode' => ['required', 'string', 'max:120', Rule::unique(SchoolStudent::class, 'student_code')->ignore($this->studentId)],
-            'firstName' => ['required', 'string', 'max:120'],
-            'lastName' => ['required', 'string', 'max:120'],
-            'gender' => ['nullable', 'string', 'max:40', Rule::in(array_merge([''], $genderValues))],
-            'birthDate' => ['nullable', 'date'],
-            'parentFullName' => ['nullable', 'string', 'max:255'],
-            'parentPhone' => ['nullable', 'string', 'max:80'],
-            'parentEmail' => ['nullable', 'email', 'max:255'],
+        $this->validate(array_merge($this->studentProfileRules($this->studentId), [
             'photoFile' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
-            'notes' => ['nullable', 'string'],
-            'isActive' => ['boolean'],
-        ]);
+        ]));
 
         $student = $this->entity();
         $photoPath = $student->photo_path;
@@ -216,19 +188,7 @@ class SchoolStudentsDetail extends Component
             $photoPath = StudentPhotoStorage::store($this->photoFile, $student);
         }
 
-        $student->update([
-            'student_code' => $this->studentCode,
-            'first_name' => $this->firstName,
-            'last_name' => $this->lastName,
-            'gender' => filled($this->gender) ? $this->gender : null,
-            'birth_date' => $this->birthDate,
-            'parent_full_name' => filled($this->parentFullName) ? $this->parentFullName : null,
-            'parent_phone' => filled($this->parentPhone) ? $this->parentPhone : null,
-            'parent_email' => filled($this->parentEmail) ? $this->parentEmail : null,
-            'photo_path' => $photoPath,
-            'notes' => $this->notes,
-            'is_active' => $this->isActive,
-        ]);
+        $student->update($this->studentProfilePayload($photoPath));
         notify()->success('Élève mis à jour.');
         $this->cancel();
     }
@@ -244,7 +204,9 @@ class SchoolStudentsDetail extends Component
         $isManage = $this->mode === 'manage';
         $canManage = $this->canSchool('school_students.manage');
         $genders = SchoolOption::forGroup(SchoolOptionCatalog::GROUP_GENDER);
+        $relationships = SchoolOption::forGroup(SchoolOptionCatalog::GROUP_PARENT_RELATIONSHIP);
         $genderLabel = $genders->firstWhere('value', $student->gender)?->label ?? $student->gender;
+        $relationshipLabel = $relationships->firstWhere('value', $student->parent_relationship)?->label ?? $student->parent_relationship;
         $completion = StudentProfileCompletion::for($student);
         $enrollments = $student->enrollments()->with(['academicYear', 'schoolClass'])->orderByDesc('id')->get();
         $payments = $student->payments()->with('academicYear')->orderByDesc('id')->limit(50)->get();
@@ -253,24 +215,94 @@ class SchoolStudentsDetail extends Component
             ->orderByDesc('id')
             ->limit(80)
             ->get();
-        $balance = app(StudentLedgerService::class)->balance((int) $student->id);
+        $ledgerService = app(StudentLedgerService::class);
+        $balance = $ledgerService->balance((int) $student->id);
         $examMarks = SchoolExamMark::query()
             ->with(['exam.subject'])
             ->where('student_id', $student->id)
             ->orderByDesc('id')
             ->limit(80)
             ->get();
+        $attendance = collect();
+        try {
+            if (Schema::connection('tenant')->hasTable('school_attendance_records')) {
+                $attendance = SchoolAttendanceRecord::query()
+                    ->with(['schoolClass', 'academicYear', 'course.subject'])
+                    ->where('student_id', $student->id)
+                    ->orderByDesc('attendance_date')
+                    ->limit(40)
+                    ->get();
+            }
+        } catch (\Throwable) {
+            $attendance = collect();
+        }
         $tenantCode = $this->tenantCode();
         $photoUrl = $student->photoUrl($tenantCode);
+        $currentEnrollment = $enrollments->firstWhere('status', 'enrolled') ?? $enrollments->first();
+        $tuition = ['charged' => 0.0, 'paid' => 0.0, 'due' => 0.0, 'status' => 'none'];
+        if ($currentEnrollment?->academic_year_id) {
+            $tuition = $ledgerService->tuitionSnapshot((int) $student->id, (int) $currentEnrollment->academic_year_id);
+        }
+        $enrollmentStatusLabels = SchoolOption::forGroup(SchoolOptionCatalog::GROUP_ENROLLMENT_STATUS)
+            ->mapWithKeys(fn ($opt) => [(string) $opt->value => (string) $opt->label])
+            ->all();
+        $attendanceStats = [
+            'present' => 0,
+            'absent' => 0,
+            'late' => 0,
+            'excused' => 0,
+            'total' => 0,
+            'rate' => null,
+        ];
+        try {
+            if (Schema::connection('tenant')->hasTable('school_attendance_records')) {
+                $counts = SchoolAttendanceRecord::query()
+                    ->where('student_id', $student->id)
+                    ->selectRaw('status, COUNT(*) as c')
+                    ->groupBy('status')
+                    ->pluck('c', 'status');
+                foreach (['present', 'absent', 'late', 'excused'] as $status) {
+                    $attendanceStats[$status] = (int) ($counts[$status] ?? 0);
+                }
+                $attendanceStats['total'] = array_sum(array_intersect_key($attendanceStats, array_flip(['present', 'absent', 'late', 'excused'])));
+                if ($attendanceStats['total'] > 0) {
+                    $attendanceStats['rate'] = (int) round((($attendanceStats['present'] + $attendanceStats['late']) / $attendanceStats['total']) * 100);
+                }
+            }
+        } catch (\Throwable) {
+            // table may not exist on older tenants
+        }
+        $latestIdCard = null;
+        try {
+            $latestIdCard = $student->idCards()->orderByDesc('id')->first();
+        } catch (\Throwable) {
+            $latestIdCard = null;
+        }
+        $initials = mb_strtoupper(mb_substr((string) $student->first_name, 0, 1).mb_substr((string) $student->last_name, 0, 1));
+        $age = $student->birth_date?->age;
+        $studentDocuments = $this->documentsForStudent((int) $student->id);
+        $documentTypes = SchoolDocumentCatalog::types();
+        $documentChecklist = SchoolDocumentCatalog::checklist($studentDocuments);
+        $canViewDocuments = $this->canSchool('school_documents.view');
+        $canManageDocuments = $this->canSchool('school_documents.manage');
 
         return view('school::livewire.school.students.detail', compact(
-            'student', 'isManage', 'canManage', 'genders', 'genderLabel', 'completion',
-            'enrollments', 'payments', 'examMarks', 'ledger', 'balance', 'photoUrl'
+            'student', 'isManage', 'canManage', 'genders', 'relationships', 'genderLabel', 'relationshipLabel',
+            'completion', 'enrollments', 'payments', 'examMarks', 'attendance', 'ledger', 'balance', 'photoUrl',
+            'currentEnrollment', 'tuition', 'enrollmentStatusLabels', 'attendanceStats', 'latestIdCard', 'initials', 'age',
+            'studentDocuments', 'documentTypes', 'documentChecklist', 'canViewDocuments', 'canManageDocuments'
         ) + [
             'tenantCode' => $tenantCode,
+            'canViewPayments' => $this->canSchool('school_payments.view'),
+            'canViewEnrollments' => $this->canSchool('school_enrollments.view'),
+            'canViewAttendance' => $this->canSchool('school_attendance.view'),
+            'canViewIdCards' => $this->canSchool('school_id_cards.view'),
+            'hasEnrollmentPrint' => Route::has('tenant.school.enrollments.print'),
+            'hasIdCardPrint' => Route::has('tenant.school.id_cards.print'),
+            'hasDocumentsIndex' => Route::has('tenant.school.documents.index'),
         ])->layout('layouts.app', [
-            'title' => ($isManage ? 'Gérer — ' : 'Voir — ').$student->full_name,
-            'subtitle' => $isManage ? 'Actions et modification du profil.' : 'Profil + historique permanent.',
+            'title' => $student->full_name,
+            'subtitle' => trim('Dossier élève'.($student->student_code ? ' · '.$student->student_code : '')),
         ]);
     }
 }

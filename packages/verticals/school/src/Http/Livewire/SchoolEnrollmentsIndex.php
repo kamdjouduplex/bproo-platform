@@ -163,7 +163,7 @@ class SchoolEnrollmentsIndex extends Component
             'tenantCode' => $this->tenantCode(),
         ])->layout('layouts.app', [
             'title' => 'École — Inscriptions',
-            'subtitle' => 'Enrollement par année académique.',
+            'subtitle' => 'Inscription par année académique.',
         ]);
     }
 }

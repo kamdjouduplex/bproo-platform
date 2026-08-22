@@ -17,6 +17,8 @@ class SchoolExam extends TenantModel
         'subject_id',
         'teacher_id',
         'title',
+        'kind',
+        'period',
         'exam_date',
         'max_score',
         'coefficient',
@@ -58,5 +60,15 @@ class SchoolExam extends TenantModel
     public function isEditable(): bool
     {
         return $this->status !== 'closed';
+    }
+
+    public function kindLabel(): string
+    {
+        return \School\Support\SchoolExamCatalog::kindLabel($this->kind);
+    }
+
+    public function periodLabel(): string
+    {
+        return \School\Support\SchoolExamCatalog::periodLabel($this->period);
     }
 }

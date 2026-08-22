@@ -5,6 +5,7 @@
             <div><h2 class="sch-detail-toolbar__title">Inscription #{{ $enrollment->id }}</h2><p class="sch-detail-toolbar__hint">{{ $isManage ? 'Page de gestion' : 'Page de consultation' }}</p></div>
             <div class="sch-detail-toolbar__actions">
                 <a class="btn btn-secondary btn-sm" href="{{ route('tenant.school.enrollments.index', ['tenant' => $tenantCode]) }}">Retour à la liste</a>
+                <a class="btn btn-secondary btn-sm" href="{{ route('tenant.school.enrollments.print', ['tenant' => $tenantCode, 'enrollment' => $enrollment->id]) }}" target="_blank">Fiche d’inscription</a>
                 @if($isManage)<a class="btn btn-secondary btn-sm" href="{{ route('tenant.school.enrollments.show', ['tenant' => $tenantCode, 'id' => $enrollment->id]) }}">Voir</a><button class="btn btn-primary btn-sm" wire:click="edit">Modifier</button>
                 @else<a class="btn btn-primary btn-sm" href="{{ route('tenant.school.enrollments.manage', ['tenant' => $tenantCode, 'id' => $enrollment->id]) }}">Gérer</a>@endif
             </div>

@@ -87,6 +87,8 @@ class AcademicYearCarryOver
                     'subject_id' => $row->subject_id,
                     'teacher_id' => $row->teacher_id,
                     'title' => $row->title,
+                    'kind' => $row->kind,
+                    'period' => $row->period,
                     'exam_date' => null,
                     'max_score' => $row->max_score,
                     'coefficient' => $row->coefficient,

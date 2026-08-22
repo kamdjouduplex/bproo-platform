@@ -6,7 +6,8 @@
             <div>
                 <h2 class="sch-detail-toolbar__title">{{ $exam->title }}</h2>
                 <p class="sch-detail-toolbar__hint">
-                    {{ $isManage ? 'Page de gestion' : 'Page de consultation' }}
+                    {{ $exam->kindLabel() ?: 'Épreuve' }}{{ $exam->periodLabel() ? ' · '.$exam->periodLabel() : '' }}
+                    · {{ $isManage ? 'Page de gestion' : 'Page de consultation' }}
                     · <span class="badge {{ $exam->status === 'open' ? 'badge-success' : 'badge-secondary' }}">{{ $statusLabels[$exam->status] ?? $exam->status }}</span>
                 </p>
             </div>
@@ -25,6 +26,14 @@
             <div class="sch-info-item">
                 <span class="sch-info-item__label">Titre</span>
                 <div class="sch-info-item__value">{{ $exam->title }}</div>
+            </div>
+            <div class="sch-info-item">
+                <span class="sch-info-item__label">Type</span>
+                <div class="sch-info-item__value">{{ $exam->kindLabel() ?: '—' }}</div>
+            </div>
+            <div class="sch-info-item">
+                <span class="sch-info-item__label">Période</span>
+                <div class="sch-info-item__value">{{ $exam->periodLabel() ?: '—' }}</div>
             </div>
             <div class="sch-info-item">
                 <span class="sch-info-item__label">Année</span>
@@ -157,70 +166,7 @@
                     <button type="button" class="sch-modal__close" wire:click="cancel" aria-label="Fermer">&times;</button>
                 </div>
                 <div class="sch-modal__body">
-                    <div class="form-grid">
-                        <div class="form-span-2">
-                            <label class="label">Titre</label>
-                            <input class="input" type="text" wire:model="title">
-                            @error('title') <span class="text-error">{{ $message }}</span> @enderror
-                        </div>
-                        <div>
-                            <label class="label">Année académique</label>
-                            <select class="input" wire:model="academicYearId">
-                                @foreach($years as $y)
-                                    <option value="{{ $y->id }}">{{ $y->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="label">Classe</label>
-                            <select class="input" wire:model="classId">
-                                @foreach($classes as $c)
-                                    <option value="{{ $c->id }}">{{ $c->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="label">Matière</label>
-                            <select class="input" wire:model="subjectId">
-                                @foreach($subjects as $s)
-                                    <option value="{{ $s->id }}">{{ $s->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="label">Enseignant</label>
-                            <select class="input" wire:model="teacherId">
-                                <option value="">—</option>
-                                @foreach($teachers as $t)
-                                    <option value="{{ $t->id }}">{{ $t->full_name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div>
-                            <label class="label">Date</label>
-                            <input class="input" type="date" wire:model="examDate">
-                        </div>
-                        <div>
-                            <label class="label">Note max</label>
-                            <input class="input" type="number" step="0.01" wire:model="maxScore">
-                        </div>
-                        <div>
-                            <label class="label">Coefficient</label>
-                            <input class="input" type="number" step="0.01" wire:model="coefficient">
-                        </div>
-                        <div>
-                            <label class="label">Statut</label>
-                            <select class="input" wire:model="status">
-                                <option value="draft">Brouillon</option>
-                                <option value="open">Ouvert</option>
-                                <option value="closed">Clôturé</option>
-                            </select>
-                        </div>
-                        <div class="form-span-2">
-                            <label class="label">Notes</label>
-                            <textarea class="input" rows="2" wire:model="notes"></textarea>
-                        </div>
-                    </div>
+                    @include('school::livewire.partials.exam-form-fields')
                 </div>
                 <div class="sch-modal__foot">
                     <button type="button" class="btn btn-secondary" wire:click="cancel">Annuler</button>

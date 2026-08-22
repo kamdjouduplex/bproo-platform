@@ -22,8 +22,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('grading_system_id')->constrained('school_grading_systems')->cascadeOnDelete();
             $table->string('label'); // A, B, Passable…
-            $table->decimal('min_percent', 5, 2); // 0–100
-            $table->decimal('max_percent', 5, 2); // 0–100
+            $table->decimal('min_percent', 5, 2); // note min on scale_base (ex. 16 / 20)
+            $table->decimal('max_percent', 5, 2); // note max on scale_base (ex. 20 / 20)
             $table->boolean('is_pass')->default(true);
             $table->unsignedInteger('sort_order')->default(100);
             $table->timestamps();

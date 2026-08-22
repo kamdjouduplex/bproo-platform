@@ -32,6 +32,7 @@ class SchoolGlobalSearch extends Component
             $students = SchoolStudent::query()
                 ->where(function ($q) use ($like) {
                     $q->whereRaw('LOWER(student_code) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(COALESCE(nisu, \'\')) LIKE ?', [$like])
                         ->orWhereRaw('LOWER(first_name) LIKE ?', [$like])
                         ->orWhereRaw('LOWER(last_name) LIKE ?', [$like])
                         ->orWhereRaw("LOWER(CONCAT(COALESCE(first_name,''), ' ', COALESCE(last_name,''))) LIKE ?", [$like])

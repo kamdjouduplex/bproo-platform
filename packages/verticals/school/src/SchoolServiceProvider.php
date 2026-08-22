@@ -6,14 +6,22 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use InovCom\Kernel\Traits\LazyModuleBoot;
 use Livewire\Livewire;
+use School\Http\Controllers\SchoolAttendancePrintController;
+use School\Http\Controllers\SchoolEnrollmentPrintController;
 use School\Http\Controllers\SchoolIdCardPrintController;
 use School\Http\Controllers\SchoolPaymentProofController;
 use School\Http\Controllers\SchoolReceiptPrintController;
 use School\Http\Controllers\SchoolReportCardPrintController;
+use School\Http\Controllers\SchoolReportPrintController;
+use School\Http\Controllers\SchoolStudentDocumentController;
 use School\Http\Controllers\SchoolStudentPhotoController;
+use School\Http\Controllers\SchoolTimetablePrintController;
+use School\Http\Livewire\SchoolAttendanceIndex;
 use School\Http\Livewire\SchoolAuditIndex;
 use School\Http\Livewire\SchoolClassesDetail;
 use School\Http\Livewire\SchoolClassesIndex;
+use School\Http\Livewire\SchoolCoursesIndex;
+use School\Http\Livewire\SchoolDocumentsIndex;
 use School\Http\Livewire\SchoolEnrollmentsDetail;
 use School\Http\Livewire\SchoolEnrollmentsIndex;
 use School\Http\Livewire\SchoolExamsDetail;
@@ -30,23 +38,29 @@ use School\Http\Livewire\SchoolGradingSystemsIndex;
 use School\Http\Livewire\SchoolHub;
 use School\Http\Livewire\SchoolIdCardsDetail;
 use School\Http\Livewire\SchoolIdCardsIndex;
+use School\Http\Livewire\SchoolIdSettingsIndex;
 use School\Http\Livewire\SchoolLanguagesIndex;
 use School\Http\Livewire\SchoolNotificationsIndex;
 use School\Http\Livewire\SchoolOptionsDetail;
 use School\Http\Livewire\SchoolOptionsIndex;
+use School\Http\Livewire\SchoolParentsIndex;
 use School\Http\Livewire\SchoolPaymentsDetail;
 use School\Http\Livewire\SchoolPaymentsIndex;
+use School\Http\Livewire\SchoolPilotageIndex;
 use School\Http\Livewire\SchoolPublicationRulesDetail;
 use School\Http\Livewire\SchoolPublicationRulesIndex;
 use School\Http\Livewire\SchoolPublicationsDetail;
 use School\Http\Livewire\SchoolPublicationsIndex;
 use School\Http\Livewire\SchoolReportCardsIndex;
+use School\Http\Livewire\SchoolReportsIndex;
+use School\Http\Livewire\SchoolRoomsIndex;
 use School\Http\Livewire\SchoolStudentsDetail;
 use School\Http\Livewire\SchoolStudentsIndex;
 use School\Http\Livewire\SchoolSubjectsDetail;
 use School\Http\Livewire\SchoolSubjectsIndex;
 use School\Http\Livewire\SchoolTeachersDetail;
 use School\Http\Livewire\SchoolTeachersIndex;
+use School\Http\Livewire\SchoolTimetableIndex;
 use School\Http\Livewire\SchoolTuitionIndex;
 use School\Http\Livewire\SchoolYearsDetail;
 use School\Http\Livewire\SchoolYearsIndex;
@@ -74,6 +88,11 @@ class SchoolServiceProvider extends ServiceProvider
         'school_fees',
         'school_notifications',
         'school_settings',
+        'school_attendance',
+        'school_timetable',
+        'school_reports',
+        'school_pilotage',
+        'school_documents',
     ];
 
     public function register(): void
@@ -109,6 +128,7 @@ class SchoolServiceProvider extends ServiceProvider
         Livewire::component('school.teachers-detail', SchoolTeachersDetail::class);
         Livewire::component('school.students-index', SchoolStudentsIndex::class);
         Livewire::component('school.students-detail', SchoolStudentsDetail::class);
+        Livewire::component('school.parents-index', SchoolParentsIndex::class);
         Livewire::component('school.enrollments-index', SchoolEnrollmentsIndex::class);
         Livewire::component('school.enrollments-detail', SchoolEnrollmentsDetail::class);
         Livewire::component('school.exams-index', SchoolExamsIndex::class);
@@ -136,6 +156,14 @@ class SchoolServiceProvider extends ServiceProvider
         Livewire::component('school.options-detail', SchoolOptionsDetail::class);
         Livewire::component('school.languages-index', SchoolLanguagesIndex::class);
         Livewire::component('school.audit-index', SchoolAuditIndex::class);
+        Livewire::component('school.id-settings-index', SchoolIdSettingsIndex::class);
+        Livewire::component('school.attendance-index', SchoolAttendanceIndex::class);
+        Livewire::component('school.courses-index', SchoolCoursesIndex::class);
+        Livewire::component('school.timetable-index', SchoolTimetableIndex::class);
+        Livewire::component('school.rooms-index', SchoolRoomsIndex::class);
+        Livewire::component('school.reports-index', SchoolReportsIndex::class);
+        Livewire::component('school.pilotage-index', SchoolPilotageIndex::class);
+        Livewire::component('school.documents-index', SchoolDocumentsIndex::class);
 
         $this->registerTenantRoutes();
     }
@@ -177,15 +205,22 @@ class SchoolServiceProvider extends ServiceProvider
 
                 Route::middleware(['module:school_students'])->group(function () {
                     Route::get('/school/students', SchoolStudentsIndex::class)->name('tenant.school.students.index');
+                    Route::get('/school/parents', SchoolParentsIndex::class)->name('tenant.school.parents.index');
                     Route::get('/school/students/{id}', SchoolStudentsDetail::class)->name('tenant.school.students.show');
                     Route::get('/school/students/{id}/manage', SchoolStudentsDetail::class)->name('tenant.school.students.manage');
                     Route::get('/school/students/{student}/photo', SchoolStudentPhotoController::class)->name('tenant.school.students.photo')->whereNumber('student');
+                });
+
+                Route::middleware(['module:school_documents'])->group(function () {
+                    Route::get('/school/documents', SchoolDocumentsIndex::class)->name('tenant.school.documents.index');
+                    Route::get('/school/documents/{document}/file', SchoolStudentDocumentController::class)->name('tenant.school.documents.file')->whereNumber('document');
                 });
 
                 Route::middleware(['module:school_enrollments'])->group(function () {
                     Route::get('/school/enrollments', SchoolEnrollmentsIndex::class)->name('tenant.school.enrollments.index');
                     Route::get('/school/enrollments/{id}', SchoolEnrollmentsDetail::class)->name('tenant.school.enrollments.show');
                     Route::get('/school/enrollments/{id}/manage', SchoolEnrollmentsDetail::class)->name('tenant.school.enrollments.manage');
+                    Route::get('/school/enrollments/{enrollment}/print', SchoolEnrollmentPrintController::class)->name('tenant.school.enrollments.print')->whereNumber('enrollment');
                 });
 
                 Route::middleware(['module:school_exams'])->group(function () {
@@ -254,6 +289,28 @@ class SchoolServiceProvider extends ServiceProvider
                     Route::get('/school/options/{id}/manage', SchoolOptionsDetail::class)->name('tenant.school.options.manage');
                     Route::get('/school/languages', SchoolLanguagesIndex::class)->name('tenant.school.languages.index');
                     Route::get('/school/audit', SchoolAuditIndex::class)->name('tenant.school.audit.index');
+                    Route::get('/school/id-settings', SchoolIdSettingsIndex::class)->name('tenant.school.id_settings.index');
+                });
+
+                Route::middleware(['module:school_timetable'])->group(function () {
+                    Route::get('/school/courses', SchoolCoursesIndex::class)->name('tenant.school.courses.index');
+                    Route::get('/school/rooms', SchoolRoomsIndex::class)->name('tenant.school.rooms.index');
+                    Route::get('/school/timetable', SchoolTimetableIndex::class)->name('tenant.school.timetable.index');
+                    Route::get('/school/timetable/print', SchoolTimetablePrintController::class)->name('tenant.school.timetable.print');
+                });
+
+                Route::middleware(['module:school_attendance'])->group(function () {
+                    Route::get('/school/attendance', SchoolAttendanceIndex::class)->name('tenant.school.attendance.index');
+                    Route::get('/school/attendance/print', SchoolAttendancePrintController::class)->name('tenant.school.attendance.print');
+                });
+
+                Route::middleware(['module:school_pilotage'])->group(function () {
+                    Route::get('/school/pilotage', SchoolPilotageIndex::class)->name('tenant.school.pilotage.index');
+                });
+
+                Route::middleware(['module:school_reports'])->group(function () {
+                    Route::get('/school/reports', SchoolReportsIndex::class)->name('tenant.school.reports.index');
+                    Route::get('/school/reports/print', SchoolReportPrintController::class)->name('tenant.school.reports.print');
                 });
             });
     }

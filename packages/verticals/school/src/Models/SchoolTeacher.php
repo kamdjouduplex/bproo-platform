@@ -19,5 +19,10 @@ class SchoolTeacher extends TenantModel
     protected $casts = [
         'is_active' => 'boolean',
     ];
+
+    public function courses()
+    {
+        return $this->hasMany(SchoolCourse::class, 'teacher_id');
+    }
 }
 

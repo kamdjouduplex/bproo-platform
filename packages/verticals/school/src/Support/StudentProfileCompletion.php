@@ -15,14 +15,16 @@ class StudentProfileCompletion
     public static function for(SchoolStudent $student): array
     {
         $fields = [
-            'student_code' => 'Identifiant élève',
+            'student_code' => 'Matricule',
+            'nisu' => 'NISU',
             'first_name' => 'Prénom',
             'last_name' => 'Nom',
             'gender' => 'Genre',
             'birth_date' => 'Date de naissance',
+            'address' => 'Adresse',
             'parent_full_name' => 'Parent / tuteur',
             'parent_phone' => 'Téléphone parent',
-            'parent_email' => 'Email parent',
+            'emergency_contact_phone' => 'Contact d’urgence',
             'photo_path' => 'Photo',
         ];
 
