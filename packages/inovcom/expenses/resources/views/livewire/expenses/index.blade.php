@@ -56,6 +56,9 @@
         <div class="client-list-head">
             <h2 class="client-list-head__title">Dépenses</h2>
             <div class="client-list-head__actions">
+                @if ($canExport ?? true)
+                    <x-export-btn format="pdf" class="btn-sm" wire:click="exportPdf">Exporter PDF</x-export-btn>
+                @endif
                 @if ($canCreate)
                     <a class="btn btn-primary btn-sm" href="{{ route('tenant.expenses.create', ['tenant' => $tenantCode]) }}">Nouvelle dépense</a>
                 @endif

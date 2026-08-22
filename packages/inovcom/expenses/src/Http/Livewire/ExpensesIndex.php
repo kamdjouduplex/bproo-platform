@@ -6,6 +6,9 @@ use InovCom\Expenses\ExpensesModule;
 use InovCom\Expenses\Models\Expense;
 use InovCom\Expenses\Models\ExpenseCategory;
 use InovCom\Expenses\Services\ExpensesService;
+use App\Services\TenantBrandingService;
+use App\Services\TenantManager;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
@@ -191,6 +194,103 @@ class ExpensesIndex extends Component
         session()->flash('success', 'Dépense supprimée.');
     }
 
+    public function exportPdf()
+    {
+        if (! $this->can('expenses.view')) {
+            session()->flash('error', 'Permission refusée.');
+
+            return null;
+        }
+
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(180);
+
+        try {
+            $expenses = $this->baseQuery()
+                ->with(['category', 'creator'])
+                ->orderByDesc('expense_date')
+                ->orderByDesc('created_at')
+                ->limit(5000)
+                ->get();
+
+            $methodLabels = [
+                'cash' => 'Espèces',
+                'check' => 'Chèque',
+                'bank_transfer' => 'Virement',
+                'mobile_money' => 'Mobile Money',
+                'other' => 'Autre',
+            ];
+
+            $statusLabels = [
+                'draft' => 'Brouillon',
+                'pending' => 'En attente',
+                'approved' => 'Approuvé',
+                'rejected' => 'Rejeté',
+                'paid' => 'Payé',
+            ];
+
+            $rows = $expenses->map(function (Expense $expense) use ($methodLabels, $statusLabels) {
+                return [
+                    'reference' => (string) $expense->reference,
+                    'expense_date' => $expense->expense_date?->format('d/m/Y') ?? '—',
+                    'category' => (string) ($expense->category?->name ?? '—'),
+                    'description' => (string) ($expense->description ?: '—'),
+                    'amount' => (float) $expense->amount,
+                    'payment_method' => $methodLabels[$expense->payment_method] ?? (string) $expense->payment_method,
+                    'status' => $statusLabels[$expense->status] ?? (string) $expense->status,
+                    'creator' => (string) ($expense->creator?->name ?? '—'),
+                ];
+            })->all();
+
+            $totalAmount = (float) collect($rows)->sum('amount');
+            if ($this->statusFilter === 'all') {
+                $totalAmount = (float) (clone $this->baseQuery())
+                    ->where('status', '!=', 'rejected')
+                    ->sum('amount');
+            }
+
+            $tenant = app(TenantManager::class)->tenant();
+            $settings = app(TenantBrandingService::class)->documentSettings($tenant);
+            $filename = 'depenses-' . now()->format('Ymd_His') . '.pdf';
+
+            $pdf = Pdf::loadView('inovcom-expenses::pdf.expenses-list', [
+                'rows' => $rows,
+                'settings' => $settings,
+                'shopName' => $settings['shop_name'] ?? ($tenant?->name ?? 'Bproo Pharma'),
+                'title' => 'Dépenses',
+                'filterLabel' => $this->filterLabel(),
+                'totalAmount' => $totalAmount,
+                'generatedAt' => now(),
+            ])->setPaper('a4', 'landscape');
+
+            $dompdf = $pdf->getDomPDF();
+            $dompdf->render();
+            $canvas = $dompdf->getCanvas();
+            $fontMetrics = $dompdf->getFontMetrics();
+            $font = $fontMetrics->getFont('DejaVu Sans');
+            if ($font) {
+                $size = 8;
+                $width = $fontMetrics->getTextWidth('00/00', $font, $size);
+                $x = ($canvas->get_width() - $width) / 2;
+                $y = $canvas->get_height() - 18;
+                $canvas->page_text($x, $y, '{PAGE_NUM}/{PAGE_COUNT}', $font, $size, [0.06, 0.46, 0.43]);
+            }
+
+            $output = $dompdf->output();
+
+            return response()->streamDownload(function () use ($output) {
+                echo $output;
+            }, $filename, [
+                'Content-Type' => 'application/pdf',
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+            session()->flash('error', 'Export PDF impossible. Affinez les filtres puis réessayez.');
+
+            return null;
+        }
+    }
+
     private function can(string $permission): bool
     {
         $user = Auth::guard('tenant')->user();
@@ -280,7 +380,31 @@ class ExpensesIndex extends Component
                 'canCreate' => $this->can('expenses.create'),
                 'canApprove' => $this->can('expenses.approve'),
                 'canDelete' => $this->can('expenses.delete'),
+                'canExport' => $this->can('expenses.view'),
                 'activeFiltersCount' => $this->activeFiltersCount,
             ]);
+    }
+
+    private function filterLabel(): string
+    {
+        $parts = [];
+        if ($this->search !== '') {
+            $parts[] = 'Recherche : '.$this->search;
+        }
+        if ($this->statusFilter !== 'all') {
+            $parts[] = 'Statut : '.$this->statusFilter;
+        }
+        if ($this->categoryFilter !== '') {
+            $category = ExpenseCategory::find((int) $this->categoryFilter);
+            $parts[] = 'Catégorie : '.($category?->name ?? '#'.$this->categoryFilter);
+        }
+        if ($this->paymentMethodFilter !== '') {
+            $parts[] = 'Paiement : '.$this->paymentMethodFilter;
+        }
+        if ($this->dateFrom !== '' || $this->dateTo !== '') {
+            $parts[] = 'Période : '.($this->dateFrom ?: '…').' → '.($this->dateTo ?: '…');
+        }
+
+        return $parts === [] ? 'Tous les enregistrements' : implode(' · ', $parts);
     }
 }

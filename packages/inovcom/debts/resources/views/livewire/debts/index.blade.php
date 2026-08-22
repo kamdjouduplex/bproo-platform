@@ -29,6 +29,9 @@
                 <select class="input input-sm" wire:model="perPage"><option value="20">20</option><option value="50">50</option><option value="100">100</option></select>
                 <button type="button" class="btn btn-primary" wire:click="applyFilters">Rechercher</button>
                 <button type="button" class="btn btn-secondary" wire:click="resetFilters">Réinitialiser</button>
+                @if ($canExport ?? true)
+                    <x-export-btn format="pdf" class="btn-sm" wire:click="exportPdf">Exporter PDF</x-export-btn>
+                @endif
                 @if ($canCreate)
                     <a class="btn btn-primary" href="{{ route('tenant.debts.create', ['tenant' => $tenantCode]) }}">Nouvelle dette</a>
                 @endif

@@ -41,11 +41,6 @@
                 <p style="color:#64748b;">Aucune vente ce jour.</p>
             @endforelse
         </div>
-        @if (! $hasCurrencyColumn)
-            <p style="margin-top:10px; color:#b45309; font-size:12px;">
-                Colonnes multi-devises absentes : lancez <code>php artisan tenant:migrate VOTRE_CODE</code> sur l’app produit.
-            </p>
-        @endif
     </section>
 
     <section class="card app-table-card" style="margin-bottom: 16px;">
