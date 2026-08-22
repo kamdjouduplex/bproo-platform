@@ -26,7 +26,7 @@
                                         Code : {{ $item['barcode'] }}
                                         <span style="margin: 0 8px;">|</span>
                                     @endif
-                                    Coût : {{ fmt_money((float)$item['cost']) }} FCFA
+                                    Coût : {{ fmt_money((float)$item['cost']) }} {{ currency_label() }}
                                 </div>
                             </div>
                         @endforeach
@@ -49,7 +49,7 @@
                     <input class="input" wire:model.live="quantity" type="number" step="0.001" min="0.001" required>
                 </div>
                 <div class="field">
-                    <label class="field-label">Valeur (FCFA)</label>
+                    <label class="field-label">Valeur ({{ currency_label() }})</label>
                     <input class="input" wire:model="value" type="number" step="0.01" min="0" placeholder="Calculée si vide">
                 </div>
                 <div class="field">

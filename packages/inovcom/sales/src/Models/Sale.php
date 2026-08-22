@@ -35,7 +35,7 @@ class Sale extends TenantModel
 
     public function currencyLabel(): string
     {
-        return \App\Services\TenantCurrencyService::label($this->currency_code);
+        return \App\Services\TenantCurrencyService::displayLabel($this->currency_code);
     }
 
     public function lines()

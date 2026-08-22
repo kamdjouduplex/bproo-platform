@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ExpensesIndex extends Component
 {
@@ -194,6 +195,75 @@ class ExpensesIndex extends Component
         session()->flash('success', 'Dépense supprimée.');
     }
 
+    public function exportExcel(): ?StreamedResponse
+    {
+        if (! $this->can('expenses.view')) {
+            session()->flash('error', 'Permission refusée.');
+
+            return null;
+        }
+
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(180);
+
+        $headers = [
+            'Référence',
+            'Date',
+            'Catégorie',
+            'Description',
+            'Montant',
+            'Paiement',
+            'Statut',
+            'Créé par',
+        ];
+        $title = 'Dépenses — '.$this->filterLabel();
+        $filename = 'depenses-'.now()->format('Ymd_His').'.xls';
+        $escape = static fn ($value) => htmlspecialchars((string) ($value ?? ''), ENT_QUOTES, 'UTF-8');
+
+        return response()->streamDownload(function () use ($headers, $title, $escape) {
+            echo "\xEF\xBB\xBF";
+            echo '<html><head><meta charset="UTF-8"></head><body>';
+            echo '<h3>'.$escape($title).'</h3>';
+            echo '<table border="1" cellspacing="0" cellpadding="4"><thead><tr>';
+            foreach ($headers as $header) {
+                echo '<th>'.$escape($header).'</th>';
+            }
+            echo '</tr></thead><tbody>';
+
+            $exported = 0;
+            $this->baseQuery()
+                ->with(['category', 'creator'])
+                ->orderBy('id')
+                ->chunkById(300, function ($chunk) use (&$exported, $escape) {
+                    foreach ($chunk as $expense) {
+                        if ($exported >= 5000) {
+                            return false;
+                        }
+
+                        $row = $this->mapExpenseRow($expense);
+                        echo '<tr>';
+                        echo '<td>'.$escape($row['reference']).'</td>';
+                        echo '<td>'.$escape($row['expense_date']).'</td>';
+                        echo '<td>'.$escape($row['category']).'</td>';
+                        echo '<td>'.$escape($row['description']).'</td>';
+                        echo '<td>'.$escape(fmt_money($row['amount'])).'</td>';
+                        echo '<td>'.$escape($row['payment_method']).'</td>';
+                        echo '<td>'.$escape($row['status']).'</td>';
+                        echo '<td>'.$escape($row['creator']).'</td>';
+                        echo '</tr>';
+                        $exported++;
+                    }
+
+                    return $exported < 5000;
+                }, 'expenses.id', 'id');
+
+            echo '</tbody></table></body></html>';
+        }, $filename, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+    }
+
     public function exportPdf()
     {
         if (! $this->can('expenses.view')) {
@@ -213,34 +283,7 @@ class ExpensesIndex extends Component
                 ->limit(5000)
                 ->get();
 
-            $methodLabels = [
-                'cash' => 'Espèces',
-                'check' => 'Chèque',
-                'bank_transfer' => 'Virement',
-                'mobile_money' => 'Mobile Money',
-                'other' => 'Autre',
-            ];
-
-            $statusLabels = [
-                'draft' => 'Brouillon',
-                'pending' => 'En attente',
-                'approved' => 'Approuvé',
-                'rejected' => 'Rejeté',
-                'paid' => 'Payé',
-            ];
-
-            $rows = $expenses->map(function (Expense $expense) use ($methodLabels, $statusLabels) {
-                return [
-                    'reference' => (string) $expense->reference,
-                    'expense_date' => $expense->expense_date?->format('d/m/Y') ?? '—',
-                    'category' => (string) ($expense->category?->name ?? '—'),
-                    'description' => (string) ($expense->description ?: '—'),
-                    'amount' => (float) $expense->amount,
-                    'payment_method' => $methodLabels[$expense->payment_method] ?? (string) $expense->payment_method,
-                    'status' => $statusLabels[$expense->status] ?? (string) $expense->status,
-                    'creator' => (string) ($expense->creator?->name ?? '—'),
-                ];
-            })->all();
+            $rows = $expenses->map(fn (Expense $expense) => $this->mapExpenseRow($expense))->all();
 
             $totalAmount = (float) collect($rows)->sum('amount');
             if ($this->statusFilter === 'all') {
@@ -289,6 +332,36 @@ class ExpensesIndex extends Component
 
             return null;
         }
+    }
+
+    private function mapExpenseRow(Expense $expense): array
+    {
+        static $methodLabels = [
+            'cash' => 'Espèces',
+            'check' => 'Chèque',
+            'bank_transfer' => 'Virement',
+            'mobile_money' => 'Mobile Money',
+            'other' => 'Autre',
+        ];
+
+        static $statusLabels = [
+            'draft' => 'Brouillon',
+            'pending' => 'En attente',
+            'approved' => 'Approuvé',
+            'rejected' => 'Rejeté',
+            'paid' => 'Payé',
+        ];
+
+        return [
+            'reference' => (string) $expense->reference,
+            'expense_date' => $expense->expense_date?->format('d/m/Y') ?? '—',
+            'category' => (string) ($expense->category?->name ?? '—'),
+            'description' => (string) ($expense->description ?: '—'),
+            'amount' => (float) $expense->amount,
+            'payment_method' => $methodLabels[$expense->payment_method] ?? (string) $expense->payment_method,
+            'status' => $statusLabels[$expense->status] ?? (string) $expense->status,
+            'creator' => (string) ($expense->creator?->name ?? '—'),
+        ];
     }
 
     private function can(string $permission): bool

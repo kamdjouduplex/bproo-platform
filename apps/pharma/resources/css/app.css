@@ -3502,6 +3502,13 @@ tbody tr.client-row--debt-active {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
 }
+.client-filter-panel__grid--debts {
+    grid-template-columns: minmax(180px, 1.2fr) minmax(220px, 1.4fr) minmax(220px, 1.4fr);
+    align-items: end;
+}
+.client-filter-panel__grid--items {
+    grid-template-columns: repeat(2, minmax(180px, 280px));
+}
 .client-filter-field {
     display: flex;
     flex-direction: column;
@@ -3517,6 +3524,30 @@ tbody tr.client-row--debt-active {
 }
 .client-filter-field select {
     width: 100%;
+}
+.client-filter-field--dates {
+    min-width: 0;
+}
+.client-filter-dates {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+}
+.client-filter-dates .input {
+    flex: 1 1 0;
+    min-width: 0;
+}
+.client-filter-dates__sep {
+    color: #94a3b8;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+.client-filter-period-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
 }
 .client-filter-chips {
     display: flex;
@@ -3564,6 +3595,12 @@ tbody tr.client-row--debt-active {
     .client-filter-panel__grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+    .client-filter-panel__grid--debts {
+        grid-template-columns: 1fr;
+    }
+    .client-filter-panel__grid--items {
+        grid-template-columns: 1fr;
+    }
 }
 
 @media (max-width: 520px) {
@@ -3573,6 +3610,9 @@ tbody tr.client-row--debt-active {
     .client-filter-bar__tools {
         width: 100%;
         justify-content: flex-end;
+    }
+    .client-filter-dates {
+        flex-wrap: wrap;
     }
 }
 

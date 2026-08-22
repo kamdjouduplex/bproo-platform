@@ -329,9 +329,9 @@
                             <tr>
                                 <th class="item-unit-prices__col-unit">Unité</th>
                                 <th class="item-unit-prices__col-factor">Facteur<br><span class="item-unit-prices__th-hint">1 unité = X base</span></th>
-                                <th class="item-unit-prices__col-money">Prix vente (FCFA)</th>
+                                <th class="item-unit-prices__col-money">Prix vente ({{ currency_label() }})</th>
                                 @if ($canViewCost)
-                                    <th class="item-unit-prices__col-money">Coût (FCFA)</th>
+                                    <th class="item-unit-prices__col-money">Coût ({{ currency_label() }})</th>
                                 @endif
                                 <th class="item-unit-prices__col-action" aria-label="Actions"></th>
                             </tr>

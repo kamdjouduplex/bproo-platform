@@ -22,15 +22,15 @@
                 </div>
                 <div style="padding:12px; border:1px solid #e5e7eb; border-radius:8px;">
                     <div style="font-size:12px; color:#6b7280;">Montant total</div>
-                    <strong>{{ fmt_money((float) $currentDebt->total_amount) }} FCFA</strong>
+                    <strong>{{ fmt_money((float) $currentDebt->total_amount) }} {{ currency_label() }}</strong>
                 </div>
                 <div style="padding:12px; border:1px solid #e5e7eb; border-radius:8px;">
                     <div style="font-size:12px; color:#6b7280;">Total remboursé</div>
-                    <strong style="color:#166534;">{{ fmt_money((float) $totalPaid) }} FCFA</strong>
+                    <strong style="color:#166534;">{{ fmt_money((float) $totalPaid) }} {{ currency_label() }}</strong>
                 </div>
                 <div style="padding:12px; border:1px solid #e5e7eb; border-radius:8px;">
                     <div style="font-size:12px; color:#6b7280;">Solde restant</div>
-                    <strong style="color:#b91c1c;">{{ fmt_money((float) $currentDebt->balance) }} FCFA</strong>
+                    <strong style="color:#b91c1c;">{{ fmt_money((float) $currentDebt->balance) }} {{ currency_label() }}</strong>
                 </div>
             </div>
 
@@ -95,7 +95,7 @@
                                     <td>{{ $payment->payment_date?->format('d/m/Y') ?? '-' }}</td>
                                     <td>{{ $payment->reference }}</td>
                                     <td>{{ $payment->payment_method }}</td>
-                                    <td>{{ fmt_money((float) $payment->amount) }} FCFA</td>
+                                    <td>{{ fmt_money((float) $payment->amount) }} {{ currency_label() }}</td>
                                     <td>{{ $payment->external_reference ?: '-' }}</td>
                                     <td>{{ $payment->creator->name ?? '-' }}</td>
                                 </tr>
@@ -121,7 +121,7 @@
                         @foreach ($clientResults as $c)
                             <div style="padding: 12px; border-bottom: 1px solid #eee; cursor: pointer;" wire:click="selectClient({{ $c['id'] }})" wire:key="client-{{ $c['id'] }}">
                                 <strong>{{ $c['name'] }}</strong> ({{ $c['code'] }})
-                                <div style="font-size: 12px; color: #666;">Solde: {{ fmt_money((float)$c['current_balance']) }} FCFA</div>
+                                <div style="font-size: 12px; color: #666;">Solde: {{ fmt_money((float)$c['current_balance']) }} {{ currency_label() }}</div>
                             </div>
                         @endforeach
                     </div>

@@ -195,7 +195,7 @@
                             <tr>
                                 <th class="item-unit-prices__col-unit">Unité</th>
                                 <th class="item-unit-prices__col-factor">Facteur</th>
-                                <th class="item-unit-prices__col-money">P.V. (FCFA)</th>
+                                <th class="item-unit-prices__col-money">P.V. ({{ currency_label() }})</th>
                                 @if ($canViewCost)
                                     <th class="item-unit-prices__col-money">Coût</th>
                                 @endif

@@ -2,10 +2,10 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>{{ $title ?? 'Dépenses' }}</title>
+    <title>{{ $title ?? 'Clients' }}</title>
     <style>
         @page { margin: 16px 18px 24px 18px; }
-        body { font-family: DejaVu Sans, sans-serif; color: #111827; font-size: 9px; margin: 0; }
+        body { font-family: DejaVu Sans, sans-serif; color: #111827; font-size: 8.5px; margin: 0; }
         .header { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
         .header td { vertical-align: top; border: none; padding: 0; }
         .brand-name { font-size: 13px; font-weight: bold; color: #0f172a; margin: 0 0 3px; }
@@ -21,7 +21,7 @@
         thead { display: table-header-group; }
         tr { page-break-inside: avoid; }
         th, td { padding: 3px 4px; text-align: left; vertical-align: top; border-bottom: 1px solid #e5e7eb; }
-        th { background: #0f766e; color: #fff; font-size: 7.5px; text-transform: uppercase; }
+        th { background: #0f766e; color: #fff; font-size: 7px; text-transform: uppercase; }
         tbody tr:nth-child(even) td { background: #f8fafc; }
         .right { text-align: right; }
         .muted { color: #64748b; font-size: 7.5px; }
@@ -51,7 +51,7 @@
                     <tr><th>Date</th><th>Document</th></tr>
                     <tr>
                         <td class="doc-title">{{ $generatedAt->format('d/m/Y') }}</td>
-                        <td class="doc-title">Dépenses</td>
+                        <td class="doc-title">Clients</td>
                     </tr>
                 </table>
             </div>
@@ -60,44 +60,55 @@
 </table>
 
 <div class="summary">
-    <strong>{{ count($rows) }}</strong> dépense(s)
+    <strong>{{ count($rows) }}</strong> client(s)
     @if (!empty($filterLabel)) · {{ $filterLabel }}@endif
-    · Total : <strong>{{ number_format((float) ($totalAmount ?? 0), 0, ',', ' ') }} {{ currency_label($settings['currency'] ?? null) }}</strong>
+    · Encours total : <strong>{{ number_format((float) ($totalOutstanding ?? 0), 0, ',', ' ') }} {{ currency_label($settings['currency'] ?? null) }}</strong>
 </div>
 
 <table class="data">
     <thead>
         <tr>
-            <th style="width:11%;">Référence</th>
-            <th style="width:9%;">Date</th>
-            <th style="width:14%;">Catégorie</th>
-            <th style="width:24%;">Description</th>
-            <th class="right" style="width:11%;">Montant</th>
-            <th style="width:11%;">Méthode</th>
-            <th style="width:10%;">Statut</th>
-            <th style="width:10%;">Créé par</th>
+            <th style="width:9%;">Code</th>
+            <th style="width:18%;">Nom</th>
+            <th style="width:8%;">Type</th>
+            <th style="width:10%;">Téléphone</th>
+            <th style="width:12%;">Email</th>
+            <th style="width:9%;">Catégorie</th>
+            <th style="width:8%;">Zone</th>
+            <th style="width:7%;">Palier</th>
+            <th class="right" style="width:9%;">Limite</th>
+            <th class="right" style="width:9%;">Encours</th>
+            <th style="width:7%;">Statut</th>
         </tr>
     </thead>
     <tbody>
         @forelse ($rows as $row)
             <tr>
-                <td><strong>{{ $row['reference'] }}</strong></td>
-                <td>{{ $row['expense_date'] }}</td>
+                <td><strong>{{ $row['code'] }}</strong></td>
+                <td>
+                    {{ $row['name'] }}
+                    @if (!empty($row['niu']))
+                        <div class="muted">NIU {{ $row['niu'] }}</div>
+                    @endif
+                </td>
+                <td>{{ $row['type'] }}</td>
+                <td>{{ $row['phone'] }}</td>
+                <td>{{ $row['email'] }}</td>
                 <td>{{ $row['category'] }}</td>
-                <td>{{ $row['description'] }}</td>
-                <td class="right"><strong>{{ number_format((float) $row['amount'], 0, ',', ' ') }}</strong></td>
-                <td>{{ $row['payment_method'] }}</td>
+                <td>{{ $row['zone'] }}</td>
+                <td>{{ $row['price_tier'] }}</td>
+                <td class="right">{{ $row['credit_limit'] }}</td>
+                <td class="right"><strong>{{ $row['outstanding'] }}</strong></td>
                 <td>{{ $row['status'] }}</td>
-                <td>{{ $row['creator'] }}</td>
             </tr>
         @empty
-            <tr><td colspan="8">Aucune dépense pour ces filtres.</td></tr>
+            <tr><td colspan="11">Aucun client pour ces filtres.</td></tr>
         @endforelse
     </tbody>
 </table>
 
 <div class="footer">
-    {{ $shopName }} · Généré le {{ $generatedAt->format('d/m/Y à H:i') }} · Archive administration
+    {{ $shopName }} · Généré le {{ $generatedAt->format('d/m/Y à H:i') }} · Liste clients
 </div>
 </body>
 </html>

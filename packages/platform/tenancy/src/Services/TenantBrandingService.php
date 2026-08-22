@@ -117,7 +117,7 @@ class TenantBrandingService
         if (!$tenant) {
             return [
                 'shop_name' => 'Inov-Com',
-                'currency' => 'XOF',
+                'currency' => config('inovcom.default_currency', 'XOF'),
                 'logo_url' => null,
                 'logo_embed_src' => null,
                 'logo_icon_url' => null,
@@ -126,6 +126,12 @@ class TenantBrandingService
         }
 
         $mainPath = $this->path($tenant, self::LOGO_MAIN);
+
+        try {
+            $currency = app(TenantCurrencyService::class)->defaultCode($tenant);
+        } catch (\Throwable) {
+            $currency = (string) $tenant->getSetting('currency', config('inovcom.default_currency', 'XOF'));
+        }
 
         return [
             'shop_name' => (string) $tenant->getSetting('shop_name', $tenant->name ?? ''),
@@ -140,7 +146,7 @@ class TenantBrandingService
             'shop_website' => (string) $tenant->getSetting('shop_website', ''),
             'invoice_footer' => (string) $tenant->getSetting('invoice_footer', ''),
             'payment_modes_default' => (string) $tenant->getSetting('payment_modes_default', 'chèque/virement/espèces'),
-            'currency' => (string) $tenant->getSetting('currency', 'XOF'),
+            'currency' => $currency,
             'invoice_prefix_declared' => (string) $tenant->getSetting('invoice_prefix_declared', 'FTH'),
             'invoice_prefix_non_declared' => (string) $tenant->getSetting('invoice_prefix_non_declared', 'FTN'),
             'print_show_header_company_info' => filter_var(

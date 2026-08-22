@@ -26,7 +26,10 @@
         <div class="client-list-head">
             <h2 class="client-list-head__title">Clients</h2>
             <div class="client-list-head__actions">
-                <button type="button" class="btn btn-secondary btn-sm" wire:click="export">Exporter</button>
+                @if ($canExport ?? true)
+                    <x-export-btn format="excel" class="btn-sm" wire:click="exportExcel">Exporter Excel</x-export-btn>
+                    <x-export-btn format="pdf" class="btn-sm" wire:click="exportPdf">Exporter PDF</x-export-btn>
+                @endif
                 <a class="btn btn-secondary btn-sm" href="{{ route('tenant.clients.duplicates', ['tenant' => $tenantCode]) }}">Doublons</a>
                 @if ($canCreate)
                     <a class="btn btn-primary btn-sm" href="{{ route('tenant.clients.create', ['tenant' => $tenantCode]) }}">Nouveau</a>

@@ -62,7 +62,8 @@
         }
         .doc-box th {
             font-weight: bold;
-            background: #f3f4f6;
+            background-color: #0f766e;
+            color: #ffffff;
             font-size: 9px;
             text-transform: uppercase;
         }

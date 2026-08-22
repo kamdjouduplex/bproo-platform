@@ -66,12 +66,12 @@
             </div>
             <div style="padding:12px; border:1px solid #e5e7eb; border-radius:8px;">
                 <div style="font-size:12px; color:#6b7280;">Prix de vente (base)</div>
-                <strong>{{ fmt_money($item->price) }} FCFA</strong>
+                <strong>{{ fmt_money($item->price) }} {{ currency_label() }}</strong>
             </div>
             @if ($canViewCost)
             <div style="padding:12px; border:1px solid #e5e7eb; border-radius:8px;">
                 <div style="font-size:12px; color:#6b7280;">Coût / prix d'achat (fiche)</div>
-                <strong>{{ fmt_money($item->cost) }} FCFA</strong>
+                <strong>{{ fmt_money($item->cost) }} {{ currency_label() }}</strong>
             </div>
             @if ($showPurchaseHistory && $latestMarketEntry)
             <div style="padding:12px; border:1px solid #bfdbfe; border-radius:8px; background:#eff6ff;">
@@ -80,11 +80,11 @@
                     <strong style="color:#1d4ed8;">{{ fmt_num($latestMarketEntry->primary_amount, 4) }} {{ $latestMarketEntry->primary_currency }}</strong>
                     @if ($latestMarketEntry->indicative_fcfa !== null)
                         <div style="font-size:11px; color:#6b7280; margin-top:4px;">
-                            ≈ {{ fmt_money($latestMarketEntry->indicative_fcfa) }} FCFA <span style="font-style:italic;">(indicatif)</span>
+                            ≈ {{ fmt_money($latestMarketEntry->indicative_fcfa) }} {{ currency_label() }} <span style="font-style:italic;">(indicatif)</span>
                         </div>
                     @endif
                 @else
-                    <strong style="color:#1d4ed8;">{{ fmt_money($latestMarketEntry->primary_amount) }} FCFA</strong>
+                    <strong style="color:#1d4ed8;">{{ fmt_money($latestMarketEntry->primary_amount) }} {{ currency_label() }}</strong>
                 @endif
                 <div style="font-size:11px; color:#6b7280; margin-top:4px;">
                     <span class="badge {{ $latestMarketEntry->isForeign() ? 'badge-warning' : 'badge-info' }}" style="margin-right:6px;">
@@ -192,7 +192,7 @@
                             <th>Date</th>
                             <th>Type</th>
                             <th>Coût unitaire</th>
-                            <th>Équiv. FCFA <span style="font-weight:400; color:#6b7280;">(indicatif)</span></th>
+                            <th>Équiv. {{ currency_label() }} <span style="font-weight:400; color:#6b7280;">(indicatif)</span></th>
                             <th>Qté</th>
                             <th>Fournisseur</th>
                             <th>Commande</th>
@@ -213,14 +213,14 @@
                                             @if ($entry->isForeign())
                                                 {{ fmt_num($entry->primary_amount, 4) }} {{ $entry->primary_currency }}
                                             @else
-                                                {{ fmt_money($entry->primary_amount) }} FCFA
+                                                {{ fmt_money($entry->primary_amount) }} {{ currency_label() }}
                                             @endif
                                         </strong>
                                     @else
                                         @if ($entry->isForeign())
                                             {{ fmt_num($entry->primary_amount, 4) }} {{ $entry->primary_currency }}
                                         @else
-                                            {{ fmt_money($entry->primary_amount) }} FCFA
+                                            {{ fmt_money($entry->primary_amount) }} {{ currency_label() }}
                                         @endif
                                     @endif
                                 </td>

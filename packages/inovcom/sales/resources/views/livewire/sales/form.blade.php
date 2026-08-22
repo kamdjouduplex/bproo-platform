@@ -61,8 +61,8 @@
                 }
             }
             $saleCur = $sale
-                ? (\App\Services\TenantCurrencyService::label($sale->currency_code ?: null) ?: 'FCFA')
-                : 'FCFA';
+                ? currency_label($sale->currency_code ?: null)
+                : currency_label();
         @endphp
         <section class="card">
             <h2 class="card-title">Vente: {{ $sale->sale_number }}</h2>

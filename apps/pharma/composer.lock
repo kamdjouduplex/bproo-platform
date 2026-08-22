@@ -85,11 +85,11 @@
         },
         {
             "name": "bproo/attendance",
-            "version": "1.1.0",
+            "version": "1.2.0",
             "dist": {
                 "type": "path",
                 "url": "../../packages/inovcom/attendance",
-                "reference": "9f1096bce91c671473ed6e82c80930ac86bb58c7"
+                "reference": "2b2dd0527de6d80589181fcbba1099e77ddfd775"
             },
             "require": {
                 "bproo/core": "@dev",
@@ -837,7 +837,7 @@
             "dist": {
                 "type": "path",
                 "url": "../../packages/platform/tenancy",
-                "reference": "a751db6ae21b7570bbb937cf1f02683cbe5a25f5"
+                "reference": "46b8ff69b02eae64dc96b212f7beda5c330c5456"
             },
             "require": {
                 "illuminate/database": "^10.0",
@@ -860,7 +860,10 @@
                     "App\\Services\\": "src/Services/",
                     "App\\Support\\": "src/Support/",
                     "Bproo\\Platform\\Tenancy\\": "src/Platform/"
-                }
+                },
+                "files": [
+                    "src/helpers.php"
+                ]
             },
             "license": [
                 "MIT"

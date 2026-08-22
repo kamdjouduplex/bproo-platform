@@ -23,6 +23,9 @@
         </section>
     @endif
 
+    @if (session()->has('error'))
+        <div class="alert alert-error" style="margin-bottom: 16px;">{{ session('error') }}</div>
+    @endif
     <section class="card app-table-card">
         <div class="table-toolbar">
             <div class="table-title">Ventes</div>
@@ -48,9 +51,8 @@
                     <a class="btn btn-secondary" href="{{ route('tenant.sales.returns.index', ['tenant' => $tenantCode]) }}">Retours</a>
                 @endif
                 <a class="btn btn-secondary" href="{{ route('tenant.sales.daily-report', ['tenant' => $tenantCode]) }}">Rapport du jour</a>
-                @if (\Illuminate\Support\Facades\Route::has('tenant.stock.index'))
-                    <a class="btn btn-secondary" href="{{ route('tenant.stock.index', ['tenant' => $tenantCode]) }}">Stock (imprimer)</a>
-                @endif
+                <x-export-btn format="excel" class="btn-sm" wire:click="exportExcel">Exporter Excel</x-export-btn>
+                <x-export-btn format="pdf" class="btn-sm" wire:click="exportPdf">Exporter PDF</x-export-btn>
                 <a class="btn btn-primary" href="{{ route('tenant.sales.create', ['tenant' => $tenantCode]) }}">Nouvelle vente</a>
             </div>
         </div>
@@ -85,9 +87,9 @@
                                     <span class="badge badge-info">Gros</span>
                                 @endif
                             </td>
-                            <td>{{ fmt_money($sale->subtotal) }} {{ \App\Services\TenantCurrencyService::label($sale->currency_code) ?: 'FCFA' }}</td>
-                            <td>{{ fmt_money($sale->discount_amount) }} {{ \App\Services\TenantCurrencyService::label($sale->currency_code) ?: 'FCFA' }}</td>
-                            <td><strong>{{ fmt_money($sale->total) }} {{ \App\Services\TenantCurrencyService::label($sale->currency_code) ?: 'FCFA' }}</strong></td>
+                            <td>{{ fmt_money($sale->subtotal) }} {{ currency_label($sale->currency_code) }}</td>
+                            <td>{{ fmt_money($sale->discount_amount) }} {{ currency_label($sale->currency_code) }}</td>
+                            <td><strong>{{ fmt_money($sale->total) }} {{ currency_label($sale->currency_code) }}</strong></td>
                             <td>
                                 @if ($sale->isFullyPaid())
                                     <span class="badge badge-success">Payé</span>

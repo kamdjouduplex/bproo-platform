@@ -2,10 +2,10 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>{{ $title ?? 'Dépenses' }}</title>
+    <title>{{ $title ?? 'Fournisseurs' }}</title>
     <style>
         @page { margin: 16px 18px 24px 18px; }
-        body { font-family: DejaVu Sans, sans-serif; color: #111827; font-size: 9px; margin: 0; }
+        body { font-family: DejaVu Sans, sans-serif; color: #111827; font-size: 8.5px; margin: 0; }
         .header { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
         .header td { vertical-align: top; border: none; padding: 0; }
         .brand-name { font-size: 13px; font-weight: bold; color: #0f172a; margin: 0 0 3px; }
@@ -21,9 +21,8 @@
         thead { display: table-header-group; }
         tr { page-break-inside: avoid; }
         th, td { padding: 3px 4px; text-align: left; vertical-align: top; border-bottom: 1px solid #e5e7eb; }
-        th { background: #0f766e; color: #fff; font-size: 7.5px; text-transform: uppercase; }
+        th { background: #0f766e; color: #fff; font-size: 7px; text-transform: uppercase; }
         tbody tr:nth-child(even) td { background: #f8fafc; }
-        .right { text-align: right; }
         .muted { color: #64748b; font-size: 7.5px; }
         .footer { margin-top: 8px; font-size: 8px; color: #6b7280; text-align: right; }
     </style>
@@ -41,8 +40,9 @@
         <td style="width:62%;padding-right:12px;">
             <div class="brand-name">{{ $shopName }}</div>
             <div class="brand-meta">
-                @if (!empty($settings['shop_address'])){{ $settings['shop_address'] }}<br>@endif
-                @if (!empty($settings['shop_phone']))Tél : {{ $settings['shop_phone'] }}@endif
+                Fournisseurs
+                @if (!empty($settings['shop_address']))<br>{{ $settings['shop_address'] }}@endif
+                @if (!empty($settings['shop_phone']))<br>Tél : {{ $settings['shop_phone'] }}@endif
             </div>
         </td>
         <td style="width:38%;">
@@ -51,7 +51,7 @@
                     <tr><th>Date</th><th>Document</th></tr>
                     <tr>
                         <td class="doc-title">{{ $generatedAt->format('d/m/Y') }}</td>
-                        <td class="doc-title">Dépenses</td>
+                        <td class="doc-title">Fournisseurs</td>
                     </tr>
                 </table>
             </div>
@@ -60,44 +60,48 @@
 </table>
 
 <div class="summary">
-    <strong>{{ count($rows) }}</strong> dépense(s)
+    <strong>{{ count($rows) }}</strong> fournisseur(s)
     @if (!empty($filterLabel)) · {{ $filterLabel }}@endif
-    · Total : <strong>{{ number_format((float) ($totalAmount ?? 0), 0, ',', ' ') }} {{ currency_label($settings['currency'] ?? null) }}</strong>
 </div>
 
 <table class="data">
     <thead>
         <tr>
-            <th style="width:11%;">Référence</th>
-            <th style="width:9%;">Date</th>
-            <th style="width:14%;">Catégorie</th>
-            <th style="width:24%;">Description</th>
-            <th class="right" style="width:11%;">Montant</th>
-            <th style="width:11%;">Méthode</th>
-            <th style="width:10%;">Statut</th>
-            <th style="width:10%;">Créé par</th>
+            <th style="width:10%;">Code</th>
+            <th style="width:20%;">Nom</th>
+            <th style="width:12%;">Téléphone</th>
+            <th style="width:16%;">Email</th>
+            <th style="width:14%;">Ville</th>
+            <th style="width:10%;">Pays</th>
+            <th style="width:10%;">Type</th>
+            <th style="width:8%;">Statut</th>
         </tr>
     </thead>
     <tbody>
         @forelse ($rows as $row)
             <tr>
-                <td><strong>{{ $row['reference'] }}</strong></td>
-                <td>{{ $row['expense_date'] }}</td>
-                <td>{{ $row['category'] }}</td>
-                <td>{{ $row['description'] }}</td>
-                <td class="right"><strong>{{ number_format((float) $row['amount'], 0, ',', ' ') }}</strong></td>
-                <td>{{ $row['payment_method'] }}</td>
+                <td><strong>{{ $row['code'] }}</strong></td>
+                <td>
+                    {{ $row['name'] }}
+                    @if (!empty($row['address']))
+                        <div class="muted">{{ $row['address'] }}</div>
+                    @endif
+                </td>
+                <td>{{ $row['phone'] }}</td>
+                <td>{{ $row['email'] }}</td>
+                <td>{{ $row['city'] }}</td>
+                <td>{{ $row['country'] }}</td>
+                <td>{{ $row['type'] }}</td>
                 <td>{{ $row['status'] }}</td>
-                <td>{{ $row['creator'] }}</td>
             </tr>
         @empty
-            <tr><td colspan="8">Aucune dépense pour ces filtres.</td></tr>
+            <tr><td colspan="8">Aucun fournisseur pour ces filtres.</td></tr>
         @endforelse
     </tbody>
 </table>
 
 <div class="footer">
-    {{ $shopName }} · Généré le {{ $generatedAt->format('d/m/Y à H:i') }} · Archive administration
+    {{ $shopName }} · Généré le {{ $generatedAt->format('d/m/Y à H:i') }} · Liste fournisseurs
 </div>
 </body>
 </html>

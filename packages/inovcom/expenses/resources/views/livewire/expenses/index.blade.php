@@ -32,7 +32,7 @@
     <div class="expenses-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px;">
         <div class="card" style="padding:14px 16px;margin:0;">
             <div style="font-size:12px;color:#64748b;font-weight:600;">Total filtré</div>
-            <div style="font-size:1.25rem;font-weight:700;color:#0f172a;margin-top:4px;">{{ fmt_money($totalAmount) }} <span style="font-size:12px;font-weight:600;color:#94a3b8;">FCFA</span></div>
+            <div style="font-size:1.25rem;font-weight:700;color:#0f172a;margin-top:4px;">{{ fmt_money($totalAmount) }} <span style="font-size:12px;font-weight:600;color:#94a3b8;">{{ currency_label() }}</span></div>
             <div style="font-size:11px;color:#94a3b8;margin-top:4px;">Hors rejetés (sauf filtre Rejeté)</div>
         </div>
         <div class="card" style="padding:14px 16px;margin:0;">
@@ -57,6 +57,7 @@
             <h2 class="client-list-head__title">Dépenses</h2>
             <div class="client-list-head__actions">
                 @if ($canExport ?? true)
+                    <x-export-btn format="excel" class="btn-sm" wire:click="exportExcel">Exporter Excel</x-export-btn>
                     <x-export-btn format="pdf" class="btn-sm" wire:click="exportPdf">Exporter PDF</x-export-btn>
                 @endif
                 @if ($canCreate)

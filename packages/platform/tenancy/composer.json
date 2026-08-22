@@ -16,7 +16,10 @@
             "App\\Services\\": "src/Services/",
             "App\\Support\\": "src/Support/",
             "Bproo\\Platform\\Tenancy\\": "src/Platform/"
-        }
+        },
+        "files": [
+            "src/helpers.php"
+        ]
     },
     "extra": {
         "laravel": {

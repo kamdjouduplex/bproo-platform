@@ -28,7 +28,7 @@
                             <td>{{ $ret->sale?->sale_number }}</td>
                             <td>{{ $ret->sale?->client?->name ?? '—' }}</td>
                             <td>{{ \InovCom\Sales\Models\SaleReturn::typeLabel($ret->type) }}</td>
-                            <td>{{ fmt_money($ret->total_refund) }} FCFA</td>
+                            <td>{{ fmt_money($ret->total_refund) }} {{ currency_label() }}</td>
                             <td>
                                 <a class="btn btn-secondary btn-sm" href="{{ route('tenant.sales.returns.show', ['saleReturn' => $ret->id, 'tenant' => $tenantCode]) }}">Voir</a>
                                 @if ($ret->sale_id)

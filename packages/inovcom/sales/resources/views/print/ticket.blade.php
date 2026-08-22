@@ -71,14 +71,14 @@
     </table>
 
     <div class="line mt-1"></div>
-    <div class="text-right">Sous-total: {{ fmt_money($sale->subtotal) }} {{ \App\Services\TenantCurrencyService::label($currency) }}</div>
-    @if($sale->discount_amount > 0)<div class="text-right">Remise: -{{ fmt_money($sale->discount_amount) }} {{ \App\Services\TenantCurrencyService::label($currency) }}</div>@endif
-    <div class="text-right bold mt-1">Total: {{ fmt_money($sale->total) }} {{ \App\Services\TenantCurrencyService::label($currency) }}</div>
+    <div class="text-right">Sous-total: {{ fmt_money($sale->subtotal) }} {{ currency_label($currency) }}</div>
+    @if($sale->discount_amount > 0)<div class="text-right">Remise: -{{ fmt_money($sale->discount_amount) }} {{ currency_label($currency) }}</div>@endif
+    <div class="text-right bold mt-1">Total: {{ fmt_money($sale->total) }} {{ currency_label($currency) }}</div>
 
     @if($sale->payments->count() > 0)
     <div class="mt-1 pb-1">Paiement(s):</div>
     @foreach($sale->payments as $p)
-    <div>{{ $p->method_label }}: {{ fmt_money($p->amount) }} {{ \App\Services\TenantCurrencyService::label($p->currency_code ?: $currency) }}{{ $p->transaction_reference ? ' — ' . $p->transaction_reference : '' }}</div>
+    <div>{{ $p->method_label }}: {{ fmt_money($p->amount) }} {{ currency_label($p->currency_code ?: $currency) }}{{ $p->transaction_reference ? ' — ' . $p->transaction_reference : '' }}</div>
     @endforeach
     @endif
 

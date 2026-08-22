@@ -33,10 +33,29 @@ if (!function_exists('fmt_num')) {
 }
 
 if (!function_exists('fmt_money')) {
-    /** Amounts in FCFA / currency (no decimals). */
+    /** Amounts in tenant currency (no decimals by default). */
     function fmt_money(mixed $value, bool $useThousandsSep = true): string
     {
         return fmt_num($value, 0, $useThousandsSep);
+    }
+}
+
+if (! function_exists('currency_code')) {
+    /** Tenant default ISO currency code, or an explicit override. */
+    function currency_code(?string $code = null): string
+    {
+        return \App\Services\TenantCurrencyService::resolveCode($code);
+    }
+}
+
+if (! function_exists('currency_label')) {
+    /**
+     * Human label for amounts (USD, EUR, FCFA…).
+     * Empty $code → tenant default currency.
+     */
+    function currency_label(?string $code = null): string
+    {
+        return \App\Services\TenantCurrencyService::displayLabel($code);
     }
 }
 

@@ -42,7 +42,7 @@ class SalePrintController
         return view($view, array_merge([
             'sale' => $sale,
             'settings' => $settings,
-            'currency' => $sale->currency_code ?: ($settings['currency'] ?? 'XOF'),
+            'currency' => $sale->currency_code ?: ($settings['currency'] ?? currency_code()),
             'printPageSize' => $type === 'ticket' ? '80mm auto' : 'A4',
             'rxSummary' => $this->rxSummary($sale),
         ], $printContext));

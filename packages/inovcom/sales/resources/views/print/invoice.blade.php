@@ -1,5 +1,5 @@
 @php
-    $currencyLabel = \App\Services\TenantCurrencyService::label($currency ?? 'XOF') ?: ($currency ?? 'XOF');
+    $currencyLabel = currency_label($currency ?? null);
     $saleDateLabel = $sale->sale_date?->format('d/m/y') ?? now()->format('d/m/y');
     $client = $sale->client;
     $clientNiu = $client?->niu ?: $client?->tax_id;

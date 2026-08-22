@@ -3,22 +3,25 @@
         ?? session('tenant_code')
         ?? optional(request()->attributes->get('tenant'))->code;
     $colCount = count($visibleColumns) + 1;
+    $singular = $catalogNoun['singular'] ?? 'article';
+    $title = $catalogNoun['title'] ?? 'Catalogue';
+
+    $statusLabels = [
+        'all' => 'Tous',
+        'active' => 'Actifs',
+        'inactive' => 'Inactifs',
+    ];
 @endphp
 
 <div class="page-body">
-    <section class="card app-table-card">
-        <div class="table-toolbar">
-            <div class="table-title">{{ $catalogNoun['title'] ?? 'Catalogue' }}</div>
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                <form wire:submit.prevent="applySearch" style="display: inline-flex; gap: 4px;">
-                    <input class="input input-sm" type="text" wire:model="search" placeholder="Désignation, référence ou code-barres" style="min-width: 220px;" aria-label="Rechercher">
-                    <button type="submit" class="btn btn-secondary btn-sm">Rechercher</button>
-                </form>
-                <select class="input input-sm" wire:model="perPage">
-                    <option value="10">10</option>
-                    <option value="25">25</option>
-                    <option value="50">50</option>
-                </select>
+    <section class="card app-table-card client-list-card">
+        <div class="client-list-head">
+            <h2 class="client-list-head__title">{{ $title }}</h2>
+            <div class="client-list-head__actions">
+                @if ($canExport ?? false)
+                    <x-export-btn format="excel" class="btn-sm" wire:click="exportExcel">Exporter Excel</x-export-btn>
+                    <x-export-btn format="pdf" class="btn-sm" wire:click="exportPdf">Exporter PDF</x-export-btn>
+                @endif
                 @if ($canConfigureList)
                     <a class="btn btn-secondary btn-sm" href="{{ route('tenant.items.list-config', ['tenant' => $tenantCode]) }}">Config</a>
                 @endif
@@ -28,6 +31,86 @@
                 @endif
             </div>
         </div>
+
+        <div class="client-filter-bar">
+            <div class="client-filter-bar__search">
+                <input
+                    class="input input-sm client-filter-bar__search-input"
+                    type="search"
+                    wire:model.live.debounce.350ms="search"
+                    placeholder="Désignation, référence ou code-barres…"
+                    aria-label="Rechercher un {{ $singular }}"
+                >
+            </div>
+            <div class="client-filter-bar__tools">
+                <button
+                    type="button"
+                    class="client-filter-toggle {{ $showAdvancedFilters ? 'client-filter-toggle--open' : '' }}"
+                    wire:click="toggleAdvancedFilters"
+                    aria-expanded="{{ $showAdvancedFilters ? 'true' : 'false' }}"
+                >
+                    Filtres
+                    @if ($activeFiltersCount > 0)
+                        <span class="client-filter-toggle__badge">{{ $activeFiltersCount }}</span>
+                    @endif
+                </button>
+                @if ($search !== '' || $statusFilter !== 'all' || $activeFiltersCount > 0)
+                    <button type="button" class="btn btn-secondary btn-sm" wire:click="resetFilters" title="Réinitialiser">Réinit.</button>
+                @endif
+                <label class="client-filter-bar__per-page">
+                    <span class="sr-only">Résultats par page</span>
+                    <select class="input input-sm" wire:model.live="perPage" aria-label="Par page">
+                        <option value="10">10</option>
+                        <option value="25">25</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </label>
+            </div>
+        </div>
+
+        <div class="client-status-pills" role="group" aria-label="Filtrer par statut">
+            @foreach ($statusLabels as $value => $label)
+                <button
+                    type="button"
+                    class="client-status-pill {{ $statusFilter === $value ? 'client-status-pill--active' : '' }}"
+                    wire:click="setStatusFilter('{{ $value }}')"
+                >
+                    {{ $label }}
+                </button>
+            @endforeach
+        </div>
+
+        @if ($showAdvancedFilters)
+            <div class="client-filter-panel">
+                <div class="client-filter-panel__grid client-filter-panel__grid--items">
+                    @if ($categories->isNotEmpty())
+                        <label class="client-filter-field">
+                            <span class="client-filter-field__label">Catégorie</span>
+                            <select class="input input-sm" wire:model.live="categoryFilter">
+                                <option value="">Toutes</option>
+                                @foreach ($categories as $category)
+                                    <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                    @endif
+
+                    @if ($brands->isNotEmpty())
+                        <label class="client-filter-field">
+                            <span class="client-filter-field__label">Marque</span>
+                            <select class="input input-sm" wire:model.live="brandFilter">
+                                <option value="">Toutes</option>
+                                @foreach ($brands as $brand)
+                                    <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                    @endif
+                </div>
+            </div>
+        @endif
+
         <div class="table-scroll">
             <table>
                 <thead>
@@ -40,7 +123,7 @@
                 </thead>
                 <tbody>
                     @foreach ($items as $item)
-                        <tr>
+                        <tr wire:key="item-{{ $item->id }}">
                             @foreach ($visibleColumns as $col)
                                 <td>
                                     @switch($col['key'])
@@ -120,14 +203,19 @@
                                     <a class="btn btn-secondary btn-sm" href="{{ route('tenant.items.edit', [$item->id, 'tenant' => $tenantCode]) }}">Modifier</a>
                                 @endif
                                 @if ($canDelete)
-                                    <button type="button" class="btn btn-secondary btn-sm" wire:click="delete({{ $item->id }})" onclick="return confirm('Supprimer ce {{ $catalogNoun['singular'] ?? 'article' }} ?')">Supprimer</button>
+                                    <button
+                                        type="button"
+                                        class="btn btn-secondary btn-sm"
+                                        wire:click="delete({{ $item->id }})"
+                                        wire:confirm="Supprimer ce {{ $singular }} ?"
+                                    >Supprimer</button>
                                 @endif
                             </td>
                         </tr>
                     @endforeach
                     @if ($items->count() === 0)
                         <tr>
-                            <td colspan="{{ $colCount }}">Aucun {{ $catalogNoun['singular'] ?? 'article' }} pour le moment.</td>
+                            <td colspan="{{ $colCount }}">Aucun {{ $singular }} pour ces filtres.</td>
                         </tr>
                     @endif
                 </tbody>

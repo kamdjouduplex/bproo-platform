@@ -10,9 +10,9 @@
         <h2 class="card-title">Retour produit — {{ $sale->sale_number }}</h2>
         <p style="color: #6b7280; font-size: 14px; margin-bottom: 12px;">
             Client : <strong>{{ $sale->client?->name ?? 'Client occasionnel' }}</strong>
-            · Total vente : <strong>{{ fmt_money($sale->total) }} FCFA</strong>
+            · Total vente : <strong>{{ fmt_money($sale->total) }} {{ currency_label() }}</strong>
             @if ($sale->totalReturned() > 0)
-                · Déjà retourné : <strong>{{ fmt_money($sale->totalReturned()) }} FCFA</strong>
+                · Déjà retourné : <strong>{{ fmt_money($sale->totalReturned()) }} {{ currency_label() }}</strong>
             @endif
         </p>
 
@@ -51,7 +51,7 @@
                                            max="{{ $row['returnable_qty'] }}"
                                            wire:model.live="lineRows.{{ $index }}.quantity">
                                 </td>
-                                <td>{{ fmt_money($row['unit_price']) }} FCFA</td>
+                                <td>{{ fmt_money($row['unit_price']) }} {{ currency_label() }}</td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -79,7 +79,7 @@
             </div>
 
             <div style="margin-top: 16px; padding: 12px 16px; background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px;">
-                <strong>Remboursement estimé :</strong> {{ fmt_money($estimatedRefund) }} FCFA
+                <strong>Remboursement estimé :</strong> {{ fmt_money($estimatedRefund) }} {{ currency_label() }}
                 <div style="font-size: 12px; color: #166534; margin-top: 4px;">
                     Le stock sera réintégré et le remboursement réparti proportionnellement aux modes de paiement de la vente (caisse, mobile money, crédit client).
                 </div>
@@ -114,7 +114,7 @@
                                 <td>{{ $ret->return_number }}</td>
                                 <td>{{ $ret->return_date->format('d/m/Y') }}</td>
                                 <td>{{ \InovCom\Sales\Models\SaleReturn::typeLabel($ret->type) }}</td>
-                                <td>{{ fmt_money($ret->total_refund) }} FCFA</td>
+                                <td>{{ fmt_money($ret->total_refund) }} {{ currency_label() }}</td>
                                 <td>
                                     <a class="btn btn-secondary btn-sm" href="{{ route('tenant.sales.returns.show', ['saleReturn' => $ret->id, 'tenant' => $tenantCode]) }}">Voir</a>
                                 </td>

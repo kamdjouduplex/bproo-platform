@@ -6,18 +6,13 @@
 
 <div class="page-body">
     @if (session()->has('success'))
-        <div class="alert alert-success" style="margin-bottom: 16px;">
-            {{ session('success') }}
-        </div>
+        <div class="alert alert-success" style="margin-bottom: 16px;">{{ session('success') }}</div>
     @endif
-
     @if (session()->has('error'))
-        <div class="alert alert-error" style="margin-bottom: 16px;">
-            {{ session('error') }}
-        </div>
+        <div class="alert alert-error" style="margin-bottom: 16px;">{{ session('error') }}</div>
     @endif
 
-    @if (!$count || $count->isDraft())
+    @if (! $count || $count->isDraft())
         <form wire:submit.prevent="save">
             <section class="card">
                 <h2 class="card-title">Informations de l'inventaire</h2>
@@ -51,9 +46,39 @@
         </form>
     @endif
 
+    @if ($count)
+        <section class="card" style="margin-top: {{ (! $count || $count->isDraft()) ? '24px' : '0' }};">
+            <div style="display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start;">
+                <div>
+                    <h2 class="card-title" style="margin-bottom:4px;">Feuille de comptage</h2>
+                    <p style="margin:0; font-size:13px; color:#64748b;">
+                        @if ($count->isCompleted())
+                            Export des résultats (quantités comptées et écarts).
+                        @elseif ($count->isInProgress())
+                            Exportez les lignes de cet inventaire pour compter sur papier, puis saisissez ici.
+                        @else
+                            Exportez le catalogue (aperçu) avant de démarrer, ou démarrez puis exportez les lignes.
+                        @endif
+                    </p>
+                </div>
+                <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
+                    @if (! $count->isCompleted())
+                        <label style="display:inline-flex; align-items:center; gap:8px; font-size:13px; color:#475569;">
+                            <input type="checkbox" wire:model.live="blindExport">
+                            Comptage à l’aveugle
+                        </label>
+                    @endif
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <x-export-btn format="excel" class="btn-sm" wire:click="exportPaperExcel">Exporter Excel</x-export-btn>
+                        <x-export-btn format="pdf" class="btn-sm" wire:click="exportPaperPdf">Exporter PDF</x-export-btn>
+                    </div>
+                </div>
+            </div>
+        </section>
+    @endif
+
     @if ($count && ($count->isInProgress() || $count->isCompleted()))
-        <div style="display: grid; grid-template-columns: 1fr 300px; gap: 24px;">
-            {{-- Left: Count Lines --}}
+        <div style="display: grid; grid-template-columns: 1fr 300px; gap: 24px; margin-top: 24px;">
             <div>
                 <section class="card">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -65,7 +90,7 @@
                         @endif
                     </div>
 
-                    @if (!empty($lines))
+                    @if (! empty($lines))
                         <div class="table-scroll">
                             <table>
                                 <thead>
@@ -85,20 +110,20 @@
                                             $diff = (float) $line['difference'];
                                             $valueDiff = (float) $line['value_difference'];
                                         @endphp
-                                        <tr>
+                                        <tr wire:key="line-{{ $line['id'] ?? $index }}">
                                             <td><x-item-label :reference="$line['item_sku'] ?? null" :name="$line['item_name'] ?? null" /></td>
                                             <td>{{ fmt_num((float) $line['expected_quantity']) }} {{ $line['item_unit'] }}</td>
                                             <td>
                                                 @if ($count->isInProgress())
-                                                    <input type="number" 
-                                                           class="input input-sm" 
+                                                    <input type="number"
+                                                           class="input input-sm"
                                                            wire:model.debounce.500ms="lines.{{ $index }}.counted_quantity"
-                                                           min="0" 
-                                                           step="0.001" 
+                                                           min="0"
+                                                           step="0.001"
                                                            style="width: 100px;"
                                                            placeholder="0">
                                                 @else
-                                                    {{ $line['counted_quantity'] ? fmt_num((float) $line['counted_quantity']) . ' ' . $line['item_unit'] : '-' }}
+                                                    {{ $line['counted_quantity'] !== '' ? fmt_num((float) $line['counted_quantity']).' '.$line['item_unit'] : '—' }}
                                                 @endif
                                             </td>
                                             <td>
@@ -107,33 +132,33 @@
                                                         {{ $diff > 0 ? '+' : '' }}{{ fmt_num($diff) }}
                                                     </span>
                                                 @else
-                                                    <span style="color: #6b7280;">-</span>
+                                                    <span style="color: #6b7280;">—</span>
                                                 @endif
                                             </td>
                                             <td>
                                                 @if ($valueDiff != 0)
                                                     <span style="color: {{ $valueDiff > 0 ? '#16a34a' : '#dc2626' }};">
-                                                        {{ fmt_money($valueDiff) }} FCFA
+                                                        {{ fmt_money($valueDiff) }} {{ currency_label() }}
                                                     </span>
                                                 @else
-                                                    <span style="color: #6b7280;">-</span>
+                                                    <span style="color: #6b7280;">—</span>
                                                 @endif
                                             </td>
                                             <td>
                                                 @if ($count->isInProgress())
-                                                    <input type="text" 
-                                                           class="input input-sm" 
+                                                    <input type="text"
+                                                           class="input input-sm"
                                                            wire:model.debounce.500ms="lines.{{ $index }}.notes"
                                                            placeholder="Notes..."
                                                            style="width: 150px;">
                                                 @else
-                                                    {{ $line['notes'] ?: '-' }}
+                                                    {{ $line['notes'] ?: '—' }}
                                                 @endif
                                             </td>
                                             <td>
                                                 @if ($count->isInProgress())
-                                                    <button type="button" 
-                                                            class="btn btn-secondary btn-sm" 
+                                                    <button type="button"
+                                                            class="btn btn-secondary btn-sm"
                                                             wire:click="updateLine({{ $index }})">
                                                         Enregistrer
                                                     </button>
@@ -150,7 +175,6 @@
                 </section>
             </div>
 
-            {{-- Right: Summary and Actions --}}
             <div>
                 <section class="card">
                     <h2 class="card-title">Résumé</h2>
@@ -163,7 +187,7 @@
                             <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Progression</div>
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <div style="flex: 1; height: 12px; background: #e5e7eb; border-radius: 6px; overflow: hidden;">
-                                    <div style="height: 100%; width: {{ $count->progress_percentage ?? 0 }}%; background: {{ ($count->progress_percentage ?? 0) === 100 ? '#16a34a' : '#3b82f6' }}; transition: width 0.3s;"></div>
+                                    <div style="height: 100%; width: {{ $count->progress_percentage ?? 0 }}%; background: {{ ($count->progress_percentage ?? 0) == 100 ? '#16a34a' : '#3b82f6' }};"></div>
                                 </div>
                                 <span style="font-size: 14px; font-weight: 600;">{{ fmt_num($count->progress_percentage ?? 0, 1) }}%</span>
                             </div>
@@ -182,7 +206,7 @@
                                 {{ ($count->total_difference ?? 0) > 0 ? '+' : '' }}{{ fmt_num($count->total_difference ?? 0) }}
                             </div>
                             <div style="font-size: 14px; color: #6b7280; margin-top: 4px;">
-                                {{ fmt_money($count->total_value_difference ?? 0) }} FCFA
+                                {{ fmt_money($count->total_value_difference ?? 0) }} {{ currency_label() }}
                             </div>
                         </div>
                     </div>
@@ -192,16 +216,16 @@
                     <section class="card" style="margin-top: 16px;">
                         <h2 class="card-title">Actions</h2>
                         <div style="display: flex; flex-direction: column; gap: 8px;">
-                            <button type="button" 
-                                    class="btn btn-primary" 
+                            <button type="button"
+                                    class="btn btn-primary"
                                     wire:click="completeCount(true)"
-                                    onclick="return confirm('Finaliser l\'inventaire et appliquer les ajustements de stock ?')">
+                                    wire:confirm="Finaliser l'inventaire et appliquer les ajustements de stock ?">
                                 Finaliser et appliquer
                             </button>
-                            <button type="button" 
-                                    class="btn btn-secondary" 
+                            <button type="button"
+                                    class="btn btn-secondary"
                                     wire:click="completeCount(false)"
-                                    onclick="return confirm('Finaliser l\'inventaire sans appliquer les ajustements ?')">
+                                    wire:confirm="Finaliser l'inventaire sans appliquer les ajustements ?">
                                 Finaliser sans appliquer
                             </button>
                         </div>
@@ -213,11 +237,14 @@
 
     @if ($count && $count->isDraft())
         <section class="card" style="margin-top: 24px;">
-            <h2 class="card-title">Actions</h2>
-            <button type="button" 
-                    class="btn btn-primary" 
+            <h2 class="card-title">Démarrer</h2>
+            <p style="margin: 0 0 12px; color:#64748b; font-size:13px;">
+                Crée une ligne pour chaque article actif avec le stock système actuel. Exportez d’abord la feuille papier si besoin.
+            </p>
+            <button type="button"
+                    class="btn btn-primary"
                     wire:click="startCount"
-                    onclick="return confirm('Démarrer l\'inventaire ? Cela va créer une ligne pour chaque article actif.')">
+                    wire:confirm="Démarrer l'inventaire ? Cela va créer une ligne pour chaque article actif.">
                 Démarrer l'inventaire
             </button>
         </section>

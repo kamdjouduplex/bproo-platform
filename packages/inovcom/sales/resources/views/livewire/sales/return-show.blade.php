@@ -17,9 +17,9 @@
                 @endif
             </div>
             <div>
-                <p><strong>Sous-total retourné :</strong> {{ fmt_money($saleReturn->subtotal_refund) }} FCFA</p>
-                <p><strong>Remise répartie :</strong> {{ fmt_money($saleReturn->discount_refund) }} FCFA</p>
-                <p><strong>Remboursement total :</strong> <strong>{{ fmt_money($saleReturn->total_refund) }} FCFA</strong></p>
+                <p><strong>Sous-total retourné :</strong> {{ fmt_money($saleReturn->subtotal_refund) }} {{ currency_label() }}</p>
+                <p><strong>Remise répartie :</strong> {{ fmt_money($saleReturn->discount_refund) }} {{ currency_label() }}</p>
+                <p><strong>Remboursement total :</strong> <strong>{{ fmt_money($saleReturn->total_refund) }} {{ currency_label() }}</strong></p>
             </div>
         </div>
 
@@ -38,7 +38,7 @@
                         <tr>
                             <td><x-item-label :reference="$line->saleLine?->item_sku" :name="$line->saleLine?->item_name" fallback="—" /></td>
                             <td>{{ fmt_num($line->quantity) }}</td>
-                            <td>{{ fmt_money($line->line_refund) }} FCFA</td>
+                            <td>{{ fmt_money($line->line_refund) }} {{ currency_label() }}</td>
                         </tr>
                     @endforeach
                 </tbody>
@@ -59,7 +59,7 @@
                         @foreach ($saleReturn->refunds as $refund)
                             <tr>
                                 <td>{{ $refund->method_label }}</td>
-                                <td>{{ fmt_money($refund->amount) }} FCFA</td>
+                                <td>{{ fmt_money($refund->amount) }} {{ currency_label() }}</td>
                             </tr>
                         @endforeach
                     </tbody>

@@ -28,13 +28,8 @@
                         <option value="{{ $value }}">{{ $label }}</option>
                     @endforeach
                 </select>
-                <a
-                    class="btn btn-primary btn-sm"
-                    href="{{ $this->printUrl() }}"
-                    onclick="window.open(this.href, '_blank'); return false;"
-                >
-                    Imprimer la fiche PDF
-                </a>
+                <x-export-btn format="excel" class="btn-sm" wire:click="exportExcel">Feuille Excel</x-export-btn>
+                <x-export-btn format="pdf" class="btn-sm" wire:click="exportPdf">Feuille PDF</x-export-btn>
             </div>
         </div>
     </section>

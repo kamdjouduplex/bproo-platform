@@ -13,7 +13,7 @@
         .doc-box { border: 1.5px solid #111; }
         .doc-box table { width: 100%; border-collapse: collapse; }
         .doc-box th, .doc-box td { border: 1px solid #111; padding: 5px 7px; text-align: center; }
-        .doc-box th { background: #f3f4f6; font-size: 8px; text-transform: uppercase; }
+        .doc-box th { background-color: #0f766e; color: #ffffff; font-size: 8px; text-transform: uppercase; font-weight: bold; }
         .doc-title { font-size: 12px; font-weight: bold; }
         .summary { margin: 0 0 10px; font-size: 9px; color: #334155; }
         .summary strong { color: #0f172a; }
@@ -68,7 +68,7 @@
 <div class="summary">
     <strong>{{ count($rows) }}</strong> dette(s)
     @if (!empty($filterLabel)) · {{ $filterLabel }}@endif
-    · Solde total exporté : <strong>{{ number_format((float) ($totalBalance ?? 0), 0, ',', ' ') }} FCFA</strong>
+    · Solde total exporté : <strong>{{ number_format((float) ($totalBalance ?? 0), 0, ',', ' ') }} {{ currency_label($settings['currency'] ?? null) }}</strong>
 </div>
 
 <table class="data">

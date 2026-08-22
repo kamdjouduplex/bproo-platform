@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 use Livewire\WithPagination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class DebtsIndex extends Component
 {
@@ -31,6 +32,8 @@ class DebtsIndex extends Component
 
     public string $validationFilter = 'all';
 
+    public bool $showAdvancedFilters = false;
+
     public function mount(): void
     {
         $client = request()->query('client');
@@ -41,6 +44,94 @@ class DebtsIndex extends Component
         if (request()->query('validation') === 'pending') {
             $this->validationFilter = 'pending';
         }
+
+        if ($this->clientFilter || $this->dateFrom !== '' || $this->dateTo !== '') {
+            $this->showAdvancedFilters = true;
+        }
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStatusFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedClientFilter($value): void
+    {
+        $this->clientFilter = ($value === '' || $value === null) ? null : (int) $value;
+        $this->resetPage();
+    }
+
+    public function updatedDateFrom(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateTo(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPerPage(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedValidationFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function toggleAdvancedFilters(): void
+    {
+        $this->showAdvancedFilters = ! $this->showAdvancedFilters;
+    }
+
+    public function setStatusFilter(string $status): void
+    {
+        $this->statusFilter = $status;
+        $this->validationFilter = 'all';
+        $this->resetPage();
+    }
+
+    public function setValidationPending(): void
+    {
+        $this->validationFilter = 'pending';
+        $this->statusFilter = 'all';
+        $this->resetPage();
+    }
+
+    public function setPeriod(string $period): void
+    {
+        $now = now();
+        switch ($period) {
+            case 'day':
+                $this->dateFrom = $now->format('Y-m-d');
+                $this->dateTo = $now->format('Y-m-d');
+                break;
+            case 'week':
+                $this->dateFrom = $now->copy()->startOfWeek()->format('Y-m-d');
+                $this->dateTo = $now->copy()->endOfWeek()->format('Y-m-d');
+                break;
+            case 'month':
+                $this->dateFrom = $now->copy()->startOfMonth()->format('Y-m-d');
+                $this->dateTo = $now->copy()->endOfMonth()->format('Y-m-d');
+                break;
+            case 'year':
+                $this->dateFrom = $now->copy()->startOfYear()->format('Y-m-d');
+                $this->dateTo = $now->copy()->endOfYear()->format('Y-m-d');
+                break;
+            case 'clear':
+                $this->dateFrom = '';
+                $this->dateTo = '';
+                break;
+        }
+        $this->showAdvancedFilters = true;
+        $this->resetPage();
     }
 
     public function resetFilters(): void
@@ -50,6 +141,8 @@ class DebtsIndex extends Component
         $this->clientFilter = null;
         $this->dateFrom = '';
         $this->dateTo = '';
+        $this->validationFilter = 'all';
+        $this->showAdvancedFilters = false;
         $this->resetPage();
     }
 
@@ -107,6 +200,75 @@ class DebtsIndex extends Component
         session()->flash('success', 'Dette validée avec succès.');
     }
 
+    public function exportExcel(): ?StreamedResponse
+    {
+        if (! $this->can('debts.view')) {
+            session()->flash('error', 'Permission refusée.');
+
+            return null;
+        }
+
+        @ini_set('memory_limit', '512M');
+        @set_time_limit(180);
+
+        $headers = [
+            'Référence',
+            'Client',
+            'Code client',
+            'Ouverture',
+            'Échéance',
+            'Montant',
+            'Solde',
+            'Statut',
+        ];
+        $title = 'Dettes clients — '.$this->filterLabel();
+        $filename = 'dettes-'.now()->format('Ymd_His').'.xls';
+        $escape = static fn ($value) => htmlspecialchars((string) ($value ?? ''), ENT_QUOTES, 'UTF-8');
+
+        return response()->streamDownload(function () use ($headers, $title, $escape) {
+            echo "\xEF\xBB\xBF";
+            echo '<html><head><meta charset="UTF-8"></head><body>';
+            echo '<h3>'.$escape($title).'</h3>';
+            echo '<table border="1" cellspacing="0" cellpadding="4"><thead><tr>';
+            foreach ($headers as $header) {
+                echo '<th>'.$escape($header).'</th>';
+            }
+            echo '</tr></thead><tbody>';
+
+            $exported = 0;
+            $this->baseQuery()
+                ->with(['client'])
+                ->orderBy('id')
+                ->chunkById(300, function ($chunk) use (&$exported, $escape) {
+                    foreach ($chunk as $debt) {
+                        if ($exported >= 5000) {
+                            return false;
+                        }
+
+                        $row = $this->mapDebtRow($debt);
+                        echo '<tr>';
+                        echo '<td>'.$escape($row['reference']).'</td>';
+                        echo '<td>'.$escape($row['client_name']).'</td>';
+                        echo '<td>'.$escape($row['client_code']).'</td>';
+                        echo '<td>'.$escape($row['opened_at']).'</td>';
+                        echo '<td>'.$escape($row['due_date']).'</td>';
+                        echo '<td>'.$escape(fmt_money($row['total_amount'])).'</td>';
+                        echo '<td>'.$escape(fmt_money($row['balance'])).'</td>';
+                        echo '<td>'.$escape($row['status_label']).'</td>';
+                        echo '</tr>';
+                        $exported++;
+                    }
+
+                    return $exported < 5000;
+                }, 'debts.id', 'id');
+
+            echo '</tbody></table></body></html>';
+        }, $filename, [
+            'Content-Type' => 'application/vnd.ms-excel; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+    }
+
     public function exportPdf()
     {
         if (! $this->can('debts.view')) {
@@ -126,31 +288,7 @@ class DebtsIndex extends Component
                 ->limit(5000)
                 ->get();
 
-            $statusLabels = [
-                'open' => 'Ouvert',
-                'partial' => 'Partiel',
-                'paid' => 'Soldé',
-                'overdue' => 'En retard',
-            ];
-
-            $rows = $debts->map(function (Debt $debt) use ($statusLabels) {
-                $statusLabel = $statusLabels[$debt->status] ?? (string) $debt->status;
-                if (Debt::supportsValidationWorkflow() && ! $debt->is_validated) {
-                    $statusLabel = 'En attente de validation';
-                }
-
-                return [
-                    'reference' => (string) $debt->reference,
-                    'client_name' => (string) ($debt->client?->name ?? '—'),
-                    'client_code' => (string) ($debt->client?->code ?? ''),
-                    'opened_at' => $debt->opened_at?->format('d/m/Y') ?? '—',
-                    'due_date' => $debt->due_date?->format('d/m/Y') ?? '—',
-                    'total_amount' => (float) $debt->total_amount,
-                    'balance' => (float) $debt->balance,
-                    'status' => (string) $debt->status,
-                    'status_label' => $statusLabel,
-                ];
-            })->all();
+            $rows = $debts->map(fn (Debt $debt) => $this->mapDebtRow($debt))->all();
 
             $tenant = app(TenantManager::class)->tenant();
             $settings = app(TenantBrandingService::class)->documentSettings($tenant);
@@ -224,7 +362,21 @@ class DebtsIndex extends Component
                 'canReceivePayment' => $this->can('debts.receive_payment'),
                 'canCreate' => $this->can('debts.create'),
                 'canExport' => $this->can('debts.view'),
+                'activeFiltersCount' => $this->activeFiltersCount(),
             ]);
+    }
+
+    private function activeFiltersCount(): int
+    {
+        $count = 0;
+        if ($this->clientFilter) {
+            $count++;
+        }
+        if ($this->dateFrom !== '' || $this->dateTo !== '') {
+            $count++;
+        }
+
+        return $count;
     }
 
     private function baseQuery(): Builder
@@ -235,17 +387,57 @@ class DebtsIndex extends Component
                 fn ($q) => $q->where('is_validated', false)->whereIn('status', ['open', 'partial'])
             )
             ->when($this->search !== '', function ($q) {
-                $q->where(function ($q2) {
-                    $q2->where('reference', 'like', '%' . $this->search . '%')
-                        ->orWhereHas('client', fn ($q3) => $q3->where('name', 'like', '%' . $this->search . '%')
-                            ->orWhere('code', 'like', '%' . $this->search . '%'));
+                $term = '%'.trim($this->search).'%';
+                $q->where(function ($q2) use ($term) {
+                    $q2->where('reference', 'like', $term)
+                        ->orWhereHas('client', fn ($q3) => $q3->where('name', 'like', $term)
+                            ->orWhere('code', 'like', $term));
                 });
-            }, function ($q) {
-                $q->when($this->statusFilter !== 'all', fn ($q2) => $q2->where('status', $this->statusFilter))
-                    ->when($this->clientFilter, fn ($q2) => $q2->where('client_id', $this->clientFilter))
-                    ->when($this->dateFrom, fn ($q2) => $q2->where('opened_at', '>=', $this->dateFrom))
-                    ->when($this->dateTo, fn ($q2) => $q2->where('opened_at', '<=', $this->dateTo));
-            });
+            })
+            ->when($this->statusFilter !== 'all', fn ($q) => $q->where('status', $this->statusFilter))
+            ->when($this->clientFilter, fn ($q) => $q->where('client_id', $this->clientFilter))
+            ->when($this->dateFrom !== '', fn ($q) => $q->whereDate('opened_at', '>=', $this->dateFrom))
+            ->when($this->dateTo !== '', fn ($q) => $q->whereDate('opened_at', '<=', $this->dateTo));
+    }
+
+    /**
+     * @return array{
+     *     reference: string,
+     *     client_name: string,
+     *     client_code: string,
+     *     opened_at: string,
+     *     due_date: string,
+     *     total_amount: float,
+     *     balance: float,
+     *     status: string,
+     *     status_label: string
+     * }
+     */
+    private function mapDebtRow(Debt $debt): array
+    {
+        $statusLabels = [
+            'open' => 'Ouvert',
+            'partial' => 'Partiel',
+            'paid' => 'Soldé',
+            'overdue' => 'En retard',
+        ];
+
+        $statusLabel = $statusLabels[$debt->status] ?? (string) $debt->status;
+        if (Debt::supportsValidationWorkflow() && ! $debt->is_validated) {
+            $statusLabel = 'En attente de validation';
+        }
+
+        return [
+            'reference' => (string) $debt->reference,
+            'client_name' => (string) ($debt->client?->name ?? '—'),
+            'client_code' => (string) ($debt->client?->code ?? ''),
+            'opened_at' => $debt->opened_at?->format('d/m/Y') ?? '—',
+            'due_date' => $debt->due_date?->format('d/m/Y') ?? '—',
+            'total_amount' => (float) $debt->total_amount,
+            'balance' => (float) $debt->balance,
+            'status' => (string) $debt->status,
+            'status_label' => $statusLabel,
+        ];
     }
 
     private function filterLabel(): string

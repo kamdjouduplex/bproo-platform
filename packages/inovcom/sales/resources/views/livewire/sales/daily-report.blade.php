@@ -5,21 +5,17 @@
 @endphp
 
 <div class="page-body">
+    @if (session()->has('error'))
+        <div class="alert alert-error" style="margin-bottom: 16px;">{{ session('error') }}</div>
+    @endif
     <section class="card" style="margin-bottom: 16px;">
         <div class="table-toolbar" style="flex-wrap: wrap; gap: 12px;">
             <div class="table-title">Rapport journalier</div>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <input class="input input-sm" type="date" wire:model.live="date" style="width: 160px;">
                 <button type="button" class="btn btn-secondary btn-sm" wire:click="setToday">Aujourd'hui</button>
-                <a class="btn btn-primary btn-sm"
-                   href="{{ route('tenant.sales.daily-report.print', ['tenant' => $tenantCode, 'date' => $date]) }}">
-                    Imprimer
-                </a>
-                @if (\Illuminate\Support\Facades\Route::has('tenant.stock.index'))
-                    <a class="btn btn-secondary btn-sm" href="{{ route('tenant.stock.index', ['tenant' => $tenantCode]) }}">
-                        Stock restant (PDF)
-                    </a>
-                @endif
+                <x-export-btn format="excel" class="btn-sm" wire:click="exportExcel">Exporter Excel</x-export-btn>
+                <x-export-btn format="pdf" class="btn-sm" wire:click="exportPdf">Exporter PDF</x-export-btn>
                 <a class="btn btn-secondary btn-sm" href="{{ route('tenant.sales.index', ['tenant' => $tenantCode]) }}">Retour ventes</a>
             </div>
         </div>

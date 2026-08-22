@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Tenant;
+use App\Services\TenantCurrencyService;
 use Illuminate\Support\Facades\View;
 
 /**
@@ -45,7 +46,11 @@ class TenantSettingsApplier
                 : (string) ($enabled[0] ?? config('inovcom.default_locale', 'fr'));
         }
 
-        $currency = (string) $tenant->getSetting('currency', config('inovcom.default_currency', 'XOF'));
+        try {
+            $currency = app(TenantCurrencyService::class)->defaultCode($tenant);
+        } catch (\Throwable) {
+            $currency = (string) $tenant->getSetting('currency', config('inovcom.default_currency', 'XOF'));
+        }
         $timezone = (string) $tenant->getSetting(
             'timezone',
             config('inovcom.default_timezone', config('app.timezone', 'UTC'))
@@ -68,6 +73,7 @@ class TenantSettingsApplier
         app()->instance('tenant', $tenant);
 
         View::share('tenantCurrency', $currency);
+        View::share('tenantCurrencyLabel', TenantCurrencyService::displayLabel($currency));
         View::share('tenantTimezone', $timezone);
         View::share('tenantEnabledLocales', $enabled);
     }

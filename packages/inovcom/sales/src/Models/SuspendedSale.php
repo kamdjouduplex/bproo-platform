@@ -29,7 +29,8 @@ class SuspendedSale extends TenantModel
         $cart = $payload['cart'] ?? [];
         $count = count($cart);
         $total = $payload['total'] ?? 0;
-        $totalFormatted = $total > 0 ? fmt_money((float) $total) . ' FCFA' : '—';
+        $cur = currency_label($payload['sale_currency'] ?? null);
+        $totalFormatted = $total > 0 ? fmt_money((float) $total) . ' ' . $cur : '—';
         $articleWord = $count <= 1 ? 'article' : 'articles';
         return $count . ' ' . $articleWord . ', ' . $totalFormatted;
     }

@@ -30,6 +30,42 @@ class TenantCurrencyService
         };
     }
 
+    /**
+     * Resolve ISO code: explicit code, else tenant default / runtime config.
+     */
+    public static function resolveCode(?string $code = null): string
+    {
+        $c = strtoupper(trim((string) $code));
+        if ($c !== '') {
+            return $c;
+        }
+
+        try {
+            $tenant = app(TenantManager::class)->tenant();
+            if ($tenant) {
+                return app(self::class)->defaultCode($tenant);
+            }
+        } catch (\Throwable) {
+            // fall through
+        }
+
+        $fromConfig = strtoupper(trim((string) config('inovcom.currency', '')));
+        if ($fromConfig !== '') {
+            return $fromConfig;
+        }
+
+        return strtoupper((string) config('inovcom.default_currency', 'XOF'));
+    }
+
+    /** Display label for a code, or the tenant default currency when $code is empty. */
+    public static function displayLabel(?string $code = null): string
+    {
+        $resolved = self::resolveCode($code);
+        $label = self::label($resolved);
+
+        return $label !== '' ? $label : $resolved;
+    }
+
     public function catalog(bool $activeOnly = true): Collection
     {
         if (! Schema::hasTable('platform_currencies')) {

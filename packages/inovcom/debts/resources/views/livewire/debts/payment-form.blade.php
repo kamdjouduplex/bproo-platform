@@ -25,11 +25,11 @@
             </div>
             <div>
                 <div style="font-size: 12px; color: #6b7280;">Montant total</div>
-                <strong>{{ fmt_money($debt->total_amount) }} FCFA</strong>
+                <strong>{{ fmt_money($debt->total_amount) }} {{ currency_label() }}</strong>
             </div>
             <div>
                 <div style="font-size: 12px; color: #6b7280;">Solde restant</div>
-                <strong style="color: #dc2626;">{{ fmt_money($debt->balance) }} FCFA</strong>
+                <strong style="color: #dc2626;">{{ fmt_money($debt->balance) }} {{ currency_label() }}</strong>
             </div>
             <div>
                 <div style="font-size: 12px; color: #6b7280;">Échéance</div>
@@ -96,7 +96,7 @@
                             <tr>
                                 <td>{{ $pay->reference }}</td>
                                 <td>{{ $pay->payment_date->format('d/m/Y') }}</td>
-                                <td>{{ fmt_money($pay->amount) }} FCFA</td>
+                                <td>{{ fmt_money($pay->amount) }} {{ currency_label() }}</td>
                                 <td>
                                     @if ($pay->payment_method === 'cash') Espèces
                                     @elseif ($pay->payment_method === 'check') Chèque

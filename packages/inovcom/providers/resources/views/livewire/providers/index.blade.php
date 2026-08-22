@@ -5,20 +5,33 @@
 @endphp
 
 <div class="page-body">
+    @if (session()->has('success'))
+        <div class="alert alert-success" style="margin-bottom:16px;">{{ session('success') }}</div>
+    @endif
+    @if (session()->has('error'))
+        <div class="alert alert-error" style="margin-bottom:16px;">{{ session('error') }}</div>
+    @endif
+
     <section class="card app-table-card">
         <div class="table-toolbar">
             <div class="table-title">Fournisseurs</div>
-            <div style="display:flex; gap:8px; align-items:center;">
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <form wire:submit.prevent="applySearch" style="display: inline-flex; gap: 4px;">
-                    <input class="input input-sm" type="text" wire:model="search" placeholder="Nom, code, téléphone ou email" style="min-width: 220px;" aria-label="Rechercher">
+                    <input class="input input-sm" type="text" wire:model.live.debounce.350ms="search" placeholder="Nom, code, téléphone ou email" style="min-width: 220px;" aria-label="Rechercher">
                     <button type="submit" class="btn btn-secondary btn-sm">Rechercher</button>
                 </form>
-                <select class="input input-sm" wire:model="perPage">
+                <select class="input input-sm" wire:model.live="perPage">
                     <option value="10">10</option>
                     <option value="25">25</option>
                     <option value="50">50</option>
                 </select>
-                <a class="btn btn-primary" href="{{ route('tenant.providers.create', ['tenant' => $tenantCode]) }}">Nouveau</a>
+                @if ($canExport ?? true)
+                    <x-export-btn format="excel" class="btn-sm" wire:click="exportExcel">Exporter Excel</x-export-btn>
+                    <x-export-btn format="pdf" class="btn-sm" wire:click="exportPdf">Exporter PDF</x-export-btn>
+                @endif
+                @if ($canCreate ?? true)
+                    <a class="btn btn-primary btn-sm" href="{{ route('tenant.providers.create', ['tenant' => $tenantCode]) }}">Nouveau</a>
+                @endif
             </div>
         </div>
         <div class="table-scroll">
@@ -50,7 +63,9 @@
                             <td style="display:flex; gap:4px; flex-wrap:wrap;">
                                 <a class="btn btn-secondary btn-sm" href="{{ route('tenant.providers.show', [$provider->id, 'tenant' => $tenantCode]) }}">Voir</a>
                                 <a class="btn btn-secondary btn-sm" href="{{ route('tenant.providers.edit', [$provider->id, 'tenant' => $tenantCode]) }}">Modifier</a>
-                                <button type="button" class="btn btn-secondary btn-sm" wire:click="delete({{ $provider->id }})" onclick="return confirm('Supprimer ce fournisseur ?')">Supprimer</button>
+                                @if ($canDelete ?? true)
+                                    <button type="button" class="btn btn-secondary btn-sm" wire:click="delete({{ $provider->id }})" onclick="return confirm('Supprimer ce fournisseur ?')">Supprimer</button>
+                                @endif
                             </td>
                         </tr>
                     @endforeach
