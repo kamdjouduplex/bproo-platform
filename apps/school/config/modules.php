@@ -292,7 +292,7 @@ return [
         'sidebar_children' => [
             [
                 'key' => 'crm.kpi',
-                'label' => 'KPI',
+                'label' => 'Tableau de bord',
                 'route' => 'tenant.crm.kpi',
                 'icon' => 'chart-bar',
                 'permission' => 'crm.view',
@@ -321,6 +321,14 @@ return [
                 'icon' => 'clipboard-check',
                 'permission' => 'crm.activities.view',
                 'permission_any' => ['crm.view', 'prospects.view'],
+            ],
+            [
+                'key' => 'crm.clients',
+                'label' => 'Clients',
+                'route' => 'tenant.crm.clients',
+                'icon' => 'users',
+                'permission' => 'crm.view',
+                'permission_any' => ['clients.view', 'crm.prospects.view'],
             ],
         ],
         'tenant_types' => [],

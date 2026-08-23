@@ -1,243 +1,323 @@
+<div class="page-body crm-v2">
+@if (View::exists('inovcom-crm::partials.styles'))
+    @include('inovcom-crm::partials.styles')
+@endif
 @php
-    use InovCom\Prospects\Models\Prospect;
-    $pipeline = ['qualifie', 'negociation', 'gagne', 'converti'];
-    $statusOrder = array_flip($pipeline);
-    $currentIdx = $statusOrder[$prospect->status] ?? null;
+    $opp = $prospect->primaryOpportunity;
+    $score = (int) $prospect->score;
+    $tempLabel = $prospect->temperatureLabel();
+    $acts = $prospect->activities ?? collect();
+    $openOpps = $prospect->opportunities ?? collect();
+    $actBadge = function ($act) {
+        return match ($act->calendarTone()) {
+            'rose' => 'rose',
+            'orange' => 'orange',
+            'green' => 'green',
+            'blue' => 'blue',
+            default => 'violet',
+        };
+    };
 @endphp
+    @if (session('success'))<div class="alert alert-success" style="margin-bottom:14px;">{{ session('success') }}</div>@endif
+    @if (session('error'))<div class="alert alert-error" style="margin-bottom:14px;">{{ session('error') }}</div>@endif
 
-<div class="page-body crm-page">
-    @if (session()->has('success'))
-        <div class="alert alert-success" style="margin-bottom:16px;">{{ session('success') }}</div>
-    @endif
-    @if (session()->has('error'))
-        <div class="alert alert-error" style="margin-bottom:16px;">{{ session('error') }}</div>
-    @endif
+    <a href="{{ route('tenant.prospects.index', ['tenant' => $tenantCode]) }}" class="crm-act-row__meta" style="display:inline-block;margin-bottom:8px;">← Retour</a>
 
-    <div class="page-actions" style="margin-bottom:16px;">
-        <a class="btn btn-secondary" href="{{ route('tenant.prospects.index', ['tenant' => $tenantCode]) }}">← Prospects</a>
-        @if ($crmEnabled && ! $prospect->isConverted() && ! $prospect->isLost() && Route::has('tenant.crm.opportunities'))
-            <a class="btn btn-primary" href="{{ route('tenant.crm.opportunities', ['tenant' => $tenantCode]) }}">Pipeline opportunités</a>
-        @endif
-        @if ($canUpdate)
-            <a class="btn btn-secondary" href="{{ route('tenant.prospects.edit', [$prospect->id, 'tenant' => $tenantCode]) }}">Modifier la fiche</a>
-        @endif
-        @if ($prospect->convertedClient)
-            <a class="btn btn-primary" href="{{ route('tenant.clients.show', [$prospect->converted_client_id, 'tenant' => $tenantCode]) }}">
-                Client {{ $prospect->convertedClient->code }}
-            </a>
-        @endif
-    </div>
-
-    @if ($prospect->status !== 'perdu')
-        <div class="prospect-funnel" aria-label="Étapes du pipeline" style="margin-bottom:16px;">
-            @foreach ($pipeline as $step)
-                @php
-                    $stepIdx = $statusOrder[$step];
-                    $cls = '';
-                    if ($prospect->isConverted() || ($currentIdx !== null && $stepIdx < $currentIdx)) {
-                        $cls = 'is-done';
-                    } elseif ($currentIdx !== null && $stepIdx === $currentIdx) {
-                        $cls = 'is-current';
-                    }
-                @endphp
-                <div class="prospect-funnel__step {{ $cls }}">{{ Prospect::statusLabel($step) }}</div>
-            @endforeach
+    <div class="crm-fiche-hero">
+        <div>
+            <h2 style="margin:0;font-size:1.45rem;font-weight:800;">Fiche CRM
+                <span class="crm-badge crm-badge--{{ $prospect->status === 'qualifie' || $prospect->status === 'converti' ? 'green' : ($prospect->status === 'non_qualifie' ? 'rose' : 'orange') }}">
+                    {{ \InovCom\Prospects\Models\Prospect::statusLabel($prospect->status) }}
+                </span>
+            </h2>
         </div>
-    @else
-        <div class="prospect-funnel" style="margin-bottom:16px;">
-            <div class="prospect-funnel__step is-lost">Perdu — {{ $prospect->lost_reason ?: 'motif non renseigné' }}</div>
-        </div>
-    @endif
-
-    <div class="prospect-show-layout">
-        <div class="crm-drawer-shell">
-            @include('inovcom-prospects::partials.prospect-drawer', [
-                'prospect' => $prospect,
-                'canManage' => $canUpdate,
-                'canConvert' => $canConvert && $readyToConvert,
-                'canUpdate' => $canUpdate,
-                'showPanelActions' => $showPanelActions,
-                'compact' => true,
-            ])
-        </div>
-
-        <div class="prospect-show-aside">
+        <div class="crm-v2-actions">
             @if ($canUpdate)
-                <section class="card" style="padding:16px;">
-                    <h3 class="form-section-title" style="margin-top:0;">Pipeline</h3>
-                    <p class="prospect-form-hint" style="margin:0 0 10px;">
-                        Pipeline : <strong>Qualifié</strong> → <strong>Négociation</strong> → <strong>Gagné</strong>, puis conversion client.
-                    </p>
-                    <div class="field">
-                        <select class="input" wire:model.live="newStatus">
-                            @foreach (Prospect::statusOptions() as $value => $label)
-                                @if ($value !== 'converti')
-                                    <option value="{{ $value }}">{{ $label }}</option>
-                                @endif
-                            @endforeach
-                        </select>
-                        @if ($newStatus && isset(Prospect::statusHints()[$newStatus]))
-                            <span class="prospect-form-hint">{{ Prospect::statusHints()[$newStatus] }}</span>
-                        @endif
-                    </div>
-                    @if ($newStatus === 'perdu')
-                        <div class="field">
-                            <label class="field-label">Motif de perte *</label>
-                            <input class="input" wire:model="lostReason" placeholder="Ex. Budget insuffisant, concurrent choisi…">
-                        </div>
-                    @endif
-                    <button type="button" class="btn btn-secondary" wire:click="changeStatus">Mettre à jour le statut</button>
-                </section>
-
-                <section class="card" style="padding:16px;">
-                    <h3 class="form-section-title" style="margin-top:0;">Activité</h3>
-                    <div class="field">
-                        <select class="input" wire:model="activityType">
-                            @foreach ($activityTypes as $value => $label)
-                                <option value="{{ $value }}">{{ $label }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <label class="field-toggle" style="margin-bottom:10px;">
-                        <input type="checkbox" wire:model.live="activityIsPlanned">
-                        Planifier pour plus tard (prochaine action)
-                    </label>
-                    @if ($activityIsPlanned)
-                        <div class="field">
-                            <label class="field-label">Échéance</label>
-                            <input class="input" type="datetime-local" wire:model="activityDueAt">
-                            @error('activityDueAt') <span class="field-error">{{ $message }}</span> @enderror
-                        </div>
-                    @endif
-                    <div class="field">
-                        <textarea class="input" rows="3" wire:model="activityBody" placeholder="{{ $activityIsPlanned ? 'Objectif de l’action…' : 'Compte-rendu du contact…' }}"></textarea>
-                        @error('activityBody') <span class="field-error">{{ $message }}</span> @enderror
-                    </div>
-                    <button type="button" class="btn btn-primary" wire:click="addActivity">
-                        {{ $activityIsPlanned ? 'Planifier l’action' : 'Enregistrer l’activité' }}
-                    </button>
-                </section>
-            @endif
-
-            @if ($canConvert)
-                <section class="prospect-convert">
-                    <h3 class="form-section-title" style="margin-top:0;">Convertir en client</h3>
-                    <p class="prospect-form-hint" style="margin:0 0 10px;">
-                        Crée la fiche client avec les données du prospect.
-                    </p>
-
-                    @if (! $readyToConvert)
-                        <div class="prospect-convert__gaps">
-                            <strong>Complétez la fiche avant de convertir :</strong>
-                            <ul>
-                                @foreach ($conversionGaps as $gap)
-                                    <li>{{ $gap }}</li>
-                                @endforeach
-                            </ul>
-                            @if ($canUpdate)
-                                <div style="margin-top:10px;">
-                                    <a class="btn btn-secondary btn-sm" href="{{ route('tenant.prospects.edit', [$prospect->id, 'tenant' => $tenantCode]) }}">Compléter la fiche</a>
-                                </div>
-                            @endif
-                        </div>
-                    @endif
-
-                    <label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:12px;">
-                        <input type="checkbox" wire:model="createQuotationAfterConvert" @disabled(! $readyToConvert)>
-                        Proposer un devis ensuite
-                    </label>
-                    <button
-                        type="button"
-                        class="btn btn-primary"
-                        wire:click="convert"
-                        wire:confirm="Convertir ce prospect en client ?"
-                        @disabled(! $readyToConvert)
-                    >
-                        Convertir en client
-                    </button>
-                </section>
-            @endif
-
-            @if ($canDelete)
-                <button type="button" class="btn btn-error btn-sm" wire:click="delete" wire:confirm="Supprimer définitivement ce prospect ?">
-                    Supprimer le prospect
-                </button>
+                <a class="btn btn-primary" href="{{ route('tenant.prospects.edit', ['tenant' => $tenantCode, 'prospect' => $prospect->id]) }}">Modifier</a>
+                @if ($prospect->canBecomeOpportunity())
+                    <button type="button" class="btn btn-success" wire:click="openConvertOppModal">Convertir en opportunité</button>
+                @endif
             @endif
         </div>
     </div>
 
-    @if ($showAssignModal)
-        <div class="crm-modal-backdrop" wire:click.self="closeAssignModal">
-            <div class="crm-modal" role="dialog" aria-modal="true">
-                <div class="crm-modal__head">
-                    <div>
-                        <h3 class="crm-modal__title">Assigner un commercial</h3>
-                        <p class="crm-modal__sub">{{ $prospect->name }}</p>
-                    </div>
-                    <button type="button" class="btn btn-secondary btn-sm" wire:click="closeAssignModal">Fermer</button>
-                </div>
-                <div class="field">
-                    <label class="field-label">Commercial responsable</label>
-                    <select class="input" wire:model="assignOwnerId">
-                        <option value="">— Non assigné —</option>
-                        @foreach ($owners as $owner)
-                            <option value="{{ $owner->id }}">{{ $owner->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="crm-modal__actions">
-                    <button type="button" class="btn btn-secondary" wire:click="closeAssignModal">Annuler</button>
-                    <button type="button" class="btn btn-primary" wire:click="saveAssign">Enregistrer</button>
-                </div>
-            </div>
-        </div>
-    @endif
+    <div class="crm-tabs" role="tablist">
+        <button type="button" class="{{ $tab === 'resume' ? 'is-on' : '' }}" wire:click="$set('tab', 'resume')">Résumé</button>
+        <button type="button" class="{{ $tab === 'besoin' ? 'is-on' : '' }}" wire:click="$set('tab', 'besoin')">Besoin & Qualification</button>
+        <button type="button" class="{{ $tab === 'timeline' ? 'is-on' : '' }}" wire:click="$set('tab', 'timeline')">Timeline</button>
+        <button type="button" class="{{ $tab === 'activites' ? 'is-on' : '' }}" wire:click="$set('tab', 'activites')">Activités ({{ $acts->count() }})</button>
+        <button type="button" class="{{ $tab === 'opportunites' ? 'is-on' : '' }}" wire:click="$set('tab', 'opportunites')">Opportunités ({{ $openOpps->count() }})</button>
+        <button type="button" class="{{ $tab === 'notes' ? 'is-on' : '' }}" wire:click="$set('tab', 'notes')">Notes</button>
+    </div>
 
-    @if ($showScheduleModal)
-        <div class="crm-modal-backdrop" wire:click.self="closeScheduleModal">
-            <div class="crm-modal" role="dialog" aria-modal="true">
-                <div class="crm-modal__head">
-                    <div>
-                        <h3 class="crm-modal__title">Planifier la prochaine action</h3>
-                        <p class="crm-modal__sub">{{ $prospect->name }}</p>
+    <div class="crm-fiche-grid" wire:key="fiche-{{ $tab }}">
+        <div>
+            @if ($tab === 'resume')
+                <section class="crm-card" style="margin-bottom:14px;">
+                    <div class="crm-identity">
+                        <span class="crm-avatar">{{ $prospect->initials() }}</span>
+                        <div>
+                            <h3 style="margin:0;font-size:1.2rem;">{{ $prospect->companyDisplayName() !== '—' ? $prospect->companyDisplayName() : $prospect->contactName() }}</h3>
+                            <div class="crm-act-row__meta">{{ $prospect->contactName() }}@if($prospect->job_title) · {{ $prospect->job_title }}@endif</div>
+                            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap;">
+                                <span class="crm-badge crm-badge--violet">{{ \InovCom\Prospects\Models\Prospect::typeOptions()[$prospect->type] ?? $prospect->type }}</span>
+                                @if ($prospect->sector)<span class="crm-badge crm-badge--slate">{{ $prospect->sector }}</span>@endif
+                            </div>
+                            <div class="crm-act-row__meta" style="margin-top:8px;">
+                                {{ $prospect->phone ?: '—' }}
+                                · {{ $prospect->email ?: '—' }}
+                                · {{ $prospect->city ?: $prospect->address ?: '—' }}
+                            </div>
+                        </div>
                     </div>
-                    <button type="button" class="btn btn-secondary btn-sm" wire:click="closeScheduleModal">Fermer</button>
-                </div>
-                <div class="form-grid" style="grid-template-columns:1fr 1fr;">
-                    <div class="field">
-                        <label class="field-label">Type</label>
-                        <select class="input" wire:model="scheduleType">
-                            @foreach ($actionTypes as $key => $label)
-                                <option value="{{ $key }}">{{ $label }}</option>
-                            @endforeach
-                        </select>
+                    <div class="crm-kv">
+                        <div><span>Source</span><strong>{{ \InovCom\Prospects\Models\Prospect::sourceLabel($prospect->source) }}</strong></div>
+                        <div><span>Commercial</span><strong>{{ $prospect->owner?->name ?? '—' }}</strong></div>
+                        <div><span>Score</span><strong>{{ $score }}/100</strong></div>
+                        <div><span>Statut</span><strong>{{ \InovCom\Prospects\Models\Prospect::statusLabel($prospect->status) }}</strong></div>
                     </div>
-                    <div class="field">
-                        <label class="field-label">Échéance</label>
-                        <input class="input" type="datetime-local" wire:model="scheduleDueAt">
+                </section>
+                @if ($prospect->need || $prospect->problem)
+                    <section class="crm-card" style="margin-bottom:14px;">
+                        <h3 class="crm-card__title">Besoin principal</h3>
+                        <p>{{ $prospect->need ?: $prospect->product_interest }}</p>
+                        @if ($prospect->problem)
+                            <p style="color:#be123c;font-weight:600;">Problème actuel : {{ $prospect->problem }}</p>
+                        @endif
+                        @if ($prospect->expectations)
+                            <p style="color:#047857;">Attentes : {{ $prospect->expectations }}</p>
+                        @endif
+                    </section>
+                @endif
+                @if ($opp)
+                    <section class="crm-card" style="margin-bottom:14px;">
+                        <h3 class="crm-card__title">Opportunité associée
+                            <span class="crm-badge crm-badge--{{ $opp->isWon() ? 'green' : ($opp->isLost() ? 'rose' : 'orange') }}">{{ \InovCom\Crm\Models\Opportunity::stageOptions()[$opp->stage] }}</span>
+                        </h3>
+                        <strong>{{ $opp->title }}</strong>
+                        <div class="crm-kv">
+                            <div><span>Valeur estimée</span><strong>{{ fmt_money($opp->amount) }} {{ currency_label() }}</strong></div>
+                            <div><span>Probabilité</span><strong>{{ (int) $opp->probability }}%</strong></div>
+                            <div><span>Étape</span><strong>{{ \InovCom\Crm\Models\Opportunity::stageOptions()[$opp->stage] }}</strong></div>
+                            <div><span>Décision</span><strong>{{ $opp->expected_close_date?->format('d/m/Y') ?? '—' }}</strong></div>
+                        </div>
+                        @if ($opp->canRequestQuote() || $opp->stage === 'intention')
+                            <div class="crm-alert crm-alert--blue" style="margin-top:12px;">
+                                Intention d’achat détectée. Le CRM ne crée pas le devis.
+                                @if ($canUpdate)
+                                    <button type="button" class="btn btn-primary btn-sm" style="margin-top:8px;" wire:click="transferToErp">Transmettre au module Devis</button>
+                                @endif
+                            </div>
+                        @endif
+                    </section>
+                @endif
+                <section class="crm-card">
+                    <h3 class="crm-card__title">Dernières activités</h3>
+                    <div class="crm-tl-v">
+                        @forelse ($acts->take(6) as $act)
+                            <article class="crm-tl-item is-{{ $act->calendarTone() }}">
+                                <span class="crm-tl-dot"></span>
+                                <div class="crm-tl-when">{{ ($act->due_at ?? $act->created_at)?->translatedFormat('d M Y · H:i') }}</div>
+                                <div class="crm-tl-head">
+                                    <span class="crm-badge crm-badge--violet">{{ \InovCom\Prospects\Models\ProspectActivity::typeLabel($act->type) }}</span>
+                                    <span class="crm-badge crm-badge--{{ $actBadge($act) }}">{{ $act->calendarLabel() }}</span>
+                                </div>
+                                <div class="crm-tl-title">{{ $act->displayTitle() }}</div>
+                                <div class="crm-tl-meta">{{ $act->assignee?->name ?? $act->user?->name ?? '—' }}@if($act->result) · {{ $act->result }}@endif</div>
+                            </article>
+                        @empty
+                            <p class="crm-empty">Pas encore d’historique.</p>
+                        @endforelse
                     </div>
-                    <div class="field" style="grid-column:1 / -1;">
-                        <label class="field-label">Résumé</label>
-                        <input class="input" wire:model="scheduleSummary" placeholder="Ex. Rappeler pour devis">
+                    @if ($acts->count() > 0)
+                        <button type="button" class="btn btn-secondary btn-sm crm-tl-more" wire:click="$set('tab', 'timeline')">Voir toute la timeline</button>
+                    @endif
+                </section>
+            @elseif ($tab === 'besoin')
+                <section class="crm-card">
+                    <h3 class="crm-card__title">Qualification</h3>
+                    <div class="field"><label class="field-label">Besoin identifié</label><input class="input" wire:model="needText"></div>
+                    <div class="field"><label class="field-label">Produit / service</label><input class="input" wire:model="productInterest"></div>
+                    <div class="field"><label class="field-label">Problème actuel</label><textarea class="input" rows="2" wire:model="problem"></textarea></div>
+                    <div class="field"><label class="field-label">Attentes</label><textarea class="input" rows="2" wire:model="expectations"></textarea></div>
+                    <div class="field"><label class="field-label">Décideur</label><input class="input" wire:model="decisionMakerName"></div>
+                    <div class="prospect-form-grid-2">
+                        <div class="field"><label class="field-label">Besoin</label>
+                            <select class="input" wire:model="needScore">
+                                @foreach (\InovCom\Crm\Services\ProspectScoringService::needOptions() as $v=>$l)<option value="{{ $v }}">{{ $l }}</option>@endforeach
+                            </select>
+                        </div>
+                        <div class="field"><label class="field-label">Décideur</label>
+                            <select class="input" wire:model="decisionScore">
+                                @foreach (\InovCom\Crm\Services\ProspectScoringService::decisionOptions() as $v=>$l)<option value="{{ $v }}">{{ $l }}</option>@endforeach
+                            </select>
+                        </div>
+                        <div class="field"><label class="field-label">Budget</label>
+                            <select class="input" wire:model="budgetScore">
+                                @foreach (\InovCom\Crm\Services\ProspectScoringService::budgetOptions() as $v=>$l)<option value="{{ $v }}">{{ $l }}</option>@endforeach
+                            </select>
+                        </div>
+                        <div class="field"><label class="field-label">Échéance</label>
+                            <select class="input" wire:model="timelineScore">
+                                @foreach (\InovCom\Crm\Services\ProspectScoringService::timelineOptions() as $v=>$l)<option value="{{ $v }}">{{ $l }}</option>@endforeach
+                            </select>
+                        </div>
                     </div>
-                    <div class="field" style="grid-column:1 / -1;">
-                        <label class="field-label">Détail</label>
-                        <textarea class="input" rows="2" wire:model="scheduleBody"></textarea>
+                    @if ($canUpdate)
+                        <button type="button" class="btn btn-primary" wire:click="saveQualification">Enregistrer la qualification</button>
+                    @endif
+                </section>
+            @elseif ($tab === 'timeline')
+                <section class="crm-card">
+                    <h3 class="crm-card__title">Timeline</h3>
+                    <div class="crm-tl-v">
+                        @forelse ($acts as $act)
+                            <article class="crm-tl-item is-{{ $act->calendarTone() }}">
+                                <span class="crm-tl-dot"></span>
+                                <div class="crm-tl-when">{{ ($act->due_at ?? $act->created_at)?->translatedFormat('d M Y · H:i') }}</div>
+                                <div class="crm-tl-head">
+                                    <span class="crm-badge crm-badge--violet">{{ \InovCom\Prospects\Models\ProspectActivity::typeLabel($act->type) }}</span>
+                                    <span class="crm-badge crm-badge--{{ $actBadge($act) }}">{{ $act->calendarLabel() }}</span>
+                                </div>
+                                <div class="crm-tl-title">{{ $act->displayTitle() }}</div>
+                                @if ($act->body)
+                                    <div class="crm-tl-body">{{ \Illuminate\Support\Str::limit($act->body, 220) }}</div>
+                                @endif
+                                <div class="crm-tl-meta">{{ $act->assignee?->name ?? $act->user?->name ?? '—' }}@if($act->result) · Résultat : {{ $act->result }}@endif</div>
+                            </article>
+                        @empty
+                            <p class="crm-empty">Pas encore d’historique.</p>
+                        @endforelse
                     </div>
-                    <div class="field" style="grid-column:1 / -1;">
-                        <label class="field-label">Assigné à</label>
-                        <select class="input" wire:model="scheduleAssigneeId">
-                            @foreach ($owners as $owner)
-                                <option value="{{ $owner->id }}">{{ $owner->name }}</option>
-                            @endforeach
-                        </select>
+                </section>
+            @elseif ($tab === 'activites')
+                <section class="crm-card">
+                    <h3 class="crm-card__title">Activités</h3>
+                    <div class="crm-tl-v">
+                        @forelse ($acts as $act)
+                            <article class="crm-tl-item is-{{ $act->calendarTone() }}">
+                                <span class="crm-tl-dot"></span>
+                                <div class="crm-tl-when">{{ ($act->due_at ?? $act->created_at)?->translatedFormat('d M Y · H:i') }}</div>
+                                <div class="crm-tl-head">
+                                    <span class="crm-badge crm-badge--violet">{{ \InovCom\Prospects\Models\ProspectActivity::typeLabel($act->type) }}</span>
+                                    <span class="crm-badge crm-badge--{{ $actBadge($act) }}">{{ $act->calendarLabel() }}</span>
+                                </div>
+                                <div class="crm-tl-title">{{ $act->displayTitle() }}</div>
+                                @if ($act->body)
+                                    <div class="crm-tl-body">{{ \Illuminate\Support\Str::limit($act->body, 180) }}</div>
+                                @endif
+                                <div class="crm-tl-meta">{{ $act->assignee?->name ?? $act->user?->name ?? '—' }}@if($act->result) · Résultat : {{ $act->result }}@endif</div>
+                            </article>
+                        @empty
+                            <p class="crm-empty">Aucune activité pour le moment.</p>
+                        @endforelse
                     </div>
-                </div>
-                <div class="crm-modal__actions">
-                    <button type="button" class="btn btn-secondary" wire:click="closeScheduleModal">Annuler</button>
-                    <button type="button" class="btn btn-primary" wire:click="saveSchedule">Planifier</button>
-                </div>
-            </div>
+                    @if ($canUpdate)
+                        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--crm-line);">
+                            <h3 class="crm-card__title">Ajouter une activité</h3>
+                            <select class="input" wire:model="activityType">
+                                @foreach ($activityTypes as $k=>$l)<option value="{{ $k }}">{{ $l }}</option>@endforeach
+                            </select>
+                            <textarea class="input" rows="2" wire:model="activityBody" placeholder="Note, compte-rendu…" style="margin-top:8px;"></textarea>
+                            <label style="display:flex;gap:8px;align-items:center;margin:8px 0;cursor:pointer;"><input type="checkbox" wire:model.live="activityIsPlanned"> Planifier une action</label>
+                            @if ($activityIsPlanned)
+                                <input class="input" type="datetime-local" wire:model="activityDueAt">
+                            @endif
+                            <button type="button" class="btn btn-primary" style="margin-top:8px;" wire:click="addActivity">Ajouter</button>
+                        </div>
+                    @endif
+                </section>
+            @elseif ($tab === 'opportunites')
+                <section class="crm-card">
+                    @forelse ($openOpps as $item)
+                        <div class="crm-act-row">
+                            <div>
+                                <strong>{{ $item->title }}</strong>
+                                <div class="crm-act-row__meta">{{ \InovCom\Crm\Models\Opportunity::stageOptions()[$item->stage] }} · {{ fmt_money($item->amount) }} {{ currency_label() }} · {{ (int) $item->probability }}%</div>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="crm-empty">Pas encore d’opportunité.</p>
+                    @endforelse
+                </section>
+            @else
+                <section class="crm-card">
+                    <p>{{ $prospect->notes ?: 'Aucune note.' }}</p>
+                </section>
+            @endif
         </div>
-    @endif
+
+        <div class="crm-side-stack">
+            <section class="crm-card">
+                <h3 class="crm-card__title">Informations clés</h3>
+                <div class="crm-source-row"><span>Créé</span><strong>{{ $prospect->created_at?->format('d/m/Y') }}</strong></div>
+                <div class="crm-source-row"><span>Dernier contact</span><strong>{{ $prospect->last_contacted_at?->format('d/m/Y') ?? '—' }}</strong></div>
+                <div class="crm-source-row"><span>Source</span><strong>{{ \InovCom\Prospects\Models\Prospect::sourceLabel($prospect->source) }}</strong></div>
+                <div class="crm-source-row"><span>Intérêt</span><strong>{{ $prospect->product_interest ?: $prospect->need ?: '—' }}</strong></div>
+                <div class="crm-source-row"><span>CA estimé</span><strong>{{ $prospect->estimated_budget ? fmt_money($prospect->estimated_budget).' '.currency_label() : '—' }}</strong></div>
+                <div class="crm-source-row"><span>Échéance projet</span><strong>{{ $prospect->decision_deadline?->format('d/m/Y') ?? '—' }}</strong></div>
+                <div class="crm-source-row"><span>Décideur</span><strong>{{ $prospect->decision_maker_name ?: '—' }}</strong></div>
+                <div class="crm-source-row"><span>Commercial</span><strong>{{ $prospect->owner?->name ?? '—' }}</strong></div>
+            </section>
+
+            @php $next = $prospect->nextPlannedActivity; @endphp
+            <section class="crm-next-card">
+                <h3>Prochaine action</h3>
+                @if ($next)
+                    <strong>{{ $next->displayTitle() }}</strong>
+                    <div>{{ $next->due_at?->format('d M Y — H:i') }} · {{ \InovCom\Prospects\Models\ProspectActivity::typeLabel($next->type) }}</div>
+                    @if ($canUpdate)
+                        <button type="button" class="btn btn-success" style="margin-top:12px;width:100%;" wire:click="completeNextAction({{ $next->id }})">Marquer comme terminée</button>
+                    @endif
+                @else
+                    <p>Aucune action planifiée — c’est une anomalie si une opportunité est ouverte.</p>
+                    @if ($canUpdate)
+                        <button type="button" class="btn btn-primary" style="margin-top:8px;width:100%;" wire:click="openScheduleModal({{ $prospect->id }})">Planifier une relance</button>
+                    @endif
+                @endif
+            </section>
+
+            <section class="crm-card" style="text-align:center;">
+                <h3 class="crm-card__title">Scoring</h3>
+                <div class="crm-stat__value" style="font-size:2rem;color:{{ $score >= 60 ? '#16a34a' : ($score >= 30 ? '#ea580c' : '#e11d48') }}">{{ $score }}/100</div>
+                <div class="crm-badge crm-badge--{{ $prospect->temperature() === 'chaud' ? 'rose' : ($prospect->temperature() === 'tiede' ? 'orange' : 'slate') }}">Prospect {{ strtolower($tempLabel) }}</div>
+            </section>
+        </div>
+    </div>
+
+@if ($showConvertOppModal)
+<div class="crm-modal-backdrop" wire:click="$set('showConvertOppModal', false)">
+    <div class="crm-modal" wire:click.stop>
+        <div class="crm-modal__head"><h3 class="crm-modal__title">Convertir en opportunité</h3><p class="crm-modal__sub">Une opportunité ouverte exige un commercial et une prochaine action.</p></div>
+        <div class="field"><label class="field-label">Intitulé *</label><input class="input" wire:model="oppTitle"></div>
+        <div class="field"><label class="field-label">Montant estimé</label><input class="input" type="number" min="0" wire:model="oppAmount"></div>
+        <div class="field"><label class="field-label">Date de décision</label><input class="input" type="date" wire:model="oppCloseDate"></div>
+        <div class="field"><label class="field-label">Prochaine action *</label><input class="input" wire:model="oppNextSummary"></div>
+        <div class="field"><label class="field-label">Quand *</label><input class="input" type="datetime-local" wire:model="oppNextDue"></div>
+        <div class="crm-modal__actions">
+            <button type="button" class="btn btn-secondary" wire:click="$set('showConvertOppModal', false)">Annuler</button>
+            <button type="button" class="btn btn-primary" wire:click="convertToOpportunity">Créer l’opportunité</button>
+        </div>
+    </div>
+</div>
+@endif
+
+@if ($showScheduleModal)
+<div class="crm-modal-backdrop" wire:click="closeScheduleModal">
+    <div class="crm-modal" wire:click.stop>
+        <div class="crm-modal__head"><h3 class="crm-modal__title">Planifier une action</h3></div>
+        <div class="field"><label class="field-label">Type</label>
+            <select class="input" wire:model="scheduleType">
+                @foreach ($actionTypes as $k=>$l)<option value="{{ $k }}">{{ $l }}</option>@endforeach
+            </select>
+        </div>
+        <div class="field"><label class="field-label">Objet</label><input class="input" wire:model="scheduleSummary"></div>
+        <div class="field"><label class="field-label">Quand *</label><input class="input" type="datetime-local" wire:model="scheduleDueAt"></div>
+        <div class="crm-modal__actions">
+            <button type="button" class="btn btn-secondary" wire:click="closeScheduleModal">Annuler</button>
+            <button type="button" class="btn btn-primary" wire:click="saveSchedule">Planifier</button>
+        </div>
+    </div>
+</div>
+@endif
 </div>

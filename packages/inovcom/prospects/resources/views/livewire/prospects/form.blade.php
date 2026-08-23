@@ -1,16 +1,15 @@
-<div class="page-body">
-    @if (session()->has('success'))<div class="alert alert-success" style="margin-bottom:16px;">{{ session('success') }}</div>@endif
-    @if (session()->has('error'))<div class="alert alert-error" style="margin-bottom:16px;">{{ session('error') }}</div>@endif
+@if (View::exists('inovcom-crm::partials.styles'))
+    @include('inovcom-crm::partials.styles')
+@endif
+<div class="page-body crm-v2">
+    @if (session('success'))<div class="alert alert-success" style="margin-bottom:16px;">{{ session('success') }}</div>@endif
+    @if (session('error'))<div class="alert alert-error" style="margin-bottom:16px;">{{ session('error') }}</div>@endif
 
     <form wire:submit="save">
-        <section class="card" style="padding:20px;margin-bottom:16px;">
-            <h3 class="form-section-title" style="margin-top:0;">Identité</h3>
+        <section class="crm-card" style="margin-bottom:16px;">
+            <h3 class="crm-card__title">Capture rapide</h3>
+            <p class="crm-act-row__meta" style="margin-bottom:12px;">Peu de champs maintenant — vous enrichirez la fiche ensuite.</p>
             <div class="prospect-form-grid-2">
-                <div class="field" style="grid-column:1/-1;">
-                    <label class="field-label">Nom / raison sociale *</label>
-                    <input class="input" wire:model="name" required maxlength="255" placeholder="Ex. SARL Kamfo Négoce">
-                    @error('name') <span class="field-error">{{ $message }}</span> @enderror
-                </div>
                 <div class="field">
                     <label class="field-label">Type</label>
                     <select class="input" wire:model.live="type">
@@ -18,7 +17,6 @@
                             <option value="{{ $value }}">{{ $label }}</option>
                         @endforeach
                     </select>
-                    <span class="prospect-form-hint">Entreprise : RCCM et NIU seront exigés à la conversion client.</span>
                 </div>
                 <div class="field">
                     <label class="field-label">Source *</label>
@@ -27,90 +25,83 @@
                             <option value="{{ $value }}">{{ $label }}</option>
                         @endforeach
                     </select>
-                    <span class="prospect-form-hint">D’où vient ce prospect — utile pour mesurer le ROI des canaux.</span>
+                </div>
+                <div class="field">
+                    <label class="field-label">Prénom</label>
+                    <input class="input" wire:model="first_name">
+                </div>
+                <div class="field">
+                    <label class="field-label">Nom</label>
+                    <input class="input" wire:model="last_name">
+                </div>
+                <div class="field" style="grid-column:1/-1;">
+                    <label class="field-label">{{ $type === 'company' ? 'Entreprise *' : 'Nom affiché *' }}</label>
+                    <input class="input" wire:model="name" required maxlength="255" placeholder="Ex. KREOBAT SARL">
+                    @error('name') <span class="field-error">{{ $message }}</span> @enderror
+                </div>
+                @if ($type === 'individual')
+                    <div class="field">
+                        <label class="field-label">Entreprise</label>
+                        <input class="input" wire:model="company_name">
+                    </div>
+                @endif
+                <div class="field">
+                    <label class="field-label">Fonction</label>
+                    <input class="input" wire:model="job_title" placeholder="Ex. Responsable IT">
                 </div>
                 <div class="field">
                     <label class="field-label">Téléphone</label>
-                    <input class="input" wire:model="phone" maxlength="40" placeholder="6XX XXX XXX">
+                    <input class="input" wire:model="phone">
+                </div>
+                <div class="field">
+                    <label class="field-label">WhatsApp</label>
+                    <input class="input" wire:model="whatsapp">
                 </div>
                 <div class="field">
                     <label class="field-label">E-mail</label>
-                    <input class="input" type="email" wire:model="email" placeholder="contact@exemple.com">
-                    @error('email') <span class="field-error">{{ $message }}</span> @enderror
+                    <input class="input" type="email" wire:model="email">
+                </div>
+                <div class="field">
+                    <label class="field-label">Ville</label>
+                    <input class="input" wire:model="city">
+                </div>
+                <div class="field">
+                    <label class="field-label">Produit / service recherché</label>
+                    <input class="input" wire:model="product_interest" placeholder="Ex. ERP BTP">
                 </div>
                 <div class="field" style="grid-column:1/-1;">
-                    <label class="field-label">Adresse</label>
-                    <textarea class="input" rows="2" wire:model="address" placeholder="Ville, quartier…"></textarea>
-                    <span class="prospect-form-hint">Au moins un téléphone ou un e-mail est requis pour convertir en client.</span>
+                    <label class="field-label">Besoin</label>
+                    <input class="input" wire:model="need" placeholder="Besoin principal en une phrase">
+                </div>
+                <div class="field">
+                    <label class="field-label">Commercial</label>
+                    <select class="input" wire:model="owner_id">
+                        <option value="">—</option>
+                        @foreach ($owners as $o)
+                            <option value="{{ $o->id }}">{{ $o->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="field" style="grid-column:1/-1;">
+                    <label class="field-label">Commentaire</label>
+                    <textarea class="input" rows="2" wire:model="notes"></textarea>
                 </div>
             </div>
         </section>
 
-        @if ($type === 'company')
-            <section class="card" style="padding:20px;margin-bottom:16px;">
-                <h3 class="form-section-title" style="margin-top:0;">Identifiants entreprise</h3>
-                <p class="prospect-form-hint" style="margin:0 0 12px;">
-                    À renseigner avant la conversion : mêmes règles que la fiche client.
-                </p>
+        @if ($type === 'company' && $prospectId)
+            <section class="crm-card" style="margin-bottom:16px;">
+                <h3 class="crm-card__title">Identifiants entreprise (avant conversion client)</h3>
                 <div class="prospect-form-grid-2">
-                    <div class="field">
-                        <label class="field-label">RCCM *</label>
-                        <input class="input" wire:model="rccm" placeholder="Ex. RC/YAO/2010/B/520">
-                        <span class="prospect-form-hint">Obligatoire pour convertir une entreprise.</span>
-                        @error('rccm') <span class="field-error">{{ $message }}</span> @enderror
-                    </div>
-                    <div class="field">
-                        <label class="field-label">NIU *</label>
-                        <input class="input" wire:model="niu" placeholder="Ex. M101000033472J">
-                        <span class="prospect-form-hint">Obligatoire pour convertir une entreprise.</span>
-                        @error('niu') <span class="field-error">{{ $message }}</span> @enderror
-                    </div>
-                    <div class="field">
-                        <label class="field-label">N° fiscal (optionnel)</label>
-                        <input class="input" wire:model="tax_id">
-                    </div>
+                    <div class="field"><label class="field-label">RCCM</label><input class="input" wire:model="rccm"></div>
+                    <div class="field"><label class="field-label">NIU</label><input class="input" wire:model="niu"></div>
                 </div>
             </section>
         @endif
 
-        <section class="card" style="padding:20px;margin-bottom:16px;">
-            <h3 class="form-section-title" style="margin-top:0;">Commercial &amp; estimation</h3>
-            <div class="prospect-form-grid-2">
-                <div class="field">
-                    <label class="field-label">Commercial</label>
-                    <select class="input" wire:model="owner_id">
-                        <option value="">— Non assigné —</option>
-                        @foreach ($owners as $owner)
-                            <option value="{{ $owner->id }}">{{ $owner->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="field">
-                    <label class="field-label">Coût d’acquisition (FCFA)</label>
-                    <input class="input" type="number" min="0" step="1" wire:model="cost">
-                    <span class="prospect-form-hint">
-                        Ce que ce prospect vous a coûté à acquérir (campagne, salon, pub…). Sert au calcul du CAC.
-                    </span>
-                </div>
-                <div class="field">
-                    <label class="field-label">CA potentiel estimé (FCFA)</label>
-                    <input class="input" type="number" min="0" step="1" wire:model="expected_value">
-                    <span class="prospect-form-hint">
-                        Chiffre d’affaires que vous estimez pouvoir réaliser avec ce prospect s’il devient client.
-                    </span>
-                </div>
-                <div class="field" style="grid-column:1/-1;">
-                    <label class="field-label">Notes</label>
-                    <textarea class="input" rows="3" wire:model="notes" placeholder="Contexte, besoins, objections…"></textarea>
-                </div>
-            </div>
-        </section>
-
-        <div class="page-actions">
+        <div class="crm-v2-actions">
             <a class="btn btn-secondary" href="{{ route('tenant.prospects.index', ['tenant' => $tenantCode]) }}">Annuler</a>
-            <button type="submit" class="btn btn-primary" wire:loading.attr="disabled">
-                {{ $prospectId ? 'Enregistrer' : 'Créer le prospect' }}
-            </button>
+            <button type="submit" class="btn btn-primary">Enregistrer</button>
         </div>
     </form>
 </div>

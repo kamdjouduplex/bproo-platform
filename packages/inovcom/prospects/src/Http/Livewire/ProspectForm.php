@@ -16,13 +16,25 @@ class ProspectForm extends Component
 
     public string $name = '';
 
+    public string $first_name = '';
+
+    public string $last_name = '';
+
+    public string $company_name = '';
+
+    public string $job_title = '';
+
     public string $type = 'company';
 
     public string $email = '';
 
     public string $phone = '';
 
+    public string $whatsapp = '';
+
     public string $address = '';
+
+    public string $city = '';
 
     public string $tax_id = '';
 
@@ -40,6 +52,10 @@ class ProspectForm extends Component
 
     public string $notes = '';
 
+    public string $need = '';
+
+    public string $product_interest = '';
+
     public function mount(?Prospect $prospect = null): void
     {
         if ($prospect && $prospect->exists) {
@@ -56,10 +72,16 @@ class ProspectForm extends Component
 
             $this->prospectId = $prospect->id;
             $this->name = (string) $prospect->name;
+            $this->first_name = (string) ($prospect->first_name ?? '');
+            $this->last_name = (string) ($prospect->last_name ?? '');
+            $this->company_name = (string) ($prospect->company_name ?? '');
+            $this->job_title = (string) ($prospect->job_title ?? '');
             $this->type = (string) $prospect->type;
             $this->email = (string) ($prospect->email ?? '');
             $this->phone = (string) ($prospect->phone ?? '');
+            $this->whatsapp = (string) ($prospect->whatsapp ?? '');
             $this->address = (string) ($prospect->address ?? '');
+            $this->city = (string) ($prospect->city ?? '');
             $this->tax_id = (string) ($prospect->tax_id ?? '');
             $this->rccm = (string) ($prospect->rccm ?? '');
             $this->niu = (string) ($prospect->niu ?? '');
@@ -68,6 +90,8 @@ class ProspectForm extends Component
             $this->expected_value = $prospect->expected_value !== null ? (string) $prospect->expected_value : '';
             $this->owner_id = $prospect->owner_id;
             $this->notes = (string) ($prospect->notes ?? '');
+            $this->need = (string) ($prospect->need ?? '');
+            $this->product_interest = (string) ($prospect->product_interest ?? '');
         } else {
             $this->authorizeProspectAction('prospects.create');
         }
@@ -79,10 +103,16 @@ class ProspectForm extends Component
 
         $this->validate([
             'name' => 'required|string|max:255',
+            'first_name' => 'nullable|string|max:120',
+            'last_name' => 'nullable|string|max:120',
+            'company_name' => 'nullable|string|max:255',
+            'job_title' => 'nullable|string|max:120',
             'type' => 'required|in:individual,company',
             'email' => 'nullable|email|max:255',
             'phone' => 'nullable|string|max:40',
+            'whatsapp' => 'nullable|string|max:40',
             'address' => 'nullable|string|max:2000',
+            'city' => 'nullable|string|max:120',
             'tax_id' => 'nullable|string|max:64',
             'rccm' => 'nullable|string|max:64',
             'niu' => 'nullable|string|max:64',
@@ -91,14 +121,22 @@ class ProspectForm extends Component
             'expected_value' => 'nullable|numeric|min:0',
             'owner_id' => 'nullable|integer|exists:tenant.users,id',
             'notes' => 'nullable|string|max:5000',
+            'need' => 'nullable|string|max:180',
+            'product_interest' => 'nullable|string|max:180',
         ]);
 
         $payload = [
             'name' => $this->name,
+            'first_name' => $this->first_name ?: null,
+            'last_name' => $this->last_name ?: null,
+            'company_name' => $this->company_name ?: ($this->type === 'company' ? $this->name : null),
+            'job_title' => $this->job_title ?: null,
             'type' => $this->type,
             'email' => $this->email ?: null,
             'phone' => $this->phone ?: null,
+            'whatsapp' => $this->whatsapp ?: $this->phone ?: null,
             'address' => $this->address ?: null,
+            'city' => $this->city ?: null,
             'tax_id' => $this->tax_id ?: null,
             'rccm' => $this->rccm ?: null,
             'niu' => $this->niu ?: null,
@@ -107,6 +145,8 @@ class ProspectForm extends Component
             'expected_value' => $this->expected_value !== '' ? $this->expected_value : null,
             'owner_id' => $this->owner_id,
             'notes' => $this->notes ?: null,
+            'need' => $this->need ?: null,
+            'product_interest' => $this->product_interest ?: null,
         ];
 
         try {

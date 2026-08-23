@@ -31,9 +31,40 @@ class CrmActivities extends Component
 
     public string $dateTo = '';
 
+    public string $period = 'all';
+
     public string $scope = 'all';
 
     public int $perPage = 20;
+
+    public ?int $completingId = null;
+
+    public string $completeResult = '';
+
+    public string $completeNextSummary = '';
+
+    public string $completeNextDue = '';
+
+    public string $completeNextType = 'relance';
+
+    public bool $showCompleteModal = false;
+
+    public bool $showCreateModal = false;
+
+    public string $newProspectSearch = '';
+
+    public string $newProspectId = '';
+
+    public string $newProspectLabel = '';
+
+    /** @var list<array{id:int,name:string,meta:string}> */
+    public array $newProspectResults = [];
+
+    public string $newType = 'call';
+
+    public string $newSummary = '';
+
+    public string $newDueAt = '';
 
     public string $prospectSearch = '';
 
@@ -71,14 +102,53 @@ class CrmActivities extends Component
         $this->resetPage();
     }
 
-    public function updatingDateFrom(): void
+    public function updatedPeriod(): void
     {
+        if ($this->period !== 'custom') {
+            $this->applyPeriodDates();
+        }
         $this->resetPage();
     }
 
-    public function updatingDateTo(): void
+    public function updatedDateFrom(): void
     {
+        $this->period = 'custom';
         $this->resetPage();
+    }
+
+    public function updatedDateTo(): void
+    {
+        $this->period = 'custom';
+        $this->resetPage();
+    }
+
+    public function setPeriod(string $period): void
+    {
+        $this->period = $period;
+        $this->updatedPeriod();
+    }
+
+    protected function applyPeriodDates(): void
+    {
+        if ($this->period === 'today') {
+            $this->dateFrom = now()->toDateString();
+            $this->dateTo = now()->toDateString();
+
+            return;
+        }
+
+        if (in_array($this->period, ['7', '30', '90'], true)) {
+            $days = (int) $this->period;
+            $this->dateFrom = now()->subDays($days - 1)->toDateString();
+            $this->dateTo = now()->toDateString();
+
+            return;
+        }
+
+        if ($this->period === 'all') {
+            $this->dateFrom = '';
+            $this->dateTo = '';
+        }
     }
 
     public function updatingPerPage(): void
@@ -160,7 +230,7 @@ class CrmActivities extends Component
 
     public function setScope(string $scope): void
     {
-        $this->scope = in_array($scope, ['all', 'planned', 'overdue', 'mine', 'done'], true) ? $scope : 'all';
+        $this->scope = in_array($scope, ['all', 'overdue', 'today', 'upcoming', 'done', 'planned', 'mine'], true) ? $scope : 'all';
         if (in_array($this->scope, ['planned', 'overdue', 'done'], true)) {
             $this->state = '';
         }
@@ -225,6 +295,7 @@ class CrmActivities extends Component
         $this->state = '';
         $this->dateFrom = '';
         $this->dateTo = '';
+        $this->period = 'all';
         $this->scope = 'all';
         $this->prospectFilter = '';
         $this->prospectLabel = '';
@@ -241,14 +312,116 @@ class CrmActivities extends Component
         $this->resetPage();
     }
 
-    public function complete(int $activityId): void
+    public function openCompleteModal(int $activityId): void
     {
         $this->authorizeCrm('crm.activities.view');
+        $this->completingId = $activityId;
+        $this->completeResult = '';
+        $this->completeNextSummary = '';
+        $this->completeNextDue = now()->addDay()->setTime(9, 0)->format('Y-m-d\TH:i');
+        $this->completeNextType = ProspectActivity::TYPE_FOLLOWUP;
+        $this->showCompleteModal = true;
+    }
+
+    public function closeCompleteModal(): void
+    {
+        $this->showCompleteModal = false;
+        $this->completingId = null;
+    }
+
+    public function saveComplete(): void
+    {
+        $this->authorizeCrm('crm.activities.view');
+        $this->validate([
+            'completeResult' => 'nullable|string|max:255',
+            'completeNextSummary' => 'required|string|max:180',
+            'completeNextDue' => 'required|date',
+        ], [
+            'completeNextSummary.required' => 'Définissez la prochaine action.',
+            'completeNextDue.required' => 'Indiquez la date de la prochaine action.',
+        ]);
+        if (! $this->completingId) {
+            return;
+        }
         try {
             app(ProspectsService::class)->completeActivity(
-                ProspectActivity::findOrFail($activityId)
+                ProspectActivity::findOrFail($this->completingId),
+                null,
+                auth('tenant')->id(),
+                $this->completeResult ?: null,
+                [
+                    'type' => $this->completeNextType,
+                    'summary' => $this->completeNextSummary,
+                    'due_at' => $this->completeNextDue,
+                ]
             );
-            session()->flash('success', 'Action terminée.');
+            $this->closeCompleteModal();
+            session()->flash('success', 'Activité terminée. Prochaine action planifiée.');
+        } catch (\Throwable $e) {
+            session()->flash('error', $e->getMessage());
+        }
+    }
+
+    public function complete(int $activityId): void
+    {
+        $this->openCompleteModal($activityId);
+    }
+
+    public function updatedNewProspectSearch(): void
+    {
+        $term = trim($this->newProspectSearch);
+        if ($this->newProspectId !== '' || mb_strlen($term) < 2) {
+            $this->newProspectResults = [];
+
+            return;
+        }
+        $this->newProspectResults = $this->searchProspects($term);
+    }
+
+    public function selectNewProspect(int $id): void
+    {
+        $prospect = Prospect::query()->find($id, ['id', 'name', 'reference']);
+        if (! $prospect) {
+            return;
+        }
+        $this->newProspectId = (string) $prospect->id;
+        $this->newProspectLabel = $prospect->name;
+        $this->newProspectSearch = '';
+        $this->newProspectResults = [];
+    }
+
+    public function openCreateModal(): void
+    {
+        $this->authorizeCrm('crm.activities.create');
+        $this->newProspectId = '';
+        $this->newProspectLabel = '';
+        $this->newProspectSearch = '';
+        $this->newProspectResults = [];
+        $this->newType = ProspectActivity::TYPE_CALL;
+        $this->newSummary = '';
+        $this->newDueAt = now()->setTime(10, 0)->format('Y-m-d\TH:i');
+        $this->showCreateModal = true;
+    }
+
+    public function saveCreate(): void
+    {
+        $this->authorizeCrm('crm.activities.create');
+        $this->validate([
+            'newProspectId' => 'required',
+            'newSummary' => 'required|string|max:180',
+            'newDueAt' => 'required|date',
+        ]);
+        try {
+            app(ProspectsService::class)->scheduleActivity(
+                Prospect::findOrFail((int) $this->newProspectId),
+                [
+                    'type' => $this->newType,
+                    'summary' => $this->newSummary,
+                    'due_at' => $this->newDueAt,
+                ]
+            );
+            $this->showCreateModal = false;
+            session()->flash('success', 'Activité planifiée.');
         } catch (\Throwable $e) {
             session()->flash('error', $e->getMessage());
         }
@@ -414,6 +587,12 @@ class CrmActivities extends Component
             'overdue' => $query->where('state', ProspectActivity::STATE_PLANNED)
                 ->whereNotNull('due_at')
                 ->where('due_at', '<', now()),
+            'today' => $query->where('state', ProspectActivity::STATE_PLANNED)
+                ->whereNotNull('due_at')
+                ->whereDate('due_at', now()->toDateString()),
+            'upcoming' => $query->where('state', ProspectActivity::STATE_PLANNED)
+                ->whereNotNull('due_at')
+                ->where('due_at', '>', now()->endOfDay()),
             'mine' => $query->where(function ($q) use ($userId) {
                 $q->where('assignee_id', $userId)
                     ->orWhere('user_id', $userId)
@@ -423,21 +602,39 @@ class CrmActivities extends Component
             default => null,
         };
 
+        $doneCountQuery = ProspectActivity::query()->where('state', ProspectActivity::STATE_DONE);
+        if ($this->dateFrom !== '') {
+            $doneCountQuery->whereDate('completed_at', '>=', $this->dateFrom);
+        }
+        if ($this->dateTo !== '') {
+            $doneCountQuery->whereDate('completed_at', '<=', $this->dateTo);
+        }
+
         $counts = [
             'all' => ProspectActivity::query()->count(),
-            'planned' => ProspectActivity::query()->where('state', ProspectActivity::STATE_PLANNED)->count(),
             'overdue' => ProspectActivity::query()
                 ->where('state', ProspectActivity::STATE_PLANNED)
                 ->whereNotNull('due_at')
                 ->where('due_at', '<', now())
                 ->count(),
+            'today' => ProspectActivity::query()
+                ->where('state', ProspectActivity::STATE_PLANNED)
+                ->whereNotNull('due_at')
+                ->whereDate('due_at', now()->toDateString())
+                ->count(),
+            'upcoming' => ProspectActivity::query()
+                ->where('state', ProspectActivity::STATE_PLANNED)
+                ->whereNotNull('due_at')
+                ->where('due_at', '>', now()->endOfDay())
+                ->count(),
+            'planned' => ProspectActivity::query()->where('state', ProspectActivity::STATE_PLANNED)->count(),
+            'done' => (clone $doneCountQuery)->count(),
             'mine' => ProspectActivity::query()
                 ->where(function ($q) use ($userId) {
                     $q->where('assignee_id', $userId)
                         ->orWhere('user_id', $userId);
                 })
                 ->count(),
-            'done' => ProspectActivity::query()->where('state', ProspectActivity::STATE_DONE)->count(),
         ];
 
         $activeChips = [];
@@ -475,9 +672,34 @@ class CrmActivities extends Component
             'activeChips' => $activeChips,
             'hasActiveFilters' => $activeChips !== [] || $this->scope !== 'all',
             'showStateFilter' => in_array($this->scope, ['all', 'mine'], true),
+            'actionTypes' => ProspectActivity::actionableTypeOptions(),
+            'todayAgenda' => ProspectActivity::query()
+                ->with(['prospect', 'assignee'])
+                ->where('state', ProspectActivity::STATE_PLANNED)
+                ->whereNotNull('due_at')
+                ->whereDate('due_at', now()->toDateString())
+                ->orderBy('due_at')
+                ->limit(8)
+                ->get(),
+            'nextAction' => ProspectActivity::query()
+                ->with(['prospect'])
+                ->where('state', ProspectActivity::STATE_PLANNED)
+                ->orderByRaw('CASE WHEN due_at IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('due_at')
+                ->first(),
+            'tenantCode' => $this->tenantCode(),
+            'canCreate' => $this->canCrm('crm.activities.create'),
+            'periodLabel' => match ($this->period) {
+                'today' => 'aujourd’hui',
+                '7' => '7j',
+                '30' => '30j',
+                '90' => '90j',
+                default => null,
+            },
         ])->layout('layouts.app', [
-            'title' => 'Activités CRM',
-            'subtitle' => 'Historique & actions planifiées',
+            'title' => '',
+            'subtitle' => '',
+            'hidePageHeader' => true,
         ]);
     }
 }

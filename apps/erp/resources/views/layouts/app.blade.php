@@ -263,23 +263,29 @@
                                                 || $childActive;
                                         @endphp
                                         @if (!empty($children))
-                                            <div class="app-sidebar-group" x-data="{ open: {{ $childActive || $isActive ? 'true' : 'false' }} }">
-                                                <button type="button" class="app-sidebar-link app-sidebar-link--parent {{ $isActive ? 'app-sidebar-link--active' : '' }}" @click="open = !open">
+                                            <div class="app-sidebar-group" x-data="{ open: {{ $childActive ? 'true' : 'false' }} }">
+                                                <button type="button"
+                                                        class="app-sidebar-link app-sidebar-link--parent"
+                                                        :class="{ 'is-expanded': open }"
+                                                        @click="open = !open"
+                                                        :aria-expanded="open.toString()">
                                                     <x-sidebar-icon :icon="$link['icon'] ?? 'cog'" class="app-sidebar-link-icon" />
                                                     <span>{{ $link['label'] }}</span>
-                                                    <svg class="app-sidebar-caret" :class="{ 'app-sidebar-caret--open': open }" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd"/></svg>
+                                                    <span class="app-sidebar-plus" :class="{ 'is-open': open }" aria-hidden="true"></span>
                                                 </button>
-                                                <div class="app-sidebar-sub" x-show="open" x-cloak>
-                                                    @foreach ($children as $child)
-                                                        @php
-                                                            $childBase = str_replace('.index', '.', $child['route']);
-                                                            $childIsActive = $currentRoute === $child['route'] || str_starts_with($currentRoute, $childBase);
-                                                        @endphp
-                                                        <a href="{{ route($child['route'], ['tenant' => $tenant->code]) }}" class="app-sidebar-link app-sidebar-link--child {{ $childIsActive ? 'app-sidebar-link--active' : '' }}" @click="sidebarOpen = false">
-                                                            <x-sidebar-icon :icon="$child['icon'] ?? 'cog'" class="app-sidebar-link-icon" />
-                                                            <span>{{ $child['label'] }}</span>
-                                                        </a>
-                                                    @endforeach
+                                                <div class="app-sidebar-sub-panel" :class="{ 'is-open': open }">
+                                                    <div class="app-sidebar-sub">
+                                                        @foreach ($children as $child)
+                                                            @php
+                                                                $childBase = str_replace('.index', '.', $child['route']);
+                                                                $childIsActive = $currentRoute === $child['route'] || str_starts_with($currentRoute, $childBase);
+                                                            @endphp
+                                                            <a href="{{ route($child['route'], ['tenant' => $tenant->code]) }}" class="app-sidebar-link app-sidebar-link--child {{ $childIsActive ? 'app-sidebar-link--active' : '' }}" @click="sidebarOpen = false">
+                                                                <x-sidebar-icon :icon="$child['icon'] ?? 'cog'" class="app-sidebar-link-icon" />
+                                                                <span>{{ $child['label'] }}</span>
+                                                            </a>
+                                                        @endforeach
+                                                    </div>
                                                 </div>
                                             </div>
                                         @else
@@ -297,6 +303,7 @@
                     </aside>
                     <main class="app-main">
                         <div class="app-main-inner">
+                            @if (empty($hidePageHeader))
                             <div class="page-header">
                                 <div>
                                     <div class="page-title">{{ $title ?? 'Tableau de bord' }}</div>
@@ -304,6 +311,7 @@
                                 </div>
                                 <div class="page-actions">{{ $actions ?? '' }}</div>
                             </div>
+                            @endif
                             <div class="page-body">{{ $slot }}</div>
                         </div>
                     </main>

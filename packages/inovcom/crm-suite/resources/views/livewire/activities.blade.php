@@ -1,314 +1,203 @@
-@php
-    use InovCom\Prospects\Models\ProspectActivity;
-@endphp
+<div class="page-body crm-v2">
+@include('inovcom-crm::partials.styles')
+    @if (session('success'))<div class="alert alert-success" style="margin-bottom:14px;">{{ session('success') }}</div>@endif
+    @if (session('error'))<div class="alert alert-error" style="margin-bottom:14px;">{{ session('error') }}</div>@endif
 
-<div class="page-body crm-page">
-    @if (session()->has('success'))
-        <div class="alert alert-success" style="margin-bottom:14px;">{{ session('success') }}</div>
-    @endif
-    @if (session()->has('error'))
-        <div class="alert alert-error" style="margin-bottom:14px;">{{ session('error') }}</div>
-    @endif
-
-    <div class="crm-page__intro">
+    <div class="crm-v2-head">
         <div>
-            <h2 class="crm-page__title">Activités</h2>
-            <p class="crm-page__lead">Suivez les actions planifiées et l’historique commercial.</p>
+            <h2>Activités</h2>
+            <p>Appels, relances, rendez-vous — marquez comme terminé puis définissez la prochaine action.</p>
         </div>
-        @if ($hasActiveFilters)
-            <button type="button" class="btn btn-secondary btn-sm" wire:click="resetFilters">Réinitialiser</button>
-        @endif
+        <div class="crm-v2-actions">
+            @if ($canCreate)
+                <button type="button" class="btn btn-primary" wire:click="openCreateModal">+ Nouvelle activité</button>
+            @endif
+        </div>
     </div>
 
-    <section class="crm-act-filters">
-        <div class="crm-act-filters__search">
-            <label class="crm-act-filters__field crm-act-filters__field--search">
-                <span class="crm-act-filters__label">Recherche</span>
-                <input
-                    class="input"
-                    type="search"
-                    placeholder="Prospect, référence, résumé, note…"
-                    wire:model.live.debounce.300ms="search"
-                    aria-label="Rechercher une activité"
-                >
-            </label>
+    <div class="crm-stat-grid">
+        <article class="crm-stat crm-stat--rose"><div class="crm-stat__label">En retard</div><div class="crm-stat__value">{{ $counts['overdue'] }}</div><span class="crm-stat__bar"></span></article>
+        <article class="crm-stat crm-stat--orange"><div class="crm-stat__label">Aujourd’hui</div><div class="crm-stat__value">{{ $counts['today'] }}</div><span class="crm-stat__bar"></span></article>
+        <article class="crm-stat crm-stat--green"><div class="crm-stat__label">À venir</div><div class="crm-stat__value">{{ $counts['upcoming'] }}</div><span class="crm-stat__bar"></span></article>
+        <article class="crm-stat crm-stat--blue"><div class="crm-stat__label">Terminées{{ $periodLabel ? ' ('.$periodLabel.')' : '' }}</div><div class="crm-stat__value">{{ $counts['done'] }}</div><span class="crm-stat__bar"></span></article>
+        <article class="crm-stat crm-stat--violet"><div class="crm-stat__label">Total</div><div class="crm-stat__value">{{ $counts['all'] }}</div><span class="crm-stat__bar"></span></article>
+    </div>
+
+    <div class="crm-toolbar">
+        <div class="crm-toolbar__search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3-3"/></svg>
+            <input class="input" type="search" wire:model.live.debounce.300ms="search" placeholder="Rechercher une activité, un prospect…">
         </div>
-
-        <div class="crm-scope-tabs" role="tablist" aria-label="Vue rapide">
-            <button type="button" role="tab" aria-selected="{{ $scope === 'all' ? 'true' : 'false' }}" class="crm-scope-tab {{ $scope === 'all' ? 'is-active' : '' }}" wire:click="setScope('all')">
-                Tout <span>{{ $counts['all'] }}</span>
-            </button>
-            <button type="button" role="tab" aria-selected="{{ $scope === 'planned' ? 'true' : 'false' }}" class="crm-scope-tab {{ $scope === 'planned' ? 'is-active' : '' }}" wire:click="setScope('planned')">
-                Planifiées <span>{{ $counts['planned'] }}</span>
-            </button>
-            <button type="button" role="tab" aria-selected="{{ $scope === 'overdue' ? 'true' : 'false' }}" class="crm-scope-tab crm-scope-tab--warn {{ $scope === 'overdue' ? 'is-active' : '' }}" wire:click="setScope('overdue')">
-                En retard <span>{{ $counts['overdue'] }}</span>
-            </button>
-            <button type="button" role="tab" aria-selected="{{ $scope === 'mine' ? 'true' : 'false' }}" class="crm-scope-tab {{ $scope === 'mine' ? 'is-active' : '' }}" wire:click="setScope('mine')">
-                Mes activités <span>{{ $counts['mine'] }}</span>
-            </button>
-            <button type="button" role="tab" aria-selected="{{ $scope === 'done' ? 'true' : 'false' }}" class="crm-scope-tab {{ $scope === 'done' ? 'is-active' : '' }}" wire:click="setScope('done')">
-                Terminées <span>{{ $counts['done'] }}</span>
-            </button>
-        </div>
-
-        <div class="crm-act-filters__grid">
-            <label class="crm-act-filters__field">
-                <span class="crm-act-filters__label">Type</span>
-                <select class="input" wire:model.live="type">
-                    <option value="">Tous</option>
-                    @foreach ($typeOptions as $key => $label)
-                        <option value="{{ $key }}">{{ $label }}</option>
-                    @endforeach
-                </select>
-            </label>
-
-            @if ($showStateFilter)
-                <label class="crm-act-filters__field">
-                    <span class="crm-act-filters__label">État</span>
-                    <select class="input" wire:model.live="state">
-                        <option value="">Tous</option>
-                        @foreach ($stateOptions as $key => $label)
-                            <option value="{{ $key }}">{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </label>
-            @endif
-
-            <div class="crm-act-filters__field crm-act-filters__field--picker">
-                <span class="crm-act-filters__label">Prospect</span>
-                @if ($prospectFilter !== '')
-                    <div class="crm-picker-selected">
-                        <span>{{ $prospectLabel }}</span>
-                        <button type="button" class="crm-picker-selected__clear" wire:click="clearProspectFilter" aria-label="Retirer">×</button>
-                    </div>
-                @else
-                    <input
-                        class="input"
-                        type="search"
-                        placeholder="Tapez 2 caractères…"
-                        wire:model.live.debounce.250ms="prospectSearch"
-                        autocomplete="off"
-                    >
-                    <div wire:loading wire:target="prospectSearch" class="crm-picker-hint">Recherche…</div>
-                    @if (mb_strlen(trim($prospectSearch)) >= 2 && count($prospectResults) === 0)
-                        <p class="crm-picker-hint" wire:loading.remove wire:target="prospectSearch">Aucun prospect.</p>
-                    @endif
-                    @if (count($prospectResults) > 0)
-                        <div class="crm-picker-results" role="listbox">
-                            @foreach ($prospectResults as $row)
-                                <button type="button" class="crm-picker-results__item" wire:key="pf-{{ $row['id'] }}" wire:click="selectProspectFilter({{ $row['id'] }})">
-                                    <strong>{{ $row['name'] }}</strong>
-                                    @if ($row['meta'] !== '')
-                                        <span>{{ $row['meta'] }}</span>
-                                    @endif
-                                </button>
-                            @endforeach
-                        </div>
-                    @endif
-                @endif
-            </div>
-
-            <div class="crm-act-filters__field crm-act-filters__field--picker">
-                <span class="crm-act-filters__label">Commercial (carte)</span>
-                @if ($ownerFilter !== '')
-                    <div class="crm-picker-selected">
-                        <span>{{ $ownerLabel }}</span>
-                        <button type="button" class="crm-picker-selected__clear" wire:click="clearOwnerFilter" aria-label="Retirer">×</button>
-                    </div>
-                @else
-                    <input
-                        class="input"
-                        type="search"
-                        placeholder="Nom ou e-mail…"
-                        wire:model.live.debounce.250ms="ownerSearch"
-                        autocomplete="off"
-                    >
-                    <div wire:loading wire:target="ownerSearch" class="crm-picker-hint">Recherche…</div>
-                    @if (mb_strlen(trim($ownerSearch)) >= 2 && count($ownerResults) === 0)
-                        <p class="crm-picker-hint" wire:loading.remove wire:target="ownerSearch">Aucun commercial.</p>
-                    @endif
-                    @if (count($ownerResults) > 0)
-                        <div class="crm-picker-results" role="listbox">
-                            @foreach ($ownerResults as $row)
-                                <button type="button" class="crm-picker-results__item" wire:key="of-{{ $row['id'] }}" wire:click="selectOwnerFilter({{ $row['id'] }})">
-                                    <strong>{{ $row['name'] }}</strong>
-                                    @if ($row['meta'] !== '')
-                                        <span>{{ $row['meta'] }}</span>
-                                    @endif
-                                </button>
-                            @endforeach
-                        </div>
-                    @endif
-                @endif
-            </div>
-
-            <div class="crm-act-filters__field crm-act-filters__field--picker">
-                <span class="crm-act-filters__label">Assigné à</span>
-                @if ($assigneeFilter !== '')
-                    <div class="crm-picker-selected">
-                        <span>{{ $assigneeLabel }}</span>
-                        <button type="button" class="crm-picker-selected__clear" wire:click="clearAssigneeFilter" aria-label="Retirer">×</button>
-                    </div>
-                @else
-                    <input
-                        class="input"
-                        type="search"
-                        placeholder="Nom ou e-mail…"
-                        wire:model.live.debounce.250ms="assigneeSearch"
-                        autocomplete="off"
-                    >
-                    <div wire:loading wire:target="assigneeSearch" class="crm-picker-hint">Recherche…</div>
-                    @if (mb_strlen(trim($assigneeSearch)) >= 2 && count($assigneeResults) === 0)
-                        <p class="crm-picker-hint" wire:loading.remove wire:target="assigneeSearch">Aucun utilisateur.</p>
-                    @endif
-                    @if (count($assigneeResults) > 0)
-                        <div class="crm-picker-results" role="listbox">
-                            @foreach ($assigneeResults as $row)
-                                <button type="button" class="crm-picker-results__item" wire:key="af-{{ $row['id'] }}" wire:click="selectAssigneeFilter({{ $row['id'] }})">
-                                    <strong>{{ $row['name'] }}</strong>
-                                    @if ($row['meta'] !== '')
-                                        <span>{{ $row['meta'] }}</span>
-                                    @endif
-                                </button>
-                            @endforeach
-                        </div>
-                    @endif
-                @endif
-            </div>
-
-            <label class="crm-act-filters__field">
-                <span class="crm-act-filters__label">Du</span>
-                <input class="input" type="date" wire:model.live="dateFrom">
-            </label>
-
-            <label class="crm-act-filters__field">
-                <span class="crm-act-filters__label">Au</span>
-                <input class="input" type="date" wire:model.live="dateTo">
-            </label>
-        </div>
-
-        @if (count($activeChips) > 0)
-            <div class="crm-act-filters__chips" aria-label="Filtres actifs">
-                @foreach ($activeChips as $chip)
-                    <button type="button" class="crm-filter-chip" wire:click="clearFilter('{{ $chip['key'] }}')" title="Retirer">
-                        <span>{{ $chip['label'] }}</span>
-                        <span class="crm-filter-chip__x" aria-hidden="true">×</span>
-                    </button>
+        <div class="crm-toolbar__field">
+            <label for="crm-act-type">Type</label>
+            <select id="crm-act-type" class="input" wire:model.live="type">
+                <option value="">Tous</option>
+                @foreach ($typeOptions as $k => $lab)
+                    <option value="{{ $k }}">{{ $lab }}</option>
                 @endforeach
-                <button type="button" class="crm-filter-chip crm-filter-chip--clear" wire:click="resetFilters">Tout effacer</button>
-            </div>
-        @endif
-    </section>
-
-    <section class="crm-panel crm-act-list">
-        <div class="crm-act-list__head">
-            <div>
-                <h3 class="crm-panel__title">Résultats</h3>
-                <p class="crm-act-list__meta">
-                    @if ($activities->total() === 0)
-                        Aucune activité
-                    @else
-                        {{ $activities->firstItem() }}–{{ $activities->lastItem() }} sur {{ $activities->total() }}
-                    @endif
-                </p>
-            </div>
-            <label class="crm-act-list__perpage">
-                <span>Par page</span>
-                <select class="input input-sm" wire:model.live="perPage">
-                    <option value="10">10</option>
-                    <option value="20">20</option>
-                    <option value="50">50</option>
-                </select>
-            </label>
+            </select>
         </div>
+        <div class="crm-toolbar__field">
+            <label for="crm-act-period">Période</label>
+            <select id="crm-act-period" class="input" wire:model.live="period">
+                <option value="all">Toute période</option>
+                <option value="today">Aujourd’hui</option>
+                <option value="7">7 derniers jours</option>
+                <option value="30">30 derniers jours</option>
+                <option value="90">90 derniers jours</option>
+                <option value="custom">Personnalisée</option>
+            </select>
+        </div>
+        <div class="crm-toolbar__field">
+            <label for="crm-act-from">Du</label>
+            <input id="crm-act-from" class="input" type="date" wire:model.live="dateFrom">
+        </div>
+        <div class="crm-toolbar__field">
+            <label for="crm-act-to">Au</label>
+            <input id="crm-act-to" class="input" type="date" wire:model.live="dateTo">
+        </div>
+        <div class="crm-toolbar__actions">
+            <button type="button" class="crm-btn-icon" wire:click="resetFilters" title="Réinitialiser" aria-label="Réinitialiser les filtres">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.3"/><polyline points="21 3 21 9 15 9"/></svg>
+            </button>
+        </div>
+    </div>
 
-        <div class="crm-activity-feed" wire:loading.class="is-loading">
-            @forelse ($activities as $activity)
-                @php
-                    $isPlanned = $activity->state === ProspectActivity::STATE_PLANNED;
-                    $overdue = $activity->isOverdue();
-                    $dueToday = $activity->isDueToday();
-                @endphp
-                <article class="crm-act-row {{ $overdue ? 'crm-act-row--overdue' : '' }} {{ $dueToday && ! $overdue ? 'crm-act-row--today' : '' }}" wire:key="act-{{ $activity->id }}">
-                    <div class="crm-act-row__icon crm-act-row__icon--{{ $activity->type }}" aria-hidden="true">
-                        @switch($activity->type)
-                            @case('call') ☎ @break
-                            @case('email') ✉ @break
-                            @case('meeting')
-                            @case('reunion') ◎ @break
-                            @case('demo') ▷ @break
-                            @case('presentation') ◫ @break
-                            @case('task') ✓ @break
-                            @case('status') → @break
-                            @default ·
-                        @endswitch
-                    </div>
-
-                    <div class="crm-act-row__main">
-                        <div class="crm-act-row__top">
-                            <strong class="crm-act-row__title">{{ $activity->displayTitle() }}</strong>
-                            <span class="crm-pill {{ $overdue ? 'crm-pill--hot' : ($isPlanned ? 'crm-pill--contacte' : ($activity->state === 'cancelled' ? 'crm-pill--converti' : 'crm-pill--soft')) }}">
-                                {{ ProspectActivity::stateLabel($activity->state ?? 'done') }}
-                            </span>
-                        </div>
-
-                        <div class="crm-act-row__sub">
-                            <span class="crm-act-row__type">{{ $typeOptions[$activity->type] ?? $activity->type }}</span>
-                            @if ($activity->prospect)
-                                <span class="crm-act-row__sep">·</span>
-                                @if (Route::has('tenant.prospects.show'))
-                                    <a class="crm-act-row__prospect" href="{{ route('tenant.prospects.show', $activity->prospect) }}">{{ $activity->prospect->name }}</a>
-                                @else
-                                    <span class="crm-act-row__prospect">{{ $activity->prospect->name }}</span>
+    <div class="crm-fiche-grid">
+        <div>
+            <div class="crm-tabs" role="tablist">
+                @foreach (['all'=>'Toutes','overdue'=>'En retard','today'=>'Aujourd’hui','upcoming'=>'À venir','done'=>'Terminées'] as $key => $lab)
+                    <button type="button" class="{{ $scope === $key ? 'is-on' : '' }}" wire:click="setScope('{{ $key }}')">{{ $lab }}</button>
+                @endforeach
+            </div>
+            <div class="crm-table-wrap">
+                <table class="crm-table">
+                    <thead>
+                        <tr>
+                            <th>Activité</th>
+                            <th>Concerné</th>
+                            <th>Type</th>
+                            <th>Date</th>
+                            <th>Responsable</th>
+                            <th>Statut</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    @forelse ($activities as $act)
+                        <tr>
+                            <td>
+                                <strong>{{ $act->displayTitle() }}</strong>
+                                @if ($act->result)<div class="crm-act-row__meta">{{ $act->result }}</div>@endif
+                            </td>
+                            <td>
+                                @if ($act->prospect)
+                                    <a href="{{ route('tenant.prospects.show', ['tenant' => $tenantCode, 'prospect' => $act->prospect_id]) }}">{{ $act->prospect->companyDisplayName() }}</a>
+                                @else — @endif
+                            </td>
+                            <td><span class="crm-badge crm-badge--violet">{{ \InovCom\Prospects\Models\ProspectActivity::typeLabel($act->type) }}</span></td>
+                            <td>{{ $act->due_at?->format('d/m/Y H:i') ?? $act->created_at?->format('d/m/Y') }}</td>
+                            <td>
+                                <div class="crm-person">
+                                    <span class="crm-avatar crm-avatar--sm">{{ mb_strtoupper(mb_substr($act->assignee?->name ?? $act->user?->name ?? '?', 0, 1)) }}</span>
+                                    <span>{{ $act->assignee?->name ?? $act->user?->name ?? '—' }}</span>
+                                </div>
+                            </td>
+                            <td><span class="crm-badge crm-badge--{{ $act->calendarTone() === 'rose' ? 'rose' : ($act->calendarTone() === 'orange' ? 'orange' : ($act->calendarTone() === 'green' ? 'green' : 'blue')) }}">{{ $act->calendarLabel() }}</span></td>
+                            <td>
+                                @if ($act->isPlanned())
+                                    <button type="button" class="btn btn-primary btn-sm" wire:click="openCompleteModal({{ $act->id }})">Terminer</button>
                                 @endif
-                            @endif
-                        </div>
-
-                        @if (filled($activity->body) && $activity->body !== $activity->displayTitle())
-                            <p class="crm-act-row__body">{{ \Illuminate\Support\Str::limit($activity->body, 160) }}</p>
-                        @endif
-
-                        <div class="crm-act-row__meta">
-                            @if ($activity->due_at)
-                                <span class="{{ $overdue ? 'is-danger' : ($dueToday ? 'is-today' : '') }}">
-                                    {{ $isPlanned ? 'Échéance' : 'Prévu' }} {{ $activity->due_at->format('d/m/Y H:i') }}
-                                </span>
-                            @else
-                                <span>{{ $activity->created_at?->format('d/m/Y H:i') }}</span>
-                            @endif
-                            @if ($activity->assignee)
-                                <span>· {{ $activity->assignee->name }}</span>
-                            @elseif ($activity->user)
-                                <span>· {{ $activity->user->name }}</span>
-                            @endif
-                            @if ($activity->prospect?->owner)
-                                <span class="crm-muted">· carte {{ $activity->prospect->owner->name }}</span>
-                            @endif
+                            </td>
+                        </tr>
+                    @empty
+                        <tr><td colspan="7" class="crm-empty">Aucune activité sur ce filtre.</td></tr>
+                    @endforelse
+                    </tbody>
+                </table>
+            </div>
+            <div style="margin-top:12px;">{{ $activities->links() }}</div>
+        </div>
+        <div class="crm-side-stack">
+            <section class="crm-card">
+                <h3 class="crm-card__title">Calendrier du jour</h3>
+                <div class="crm-act-row__meta" style="margin-bottom:8px;">{{ now()->translatedFormat('l d F Y') }}</div>
+                @forelse ($todayAgenda as $item)
+                    <div class="crm-act-row">
+                        <div class="crm-act-row__time">{{ $item->due_at?->format('H:i') }}</div>
+                        <div>
+                            <strong>{{ $item->displayTitle() }}</strong>
+                            <div class="crm-act-row__meta">{{ $item->prospect?->name }}</div>
                         </div>
                     </div>
-
-                    @if ($isPlanned)
-                        <div class="crm-act-row__actions">
-                            <button type="button" class="btn btn-primary btn-sm" wire:click="complete({{ $activity->id }})">Fait</button>
-                            <button type="button" class="btn btn-secondary btn-sm" wire:click="cancel({{ $activity->id }})" wire:confirm="Annuler cette action ?">Annuler</button>
-                        </div>
-                    @endif
-                </article>
-            @empty
-                <div class="crm-act-empty">
-                    <p>Aucune activité pour ces filtres.</p>
-                    @if ($hasActiveFilters)
-                        <button type="button" class="btn btn-secondary btn-sm" wire:click="resetFilters">Réinitialiser les filtres</button>
-                    @endif
-                </div>
-            @endforelse
+                @empty
+                    <p class="crm-empty">Rien de prévu aujourd’hui.</p>
+                @endforelse
+            </section>
+            @if ($nextAction)
+                <section class="crm-next-card">
+                    <h3>Prochaine action</h3>
+                    <strong>{{ $nextAction->displayTitle() }}</strong>
+                    <div class="crm-act-row__meta">{{ $nextAction->due_at?->format('d/m/Y H:i') }} · {{ $nextAction->prospect?->companyDisplayName() }}</div>
+                    <button type="button" class="btn btn-success" style="margin-top:12px;width:100%;" wire:click="openCompleteModal({{ $nextAction->id }})">Marquer comme terminée</button>
+                </section>
+            @endif
+            <section class="crm-card">
+                <h3 class="crm-card__title">Rappels</h3>
+                <div class="crm-source-row"><span>En retard</span><strong>{{ $counts['overdue'] }}</strong></div>
+                <div class="crm-source-row"><span>Aujourd’hui</span><strong>{{ $counts['today'] }}</strong></div>
+                <div class="crm-source-row"><span>À venir</span><strong>{{ $counts['upcoming'] }}</strong></div>
+            </section>
         </div>
+    </div>
 
-        @if ($activities->total() > 0)
-            <div class="crm-act-list__footer">
-                {{ $activities->links('livewire.inovcom') }}
-            </div>
-        @endif
-    </section>
+@if ($showCompleteModal)
+<div class="crm-modal-backdrop" wire:click="closeCompleteModal">
+    <div class="crm-modal" wire:click.stop>
+        <div class="crm-modal__head">
+            <h3 class="crm-modal__title">Activité terminée</h3>
+            <p class="crm-modal__sub">Indiquez le résultat et la prochaine action — obligatoire.</p>
+        </div>
+        <div class="field"><label class="field-label">Résultat</label><input class="input" wire:model="completeResult" placeholder="Ex. Client intéressé"></div>
+        <div class="field"><label class="field-label">Prochaine action *</label><input class="input" wire:model="completeNextSummary" placeholder="Ex. Démonstration">@error('completeNextSummary')<span class="field-error">{{ $message }}</span>@enderror</div>
+        <div class="field"><label class="field-label">Type</label>
+            <select class="input" wire:model="completeNextType">
+                @foreach ($actionTypes as $k => $lab)<option value="{{ $k }}">{{ $lab }}</option>@endforeach
+            </select>
+        </div>
+        <div class="field"><label class="field-label">Date *</label><input class="input" type="datetime-local" wire:model="completeNextDue"></div>
+        <div class="crm-modal__actions">
+            <button type="button" class="btn btn-secondary" wire:click="closeCompleteModal">Annuler</button>
+            <button type="button" class="btn btn-primary" wire:click="saveComplete">Enregistrer</button>
+        </div>
+    </div>
+</div>
+@endif
+
+@if ($showCreateModal)
+<div class="crm-modal-backdrop" wire:click="$set('showCreateModal', false)">
+    <div class="crm-modal" wire:click.stop>
+        <div class="crm-modal__head"><h3 class="crm-modal__title">Nouvelle activité</h3></div>
+        <div class="field"><label class="field-label">Prospect *</label>
+            @if ($newProspectId)
+                <div>{{ $newProspectLabel }}</div>
+            @else
+                <input class="input" wire:model.live.debounce.250ms="newProspectSearch" placeholder="Rechercher…">
+                @foreach ($newProspectResults as $row)
+                    <button type="button" class="crm-picker-results__item" wire:click="selectNewProspect({{ $row['id'] }})"><strong>{{ $row['name'] }}</strong></button>
+                @endforeach
+            @endif
+        </div>
+        <div class="field"><label class="field-label">Type</label>
+            <select class="input" wire:model="newType">@foreach ($actionTypes as $k=>$lab)<option value="{{ $k }}">{{ $lab }}</option>@endforeach</select>
+        </div>
+        <div class="field"><label class="field-label">Objet *</label><input class="input" wire:model="newSummary"></div>
+        <div class="field"><label class="field-label">Quand *</label><input class="input" type="datetime-local" wire:model="newDueAt"></div>
+        <div class="crm-modal__actions">
+            <button type="button" class="btn btn-secondary" wire:click="$set('showCreateModal', false)">Annuler</button>
+            <button type="button" class="btn btn-primary" wire:click="saveCreate">Planifier</button>
+        </div>
+    </div>
+</div>
+@endif
 </div>

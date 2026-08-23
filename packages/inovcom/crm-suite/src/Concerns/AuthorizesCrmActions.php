@@ -59,11 +59,18 @@ trait AuthorizesCrmActions
             'crm.prospects.convert' => ['prospects.convert'],
             'crm.prospects.assign' => ['prospects.update', 'crm.prospects.update'],
             'crm.opportunities.view' => ['crm.view', 'prospects.view'],
-            'crm.opportunities.manage' => ['crm.prospects.update', 'prospects.update', 'crm.manage'],
+            'crm.opportunities.manage' => ['crm.prospects.update', 'prospects.update'],
             'crm.activities.view' => ['crm.view', 'prospects.view'],
             'crm.activities.create' => ['crm.prospects.update', 'prospects.update'],
-            'crm.manage' => ['crm.opportunities.manage', 'crm.prospects.update'],
+            'crm.manage' => [],
             default => [],
         };
+    }
+
+    protected function tenantCode(): ?string
+    {
+        return request()->query('tenant')
+            ?? session()->get('tenant_code')
+            ?? optional(request()->attributes->get('tenant'))->code;
     }
 }

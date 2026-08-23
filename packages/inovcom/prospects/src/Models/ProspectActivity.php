@@ -11,6 +11,8 @@ class ProspectActivity extends TenantModel
 
     public const TYPE_CALL = 'call';
 
+    public const TYPE_WHATSAPP = 'whatsapp';
+
     public const TYPE_MEETING = 'meeting';
 
     public const TYPE_EMAIL = 'email';
@@ -25,6 +27,12 @@ class ProspectActivity extends TenantModel
 
     public const TYPE_REUNION = 'reunion';
 
+    public const TYPE_FOLLOWUP = 'relance';
+
+    public const TYPE_VISIT = 'visite';
+
+    public const TYPE_OTHER = 'autre';
+
     public const STATE_PLANNED = 'planned';
 
     public const STATE_DONE = 'done';
@@ -33,12 +41,14 @@ class ProspectActivity extends TenantModel
 
     protected $fillable = [
         'prospect_id',
+        'opportunity_id',
         'user_id',
         'assignee_id',
         'type',
         'summary',
         'state',
         'body',
+        'result',
         'due_at',
         'completed_at',
         'from_status',
@@ -53,6 +63,11 @@ class ProspectActivity extends TenantModel
     public function prospect()
     {
         return $this->belongsTo(Prospect::class);
+    }
+
+    public function opportunity()
+    {
+        return $this->belongsTo(\InovCom\Crm\Models\Opportunity::class, 'opportunity_id');
     }
 
     public function user()
@@ -84,17 +99,62 @@ class ProspectActivity extends TenantModel
             && $this->due_at->isToday();
     }
 
+    public function isUpcoming(): bool
+    {
+        return $this->isPlanned()
+            && $this->due_at
+            && $this->due_at->isFuture()
+            && ! $this->due_at->isToday();
+    }
+
+    /** En retard | Aujourd'hui | À venir | Terminée | Annulée | Planifiée */
+    public function calendarLabel(): string
+    {
+        if ($this->state === self::STATE_DONE) {
+            return 'Terminée';
+        }
+        if ($this->state === self::STATE_CANCELLED) {
+            return 'Annulée';
+        }
+        if ($this->isOverdue()) {
+            return 'En retard';
+        }
+        if ($this->isDueToday()) {
+            return 'Aujourd\'hui';
+        }
+        if ($this->isUpcoming()) {
+            return 'À venir';
+        }
+
+        return 'Planifiée';
+    }
+
+    public function calendarTone(): string
+    {
+        return match ($this->calendarLabel()) {
+            'En retard' => 'rose',
+            'Aujourd\'hui' => 'orange',
+            'À venir' => 'green',
+            'Terminée' => 'blue',
+            default => 'slate',
+        };
+    }
+
     public static function typeOptions(): array
     {
         return [
             self::TYPE_NOTE => 'Note',
             self::TYPE_CALL => 'Appel',
+            self::TYPE_WHATSAPP => 'WhatsApp',
             self::TYPE_MEETING => 'Rendez-vous',
             self::TYPE_REUNION => 'Réunion',
-            self::TYPE_DEMO => 'Démo',
+            self::TYPE_DEMO => 'Démonstration',
             self::TYPE_PRESENTATION => 'Présentation',
+            self::TYPE_FOLLOWUP => 'Relance',
+            self::TYPE_VISIT => 'Visite',
             self::TYPE_EMAIL => 'E-mail',
             self::TYPE_TASK => 'Tâche',
+            self::TYPE_OTHER => 'Autre',
             self::TYPE_STATUS => 'Statut',
         ];
     }
@@ -103,13 +163,15 @@ class ProspectActivity extends TenantModel
     {
         return [
             self::TYPE_CALL => 'Appel',
-            self::TYPE_MEETING => 'Rendez-vous',
-            self::TYPE_REUNION => 'Réunion',
-            self::TYPE_DEMO => 'Démo',
-            self::TYPE_PRESENTATION => 'Présentation',
+            self::TYPE_WHATSAPP => 'WhatsApp',
             self::TYPE_EMAIL => 'E-mail',
-            self::TYPE_TASK => 'Tâche',
+            self::TYPE_MEETING => 'Rendez-vous',
+            self::TYPE_DEMO => 'Démonstration',
+            self::TYPE_FOLLOWUP => 'Relance',
+            self::TYPE_VISIT => 'Visite',
             self::TYPE_NOTE => 'Note',
+            self::TYPE_TASK => 'Tâche',
+            self::TYPE_OTHER => 'Autre',
         ];
     }
 

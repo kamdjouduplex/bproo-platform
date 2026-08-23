@@ -5,6 +5,7 @@ namespace InovCom\Crm;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use InovCom\Crm\Http\Livewire\CrmActivities;
+use InovCom\Crm\Http\Livewire\CrmClients;
 use InovCom\Crm\Http\Livewire\CrmKpis;
 use InovCom\Crm\Http\Livewire\CrmOpportunities;
 use InovCom\Kernel\Traits\LazyModuleBoot;
@@ -36,6 +37,7 @@ class CrmServiceProvider extends ServiceProvider
         Livewire::component('inovcom-crm.kpis', CrmKpis::class);
         Livewire::component('inovcom-crm.opportunities', CrmOpportunities::class);
         Livewire::component('inovcom-crm.activities', CrmActivities::class);
+        Livewire::component('inovcom-crm.clients', CrmClients::class);
 
         $this->registerTenantRoutes();
     }
@@ -57,6 +59,9 @@ class CrmServiceProvider extends ServiceProvider
                 Route::get('/crm/activities', CrmActivities::class)
                     ->middleware(['module:crm'])
                     ->name('tenant.crm.activities');
+                Route::get('/crm/clients', CrmClients::class)
+                    ->middleware(['module:crm'])
+                    ->name('tenant.crm.clients');
             });
     }
 }

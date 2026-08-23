@@ -49,6 +49,38 @@ class ProspectShow extends Component
 
     public string $scheduleAssigneeId = '';
 
+    public string $tab = 'resume';
+
+    public bool $showConvertOppModal = false;
+
+    public string $oppTitle = '';
+
+    public string $oppAmount = '';
+
+    public string $oppCloseDate = '';
+
+    public string $oppNextSummary = '';
+
+    public string $oppNextDue = '';
+
+    public int $needScore = 0;
+
+    public int $decisionScore = 0;
+
+    public int $budgetScore = 0;
+
+    public int $timelineScore = 0;
+
+    public string $problem = '';
+
+    public string $expectations = '';
+
+    public string $productInterest = '';
+
+    public string $decisionMakerName = '';
+
+    public string $needText = '';
+
     public function mount(Prospect $prospect): void
     {
         $this->authorizeProspectAction('prospects.view');
@@ -57,9 +89,13 @@ class ProspectShow extends Component
             'creator',
             'convertedClient',
             'nextPlannedActivity.assignee',
-            'activities' => fn ($q) => $q->with(['user', 'assignee'])->orderByDesc('created_at')->limit(20),
+            'primaryOpportunity.nextPlannedActivity',
+            'opportunities',
+            'activities' => fn ($q) => $q->with(['user', 'assignee'])->orderByDesc('created_at')->limit(40),
         ]);
         $this->newStatus = $prospect->status;
+        $this->tab = request()->query('tab', 'resume');
+        $this->syncQualificationFields();
     }
 
     public function togglePanelActions(): void
@@ -74,10 +110,26 @@ class ProspectShow extends Component
             'creator',
             'convertedClient',
             'nextPlannedActivity.assignee',
-            'activities' => fn ($q) => $q->with(['user', 'assignee'])->orderByDesc('created_at')->limit(20),
+            'primaryOpportunity.nextPlannedActivity',
+            'opportunities',
+            'activities' => fn ($q) => $q->with(['user', 'assignee'])->orderByDesc('created_at')->limit(40),
         ]);
         $this->newStatus = $this->prospect->status;
         $this->showPanelActions = false;
+        $this->syncQualificationFields();
+    }
+
+    private function syncQualificationFields(): void
+    {
+        $this->needScore = (int) ($this->prospect->need_score ?? 0);
+        $this->decisionScore = (int) ($this->prospect->decision_score ?? 0);
+        $this->budgetScore = (int) ($this->prospect->budget_score ?? 0);
+        $this->timelineScore = (int) ($this->prospect->timeline_score ?? 0);
+        $this->problem = (string) ($this->prospect->problem ?? '');
+        $this->expectations = (string) ($this->prospect->expectations ?? '');
+        $this->productInterest = (string) ($this->prospect->product_interest ?? '');
+        $this->decisionMakerName = (string) ($this->prospect->decision_maker_name ?? '');
+        $this->needText = (string) ($this->prospect->need ?? '');
     }
 
     public function changeStatus(): void
@@ -172,7 +224,11 @@ class ProspectShow extends Component
                 Auth::guard('tenant')->id()
             );
             $this->refreshProspect();
-            session()->flash('success', 'Action terminée.');
+            $this->scheduleType = ProspectActivity::TYPE_FOLLOWUP;
+            $this->scheduleSummary = '';
+            $this->scheduleDueAt = now()->addDay()->setTime(9, 0)->format('Y-m-d\TH:i');
+            $this->showScheduleModal = true;
+            session()->flash('success', 'Action terminée. Définissez la prochaine action.');
         } catch (\Throwable $e) {
             session()->flash('error', $e->getMessage());
         }
@@ -361,6 +417,123 @@ class ProspectShow extends Component
         }
     }
 
+    public function setTab(string $tab): void
+    {
+        $allowed = ['resume', 'besoin', 'timeline', 'activites', 'opportunites', 'fichiers', 'notes'];
+        $this->tab = in_array($tab, $allowed, true) ? $tab : 'resume';
+    }
+
+    public function saveQualification(): void
+    {
+        $this->authorizeProspectAction('prospects.update');
+        try {
+            $this->prospect = app(ProspectsService::class)->update($this->prospect, [
+                'name' => $this->prospect->name,
+                'type' => $this->prospect->type,
+                'email' => $this->prospect->email,
+                'phone' => $this->prospect->phone,
+                'address' => $this->prospect->address,
+                'tax_id' => $this->prospect->tax_id,
+                'rccm' => $this->prospect->rccm,
+                'niu' => $this->prospect->niu,
+                'source' => $this->prospect->source,
+                'owner_id' => $this->prospect->owner_id,
+                'notes' => $this->prospect->notes,
+                'need' => $this->needText,
+                'product_interest' => $this->productInterest,
+                'problem' => $this->problem,
+                'expectations' => $this->expectations,
+                'decision_maker_name' => $this->decisionMakerName,
+                'need_score' => $this->needScore,
+                'decision_score' => $this->decisionScore,
+                'budget_score' => $this->budgetScore,
+                'timeline_score' => $this->timelineScore,
+            ], Auth::guard('tenant')->id());
+
+            if (class_exists(\InovCom\Crm\Services\ProspectScoringService::class)) {
+                app(\InovCom\Crm\Services\ProspectScoringService::class)->recalculate($this->prospect);
+            }
+            if (in_array($this->prospect->status, [Prospect::STATUS_NOUVEAU, Prospect::STATUS_A_QUALIFIER], true)
+                && $this->needScore >= 10) {
+                app(ProspectsService::class)->changeStatus(
+                    $this->prospect,
+                    Prospect::STATUS_QUALIFIE,
+                    null,
+                    'Qualification enregistrée.',
+                    Auth::guard('tenant')->id()
+                );
+            }
+            $this->refreshProspect();
+            session()->flash('success', 'Qualification mise à jour. Score recalculé.');
+        } catch (\Throwable $e) {
+            session()->flash('error', $e->getMessage());
+        }
+    }
+
+    public function openConvertOppModal(): void
+    {
+        $this->authorizeProspectAction('prospects.update');
+        $this->oppTitle = $this->prospect->need ?: $this->prospect->product_interest ?: ('Opportunité '.$this->prospect->name);
+        $this->oppAmount = $this->prospect->expected_value !== null ? (string) $this->prospect->expected_value : '';
+        $this->oppCloseDate = $this->prospect->decision_deadline?->format('Y-m-d') ?? '';
+        $this->oppNextSummary = 'Appeler '.$this->prospect->contactName();
+        $this->oppNextDue = now()->addDay()->setTime(9, 0)->format('Y-m-d\TH:i');
+        $this->showConvertOppModal = true;
+    }
+
+    public function convertToOpportunity(): void
+    {
+        $this->authorizeProspectAction('prospects.update');
+        $this->validate([
+            'oppTitle' => 'required|string|max:180',
+            'oppNextSummary' => 'required|string|max:180',
+            'oppNextDue' => 'required|date',
+        ]);
+        try {
+            $opp = app(\InovCom\Crm\Services\OpportunityService::class)->createFromProspect(
+                $this->prospect,
+                [
+                    'title' => $this->oppTitle,
+                    'amount' => $this->oppAmount !== '' ? $this->oppAmount : null,
+                    'owner_id' => $this->prospect->owner_id ?: Auth::guard('tenant')->id(),
+                    'expected_close_date' => $this->oppCloseDate ?: null,
+                    'next_action' => [
+                        'type' => ProspectActivity::TYPE_CALL,
+                        'summary' => $this->oppNextSummary,
+                        'due_at' => $this->oppNextDue,
+                    ],
+                ],
+                Auth::guard('tenant')->id()
+            );
+            $this->showConvertOppModal = false;
+            $this->refreshProspect();
+            session()->flash('success', 'Opportunité créée : '.$opp->title);
+        } catch (\Throwable $e) {
+            session()->flash('error', $e->getMessage());
+        }
+    }
+
+    public function transferToErp(): void
+    {
+        $this->authorizeProspectAction('prospects.update');
+        $opp = $this->prospect->primaryOpportunity;
+        if (! $opp) {
+            session()->flash('error', 'Créez d’abord une opportunité.');
+
+            return;
+        }
+        try {
+            $result = app(\InovCom\Crm\Services\OpportunityService::class)->transferToQuotations(
+                $opp,
+                Auth::guard('tenant')->id()
+            );
+            session()->flash('success', 'Contexte transmis au module Devis.');
+            $this->redirect($result['url'], navigate: true);
+        } catch (\Throwable $e) {
+            session()->flash('error', $e->getMessage());
+        }
+    }
+
     public function convert(?int $prospectId = null): void
     {
         $this->authorizeProspectAction('prospects.convert');
@@ -431,9 +604,13 @@ class ProspectShow extends Component
             'actionTypes' => ProspectActivity::actionableTypeOptions(),
             'owners' => User::query()->orderBy('name')->get(['id', 'name']),
             'crmEnabled' => $crmEnabled,
+            'scoring' => class_exists(\InovCom\Crm\Services\ProspectScoringService::class)
+                ? \InovCom\Crm\Services\ProspectScoringService::class
+                : null,
         ])->layout('layouts.app', [
-            'title' => $this->prospect->reference,
-            'subtitle' => $this->prospect->name,
+            'title' => '',
+            'subtitle' => '',
+            'hidePageHeader' => true,
         ]);
     }
 }

@@ -63,6 +63,19 @@ class QuotationForm extends Component
                 }
             }
 
+            $fromCrm = (int) request()->query('from_crm', 0);
+            $opportunityId = (int) request()->query('opportunity_id', 0);
+            if ($fromCrm && $opportunityId && class_exists(\InovCom\Crm\Models\Opportunity::class)) {
+                $opp = \InovCom\Crm\Models\Opportunity::query()->with('prospect')->find($opportunityId);
+                if ($opp) {
+                    $this->notes = trim(implode("\n", array_filter([
+                        'Issu du CRM — opportunité : '.$opp->title,
+                        $opp->product_interest ? 'Besoin : '.$opp->product_interest : null,
+                        $opp->amount ? 'Montant estimé : '.fmt_money($opp->amount).' '.currency_label() : null,
+                    ])));
+                }
+            }
+
             return;
         }
 

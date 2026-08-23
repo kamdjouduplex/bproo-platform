@@ -22,21 +22,31 @@ class ProspectsService
             $prospect = Prospect::create([
                 'reference' => $this->generateReference(),
                 'name' => trim((string) ($data['name'] ?? '')),
+                'first_name' => $data['first_name'] ?? null,
+                'last_name' => $data['last_name'] ?? null,
+                'company_name' => $data['company_name'] ?? null,
+                'job_title' => $data['job_title'] ?? null,
                 'type' => $data['type'] ?? 'company',
                 'email' => $data['email'] ?? null,
                 'phone' => $data['phone'] ?? null,
+                'whatsapp' => $data['whatsapp'] ?? ($data['phone'] ?? null),
                 'address' => $data['address'] ?? null,
+                'city' => $data['city'] ?? null,
+                'sector' => $data['sector'] ?? null,
                 'tax_id' => $data['tax_id'] ?? null,
                 'rccm' => $data['rccm'] ?? null,
                 'niu' => $data['niu'] ?? null,
                 'source' => $data['source'] ?? Prospect::SOURCE_OTHER,
-                'status' => Prospect::STATUS_QUALIFIE,
+                'status' => $data['status'] ?? Prospect::STATUS_NOUVEAU,
                 'cost' => (float) ($data['cost'] ?? 0),
                 'expected_value' => isset($data['expected_value']) && $data['expected_value'] !== ''
                     ? (float) $data['expected_value']
                     : null,
-                'owner_id' => $data['owner_id'] ?? null,
+                'owner_id' => $data['owner_id'] ?? $userId,
                 'notes' => $data['notes'] ?? null,
+                'need' => $data['need'] ?? null,
+                'product_interest' => $data['product_interest'] ?? null,
+                'problem' => $data['problem'] ?? null,
                 'store_id' => $this->resolveStoreId(),
                 'created_by' => $userId,
                 'updated_by' => $userId,
@@ -63,10 +73,17 @@ class ProspectsService
 
         $prospect->fill([
             'name' => trim((string) ($data['name'] ?? $prospect->name)),
+            'first_name' => array_key_exists('first_name', $data) ? $data['first_name'] : $prospect->first_name,
+            'last_name' => array_key_exists('last_name', $data) ? $data['last_name'] : $prospect->last_name,
+            'company_name' => array_key_exists('company_name', $data) ? $data['company_name'] : $prospect->company_name,
+            'job_title' => array_key_exists('job_title', $data) ? $data['job_title'] : $prospect->job_title,
             'type' => $data['type'] ?? $prospect->type,
             'email' => $data['email'] ?? null,
             'phone' => $data['phone'] ?? null,
+            'whatsapp' => array_key_exists('whatsapp', $data) ? $data['whatsapp'] : $prospect->whatsapp,
             'address' => $data['address'] ?? null,
+            'city' => array_key_exists('city', $data) ? $data['city'] : $prospect->city,
+            'sector' => array_key_exists('sector', $data) ? $data['sector'] : $prospect->sector,
             'tax_id' => $data['tax_id'] ?? null,
             'rccm' => $data['rccm'] ?? null,
             'niu' => $data['niu'] ?? null,
@@ -74,9 +91,22 @@ class ProspectsService
             'cost' => (float) ($data['cost'] ?? $prospect->cost),
             'expected_value' => isset($data['expected_value']) && $data['expected_value'] !== ''
                 ? (float) $data['expected_value']
-                : null,
-            'owner_id' => $data['owner_id'] ?? null,
+                : $prospect->expected_value,
+            'owner_id' => array_key_exists('owner_id', $data) ? $data['owner_id'] : $prospect->owner_id,
             'notes' => $data['notes'] ?? null,
+            'need' => array_key_exists('need', $data) ? $data['need'] : $prospect->need,
+            'product_interest' => array_key_exists('product_interest', $data) ? $data['product_interest'] : $prospect->product_interest,
+            'problem' => array_key_exists('problem', $data) ? $data['problem'] : $prospect->problem,
+            'expectations' => array_key_exists('expectations', $data) ? $data['expectations'] : $prospect->expectations,
+            'decision_maker_name' => array_key_exists('decision_maker_name', $data) ? $data['decision_maker_name'] : $prospect->decision_maker_name,
+            'need_score' => array_key_exists('need_score', $data) ? (int) $data['need_score'] : $prospect->need_score,
+            'decision_score' => array_key_exists('decision_score', $data) ? (int) $data['decision_score'] : $prospect->decision_score,
+            'budget_score' => array_key_exists('budget_score', $data) ? (int) $data['budget_score'] : $prospect->budget_score,
+            'timeline_score' => array_key_exists('timeline_score', $data) ? (int) $data['timeline_score'] : $prospect->timeline_score,
+            'estimated_budget' => array_key_exists('estimated_budget', $data) && $data['estimated_budget'] !== '' && $data['estimated_budget'] !== null
+                ? (float) $data['estimated_budget']
+                : $prospect->estimated_budget,
+            'decision_deadline' => array_key_exists('decision_deadline', $data) ? $data['decision_deadline'] : $prospect->decision_deadline,
             'updated_by' => $userId,
         ]);
         $prospect->save();
@@ -93,6 +123,12 @@ class ProspectsService
     ): Prospect {
         $userId = $userId ?? auth('tenant')->id();
         $newStatus = $this->validateStatus($newStatus);
+        if ($newStatus === Prospect::STATUS_PERDU) {
+            $newStatus = Prospect::STATUS_NON_QUALIFIE;
+        }
+        if ($newStatus === Prospect::STATUS_GAGNE) {
+            // Conservé uniquement comme pont technique vers convertToClient.
+        }
         $oldStatus = $prospect->status;
 
         if ($oldStatus === Prospect::STATUS_CONVERTI) {
@@ -107,14 +143,14 @@ class ProspectsService
             throw new \RuntimeException('Utilisez la conversion en client pour marquer un prospect comme converti.');
         }
 
-        if ($newStatus === Prospect::STATUS_PERDU && blank($lostReason) && blank($prospect->lost_reason)) {
-            throw new \RuntimeException('Indiquez le motif de perte.');
+        if ($newStatus === Prospect::STATUS_NON_QUALIFIE && blank($lostReason) && blank($prospect->lost_reason)) {
+            throw new \RuntimeException('Indiquez le motif (non qualifié / perdu).');
         }
 
         return DB::connection('tenant')->transaction(function () use ($prospect, $newStatus, $oldStatus, $lostReason, $note, $userId) {
             $prospect->status = $newStatus;
             $prospect->updated_by = $userId;
-            if ($newStatus === Prospect::STATUS_PERDU) {
+            if ($newStatus === Prospect::STATUS_NON_QUALIFIE) {
                 $prospect->lost_reason = $lostReason ?: $prospect->lost_reason;
             } else {
                 $prospect->lost_reason = null;
@@ -126,7 +162,7 @@ class ProspectsService
                 Prospect::statusLabel($oldStatus),
                 Prospect::statusLabel($newStatus)
             );
-            if ($newStatus === Prospect::STATUS_PERDU && $prospect->lost_reason) {
+            if ($newStatus === Prospect::STATUS_NON_QUALIFIE && $prospect->lost_reason) {
                 $body .= ' — Motif : ' . $prospect->lost_reason;
             }
             if ($note) {
@@ -152,7 +188,8 @@ class ProspectsService
         string $body,
         ?int $userId = null,
         ?string $fromStatus = null,
-        ?string $toStatus = null
+        ?string $toStatus = null,
+        ?int $opportunityId = null
     ): ProspectActivity {
         $body = trim($body);
         if ($body === '') {
@@ -163,8 +200,9 @@ class ProspectsService
             $type = ProspectActivity::TYPE_NOTE;
         }
 
-        return ProspectActivity::create([
+        $activity = ProspectActivity::create([
             'prospect_id' => $prospect->id,
+            'opportunity_id' => $opportunityId,
             'user_id' => $userId ?? auth('tenant')->id(),
             'assignee_id' => $prospect->owner_id,
             'type' => $type,
@@ -176,6 +214,13 @@ class ProspectsService
             'from_status' => $fromStatus,
             'to_status' => $toStatus,
         ]);
+
+        if ($type !== ProspectActivity::TYPE_STATUS) {
+            $prospect->last_contacted_at = now();
+            $prospect->save();
+        }
+
+        return $activity;
     }
 
     /**
@@ -198,9 +243,9 @@ class ProspectsService
 
         return $this->changeStatus(
             $prospect,
-            Prospect::STATUS_QUALIFIE,
+            Prospect::STATUS_A_QUALIFIER,
             null,
-            'Entrée dans le pipeline (Qualifié).',
+            'Qualification démarrée.',
             $userId
         );
     }
@@ -243,8 +288,8 @@ class ProspectsService
      */
     public function scheduleActivity(Prospect $prospect, array $data, ?int $userId = null): ProspectActivity
     {
-        if ($prospect->isLost()) {
-            throw new \RuntimeException('Impossible de planifier une action sur un prospect perdu.');
+        if ($prospect->isLost() && $prospect->status === Prospect::STATUS_NON_QUALIFIE) {
+            throw new \RuntimeException('Impossible de planifier une action sur un prospect non qualifié.');
         }
 
         $type = (string) ($data['type'] ?? ProspectActivity::TYPE_CALL);
@@ -282,18 +327,42 @@ class ProspectsService
         ]);
     }
 
-    public function completeActivity(ProspectActivity $activity, ?string $note = null, ?int $userId = null): ProspectActivity
-    {
+    public function completeActivity(
+        ProspectActivity $activity,
+        ?string $note = null,
+        ?int $userId = null,
+        ?string $result = null,
+        ?array $nextAction = null
+    ): ProspectActivity {
         if ($activity->state === ProspectActivity::STATE_DONE) {
             return $activity;
         }
 
         $activity->state = ProspectActivity::STATE_DONE;
         $activity->completed_at = now();
+        if ($result) {
+            $activity->result = $result;
+        }
         if ($note) {
             $activity->body = trim($activity->body."\n".trim($note));
         }
         $activity->save();
+
+        $prospect = $activity->prospect;
+        if ($prospect && $activity->type !== ProspectActivity::TYPE_STATUS) {
+            $prospect->last_contacted_at = now();
+            $prospect->save();
+        }
+
+        if ($nextAction && ! empty($nextAction['due_at']) && $prospect) {
+            $this->scheduleActivity($prospect, [
+                'type' => $nextAction['type'] ?? ProspectActivity::TYPE_FOLLOWUP,
+                'summary' => $nextAction['summary'] ?? null,
+                'body' => $nextAction['body'] ?? null,
+                'due_at' => $nextAction['due_at'],
+                'assignee_id' => $nextAction['assignee_id'] ?? $activity->assignee_id,
+            ], $userId);
+        }
 
         return $activity;
     }
@@ -476,7 +545,11 @@ class ProspectsService
 
     private function validateStatus(string $status): string
     {
-        if (! array_key_exists($status, Prospect::statusOptions())) {
+        $allowed = array_merge(
+            array_keys(Prospect::statusOptions()),
+            [Prospect::STATUS_GAGNE, Prospect::STATUS_PERDU, Prospect::STATUS_CONTACTE, Prospect::STATUS_NEGOCIATION]
+        );
+        if (! in_array($status, $allowed, true)) {
             throw new \InvalidArgumentException('Statut invalide.');
         }
 

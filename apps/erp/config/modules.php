@@ -264,7 +264,7 @@ return [
     'crm' => [
         'core' => false,
         'label' => 'CRM',
-        'description' => 'Relation client boutique : KPI, prospects, pipeline d’opportunités et activités. La conversion crée un client dans le module Clients.',
+        'description' => 'Suivi commercial : prospects, opportunités, activités et transmission vers le module Devis ERP.',
         'route_name' => null,
         'menu_only' => true,
         'lifecycle_handler' => \InovCom\Crm\CrmModule::class,
@@ -284,7 +284,7 @@ return [
         'sidebar_children' => [
             [
                 'key' => 'crm.kpi',
-                'label' => 'KPI',
+                'label' => 'Tableau de bord',
                 'route' => 'tenant.crm.kpi',
                 'icon' => 'chart-bar',
                 'permission' => 'crm.view',
@@ -313,6 +313,14 @@ return [
                 'icon' => 'clipboard-check',
                 'permission' => 'crm.activities.view',
                 'permission_any' => ['crm.view', 'prospects.view'],
+            ],
+            [
+                'key' => 'crm.clients',
+                'label' => 'Clients',
+                'route' => 'tenant.crm.clients',
+                'icon' => 'users',
+                'permission' => 'crm.view',
+                'permission_any' => ['clients.view', 'crm.prospects.view'],
             ],
         ],
         'tenant_types' => [],

@@ -22,6 +22,7 @@ class CrmModule implements ModuleLifecycle
         return [
             // Accès global menu CRM
             ['key' => 'crm.view', 'name' => 'CRM — accès menu', 'description' => 'Voir le menu CRM (sous-menus selon droits détaillés)'],
+            ['key' => 'crm.manage', 'name' => 'CRM — manager', 'description' => 'Voir tous les commerciaux, réassigner, consulter les performances globales'],
 
             // Prospects
             ['key' => 'crm.prospects.view', 'name' => 'CRM — voir prospects', 'description' => 'Consulter la liste et les fiches prospects'],

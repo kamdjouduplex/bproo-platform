@@ -40,6 +40,47 @@ if (!function_exists('fmt_money')) {
     }
 }
 
+if (! function_exists('currency_code')) {
+    /** Tenant default ISO currency code, or an explicit override. */
+    function currency_code(?string $code = null): string
+    {
+        if (class_exists(\App\Services\TenantCurrencyService::class)) {
+            return \App\Services\TenantCurrencyService::resolveCode($code);
+        }
+
+        $c = strtoupper(trim((string) $code));
+        if ($c !== '') {
+            return $c;
+        }
+
+        return strtoupper((string) config('inovcom.currency', config('inovcom.default_currency', 'XOF')));
+    }
+}
+
+if (! function_exists('currency_label')) {
+    /**
+     * Human label for amounts (USD, EUR, FCFA…).
+     * Empty $code → tenant default currency.
+     */
+    function currency_label(?string $code = null): string
+    {
+        if (class_exists(\App\Services\TenantCurrencyService::class)) {
+            return \App\Services\TenantCurrencyService::displayLabel($code);
+        }
+
+        $c = currency_code($code);
+
+        return match ($c) {
+            'XOF', 'XAF' => 'FCFA',
+            'CDF' => 'FC',
+            'USD' => 'USD',
+            'EUR' => 'EUR',
+            'GNF' => 'GNF',
+            default => $c,
+        };
+    }
+}
+
 if (!function_exists('fmt_num_plain')) {
     /**
      * Plain string for HTML inputs (dot decimal, no trailing zeros).
