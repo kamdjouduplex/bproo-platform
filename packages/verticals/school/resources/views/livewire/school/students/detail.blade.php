@@ -37,6 +37,7 @@
 
 <div class="page-body sch-detail-page sch-dossier">
     @include('school::livewire.partials.detail-styles')
+    @include('school::livewire.partials.student-photo-cropper-assets')
     <style>
         .sch-dossier { gap: 18px; }
         .sch-dossier .app-table-card { margin-top: 0; }

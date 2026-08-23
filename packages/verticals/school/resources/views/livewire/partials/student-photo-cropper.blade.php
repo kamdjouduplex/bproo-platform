@@ -11,15 +11,13 @@
 <div
     class="sch-photo-crop"
     wire:ignore.self
-    x-data="schoolStudentPhotoCrop({
+    x-data="(window.schoolStudentPhotoCrop || function () { return { open: false, previewUrl: null, status: '', error: 'Rechargez la page pour cadrer une photo.', onFile() {}, close() { this.open = false }, clearLocalPreview() {}, confirm() {}, zoom() {}, rotate() {}, reset() {} }; })({
         method: @js($wireMethod),
         aspect: 3/4,
         outputWidth: 480,
         outputHeight: 640
     })"
 >
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
-
     <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:flex-start;">
         <div>
             <template x-if="previewUrl">
@@ -42,16 +40,17 @@
             <p style="margin:8px 0 0; font-size:12px; color:#94a3b8;">
                 Format portrait <strong>3:4</strong> (cartes ID). Zoomez et centrez le visage avant de valider.
             </p>
-            <p x-show="status" x-text="status" style="margin:6px 0 0; font-size:12px; color:#2563eb;"></p>
-            <p x-show="error" x-text="error" style="margin:6px 0 0; font-size:12px; color:#dc2626;"></p>
+            <p x-show="status" x-cloak x-text="status" style="margin:6px 0 0; font-size:12px; color:#2563eb;"></p>
+            <p x-show="error" x-cloak x-text="error" style="margin:6px 0 0; font-size:12px; color:#dc2626;"></p>
         </div>
     </div>
 
     <div
-        x-show="open"
+        class="sch-photo-crop__overlay"
         x-cloak
-        style="position:fixed; inset:0; z-index:120; background:rgba(15,23,42,.55); display:flex; align-items:center; justify-content:center; padding:16px;"
+        :class="{ 'is-open': open }"
         @keydown.escape.window="open && close()"
+        @click.self="close()"
     >
         <div style="background:#fff; border-radius:12px; width:min(720px, 96vw); max-height:92vh; overflow:auto; box-shadow:0 20px 50px rgba(0,0,0,.25);" @click.stop>
             <div style="display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid #e2e8f0;">
@@ -79,139 +78,8 @@
 
             <div style="display:flex; justify-content:flex-end; gap:8px; padding:12px 16px; border-top:1px solid #e2e8f0;">
                 <button type="button" class="btn btn-secondary" @click="close()">Annuler</button>
-                <button type="button" class="btn btn-primary" @click="confirm()" :disabled="saving" x-text="saving ? 'Enregistrement…' : 'Valider le cadrage'"></button>
+                <button type="button" class="btn btn-primary" @click="confirm()" :disabled="saving" x-text="saving ? 'Enregistrement…' : 'Valider le cadrage'">Valider le cadrage</button>
             </div>
         </div>
     </div>
 </div>
-
-@once
-    <style>
-        [x-cloak] { display: none !important; }
-        .sch-photo-crop .sr-only {
-            position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
-            overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
-        }
-        .sch-photo-crop .cropper-view-box,
-        .sch-photo-crop .cropper-face { border-radius: 4px; }
-    </style>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script>
-        window.schoolStudentPhotoCrop = function (config) {
-            return {
-                open: false,
-                saving: false,
-                status: '',
-                error: '',
-                previewUrl: null,
-                cropper: null,
-                objectUrl: null,
-                method: config.method || 'saveCroppedProfilePhoto',
-                aspect: config.aspect || (3 / 4),
-                outputWidth: config.outputWidth || 480,
-                outputHeight: config.outputHeight || 640,
-
-                onFile(event) {
-                    this.error = '';
-                    this.status = '';
-                    const file = event.target.files && event.target.files[0];
-                    event.target.value = '';
-                    if (!file) return;
-                    if (!/^image\//.test(file.type)) {
-                        this.error = 'Choisissez une image (JPG, PNG, WebP…).';
-                        return;
-                    }
-                    if (file.size > 8 * 1024 * 1024) {
-                        this.error = 'Fichier trop lourd (max 8 Mo avant cadrage).';
-                        return;
-                    }
-                    this.destroyCropper();
-                    if (this.objectUrl) URL.revokeObjectURL(this.objectUrl);
-                    this.objectUrl = URL.createObjectURL(file);
-                    this.open = true;
-                    this.$nextTick(() => {
-                        const img = this.$refs.image;
-                        img.onload = () => this.initCropper();
-                        img.src = this.objectUrl;
-                    });
-                },
-
-                initCropper() {
-                    if (typeof Cropper === 'undefined') {
-                        this.error = 'Outil de cadrage indisponible (Cropper.js).';
-                        this.open = false;
-                        return;
-                    }
-                    this.destroyCropper();
-                    this.cropper = new Cropper(this.$refs.image, {
-                        aspectRatio: this.aspect,
-                        viewMode: 1,
-                        dragMode: 'move',
-                        autoCropArea: 0.88,
-                        responsive: true,
-                        background: false,
-                        guides: true,
-                        center: true,
-                        highlight: false,
-                        cropBoxMovable: true,
-                        cropBoxResizable: true,
-                        toggleDragModeOnDblclick: false,
-                        wheelZoomRatio: 0.08,
-                    });
-                },
-
-                destroyCropper() {
-                    if (this.cropper) {
-                        this.cropper.destroy();
-                        this.cropper = null;
-                    }
-                },
-
-                zoom(delta) { if (this.cropper) this.cropper.zoom(delta); },
-                rotate(deg) { if (this.cropper) this.cropper.rotate(deg); },
-                reset() { if (this.cropper) this.cropper.reset(); },
-
-                close() {
-                    this.open = false;
-                    this.destroyCropper();
-                    if (this.objectUrl) {
-                        URL.revokeObjectURL(this.objectUrl);
-                        this.objectUrl = null;
-                    }
-                },
-
-                clearLocalPreview() {
-                    this.previewUrl = null;
-                    this.status = '';
-                },
-
-                async confirm() {
-                    if (!this.cropper || this.saving) return;
-                    this.saving = true;
-                    this.error = '';
-                    try {
-                        const canvas = this.cropper.getCroppedCanvas({
-                            width: this.outputWidth,
-                            height: this.outputHeight,
-                            imageSmoothingEnabled: true,
-                            imageSmoothingQuality: 'high',
-                            fillColor: '#ffffff',
-                        });
-                        if (!canvas) throw new Error('Cadrage impossible');
-                        const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-                        this.previewUrl = dataUrl;
-                        if (this.$wire && typeof this.$wire[this.method] === 'function') {
-                            await this.$wire[this.method](dataUrl);
-                            this.status = 'Photo cadrée enregistrée.';
-                        }
-                        this.close();
-                    } catch (e) {
-                        this.error = (e && e.message) ? e.message : 'Échec de l’enregistrement.';
-                    } finally {
-                        this.saving = false;
-                    }
-                },
-            };
-        };
-    </script>
-@endonce

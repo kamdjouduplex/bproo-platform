@@ -88,18 +88,32 @@
                     <button type="button" class="sch-modal__close" wire:click="cancel" aria-label="Fermer">&times;</button>
                 </div>
                 <div class="sch-modal__body">
+                    @if($errors->any())
+                        <div class="form-validation-summary" role="alert" style="margin:0 0 12px; padding:10px 12px; border:1px solid #fecaca; background:#fef2f2; border-radius:8px; color:#991b1b; font-size:13px;">
+                            <p style="margin:0 0 6px; font-weight:600;">Veuillez corriger les erreurs suivantes :</p>
+                            <ul style="margin:0; padding-left:18px;">
+                                @foreach($errors->all() as $message)
+                                    <li>{{ $message }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    @endif
                     <div class="form-grid">
                         @include('school::livewire.partials.teacher-form-fields', [
                             'showUserPicker' => true,
                             'showLock' => false,
                             'showActive' => true,
+                            'userRequired' => true,
                             'photoUrl' => null,
                         ])
                     </div>
                 </div>
                 <div class="sch-modal__foot">
                     <button type="button" class="btn btn-secondary" wire:click="cancel">Annuler</button>
-                    <button type="button" class="btn btn-primary" wire:click="save">Enregistrer</button>
+                    <button type="button" class="btn btn-primary" wire:click="save" wire:loading.attr="disabled" wire:target="save">
+                        <span wire:loading.remove wire:target="save">Enregistrer</span>
+                        <span wire:loading wire:target="save">Enregistrement…</span>
+                    </button>
                 </div>
             </div>
         </div>

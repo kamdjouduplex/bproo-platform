@@ -132,16 +132,36 @@ trait ManagesTeacherProfileFields
      */
     protected function teacherProfileRules(bool $locking, ?int $ignoreId = null): array
     {
-        $genderValues = SchoolOption::forGroup(SchoolOptionCatalog::GROUP_GENDER)->pluck('value')->all();
-        $levelValues = SchoolOption::forGroup(SchoolOptionCatalog::GROUP_EDUCATION_LEVEL)->pluck('value')->all();
-        $diplomaValues = SchoolOption::forGroup(SchoolOptionCatalog::GROUP_DIPLOMA_KIND)->pluck('value')->all();
-        $sectionValues = SchoolOption::forGroup(SchoolOptionCatalog::GROUP_TEACHING_SECTION)->pluck('value')->all();
+        $includeCurrent = function (array $values, ?string $current): array {
+            if ($current && ! in_array($current, $values, true)) {
+                $values[] = $current;
+            }
+
+            return $values;
+        };
+
+        $genderValues = $includeCurrent(
+            SchoolOption::forGroup(SchoolOptionCatalog::GROUP_GENDER)->pluck('value')->all(),
+            $this->gender
+        );
+        $levelValues = $includeCurrent(
+            SchoolOption::forGroup(SchoolOptionCatalog::GROUP_EDUCATION_LEVEL)->pluck('value')->all(),
+            $this->educationLevel
+        );
+        $diplomaValues = $includeCurrent(
+            SchoolOption::forGroup(SchoolOptionCatalog::GROUP_DIPLOMA_KIND)->pluck('value')->all(),
+            $this->diplomaKind
+        );
+        $sectionValues = $includeCurrent(
+            SchoolOption::forGroup(SchoolOptionCatalog::GROUP_TEACHING_SECTION)->pluck('value')->all(),
+            $this->teachingSection
+        );
 
         $req = $locking ? 'required' : 'nullable';
 
         return [
             'userId' => [
-                'required',
+                $ignoreId ? 'nullable' : 'required',
                 'integer',
                 Rule::exists(User::class, 'id'),
                 Rule::unique(SchoolTeacher::class, 'user_id')->ignore($ignoreId),
@@ -180,7 +200,7 @@ trait ManagesTeacherProfileFields
         $nullable = fn (?string $v) => filled($v) ? trim($v) : null;
 
         $payload = [
-            'user_id' => (int) $this->userId,
+            'user_id' => filled($this->userId) ? (int) $this->userId : null,
             'teacher_code' => trim($this->teacherCode),
             'first_name' => $first,
             'last_name' => $last,

@@ -1,5 +1,6 @@
 <div class="page-body">
     @include('school::livewire.partials.crud-styles')
+    @include('school::livewire.partials.student-photo-cropper-assets')
 
     <section class="card app-table-card">
         <div class="sch-list-head">

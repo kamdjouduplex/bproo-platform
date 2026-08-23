@@ -1,9 +1,9 @@
 {{-- Shared teacher form. $showUserPicker / $showLock / $showActive optional. --}}
 @if(!empty($showUserPicker))
     <div class="form-span-2">
-        <label class="label">Utilisateur <span style="color:#b91c1c;">*</span></label>
+        <label class="label">Utilisateur @if(!empty($userRequired)) <span style="color:#b91c1c;">*</span> @endif</label>
         <select class="input" wire:model.live="userId">
-            <option value="">Choisir un utilisateur…</option>
+            <option value="">{{ !empty($userRequired) ? 'Choisir un utilisateur…' : '— Aucun compte lié —' }}</option>
             @foreach($availableUsers as $u)
                 <option value="{{ $u->id }}">
                     {{ $u->name }}
@@ -110,6 +110,7 @@
         @endforelse
     </div>
     @error('subjectIds') <span class="text-error">{{ $message }}</span> @enderror
+    @error('subjectIds.*') <span class="text-error">{{ $message }}</span> @enderror
 </div>
 <div>
     <label class="label">Section d’enseignement</label>

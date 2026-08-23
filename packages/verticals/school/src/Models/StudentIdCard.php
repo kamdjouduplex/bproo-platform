@@ -11,8 +11,6 @@ class StudentIdCard extends TenantModel
 {
     use Auditable;
 
-    protected array $auditExclude = ['password', 'remember_token', 'updated_at', 'qr_svg'];
-
     protected $table = 'student_id_cards';
 
     protected $fillable = [
@@ -24,6 +22,8 @@ class StudentIdCard extends TenantModel
         'barcode_data',
         'generated_at',
     ];
+
+    protected $hidden = ['qr_svg'];
 
     protected $casts = [
         'generated_at' => 'datetime',

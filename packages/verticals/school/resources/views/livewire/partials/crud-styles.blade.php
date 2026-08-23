@@ -98,6 +98,20 @@
     }
     .sch-detail-dl dt { color: #64748b; font-size: 13px; }
     .sch-detail-dl dd { margin: 0; font-weight: 500; color: #0f172a; }
+    [x-cloak] { display: none !important; }
+    .sch-photo-crop__overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        background: rgba(15, 23, 42, .55);
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        display: none;
+    }
+    .sch-photo-crop__overlay.is-open {
+        display: flex !important;
+    }
     @media (max-width: 520px) {
         .sch-detail-dl { grid-template-columns: 1fr; gap: 2px 0; }
         .sch-detail-dl dt { margin-top: 8px; }

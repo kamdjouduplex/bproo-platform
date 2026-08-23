@@ -93,7 +93,12 @@ class SchoolTeachersIndex extends Component
         $locking = $this->lockOnSave;
         $this->validate(array_merge($this->teacherProfileRules($locking), [
             'photoFile' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
-        ]));
+        ]), [
+            'userId.required' => 'Choisissez l’utilisateur lié à cet enseignant.',
+            'firstName.required' => 'Le prénom est obligatoire.',
+            'lastName.required' => 'Le nom est obligatoire.',
+            'phone.required' => 'Le téléphone est obligatoire.',
+        ]);
 
         if ($locking && ! $this->photoFile) {
             $this->addError('photoFile', 'La photo est obligatoire pour valider le dossier.');
@@ -101,13 +106,20 @@ class SchoolTeachersIndex extends Component
             return;
         }
 
-        $photoPath = $this->photoFile ? TeacherPhotoStorage::store($this->photoFile) : null;
-        $teacher = SchoolTeacher::query()->create($this->teacherProfilePayload(
-            $photoPath,
-            $locking,
-            $locking ? auth('tenant')->id() : null
-        ));
-        $teacher->subjects()->sync(array_map('intval', $this->subjectIds));
+        try {
+            $photoPath = $this->photoFile ? TeacherPhotoStorage::store($this->photoFile) : null;
+            $teacher = SchoolTeacher::query()->create($this->teacherProfilePayload(
+                $photoPath,
+                $locking,
+                $locking ? auth('tenant')->id() : null
+            ));
+            $teacher->subjects()->sync(array_values(array_map('intval', $this->subjectIds)));
+        } catch (\Throwable $e) {
+            report($e);
+            notify()->error('Impossible d’enregistrer l’enseignant. '.$e->getMessage());
+
+            return;
+        }
 
         notify()->success('Enseignant ajouté.');
         $this->cancel();

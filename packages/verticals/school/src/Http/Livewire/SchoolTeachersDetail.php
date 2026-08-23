@@ -11,6 +11,7 @@ use School\Http\Livewire\Concerns\ResolvesTenantCode;
 use School\Models\SchoolOption;
 use School\Models\SchoolTeacher;
 use School\Support\SchoolOptionCatalog;
+use School\Support\TeacherCodeGenerator;
 use School\Support\TeacherPhotoStorage;
 
 class SchoolTeachersDetail extends Component
@@ -32,6 +33,11 @@ class SchoolTeachersDetail extends Component
 
     public function mount(int $id): void
     {
+        try {
+            SchoolOptionCatalog::seedDefaults();
+        } catch (\Throwable) {
+        }
+
         $this->teacherId = $id;
         $teacher = SchoolTeacher::query()->findOrFail($id);
         $user = auth('tenant')->user();
@@ -99,12 +105,30 @@ class SchoolTeachersDetail extends Component
             return;
         }
 
+        if (! filled($this->userId) && $teacher->user_id) {
+            $this->userId = (string) $teacher->user_id;
+        }
+        if (trim($this->teacherCode) === '') {
+            $this->teacherCode = (string) ($teacher->teacher_code ?: TeacherCodeGenerator::next());
+        }
+        $this->subjectIds = array_values(array_filter(
+            $this->subjectIds,
+            fn ($id) => (int) $id > 0
+        ));
+
         $isAdmin = $this->canSchool('school_teachers.manage');
         $locking = $isAdmin ? $this->lockOnSave : true;
 
         $this->validate(array_merge($this->teacherProfileRules($locking, $teacher->id), [
             'photoFile' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp,gif', 'max:4096'],
-        ]));
+        ]), [
+            'userId.required' => 'Choisissez l’utilisateur lié à cet enseignant.',
+            'firstName.required' => 'Le prénom est obligatoire.',
+            'lastName.required' => 'Le nom est obligatoire.',
+            'phone.required' => 'Le téléphone est obligatoire.',
+            'teacherCode.required' => 'L’ID enseignant est obligatoire.',
+            'teacherCode.unique' => 'Cet ID enseignant est déjà utilisé.',
+        ]);
 
         $existingPhoto = $this->removePhoto ? null : $teacher->photo_path;
         if ($locking && ! $this->photoFile && ! $existingPhoto) {
@@ -122,12 +146,19 @@ class SchoolTeachersDetail extends Component
             $photoPath = TeacherPhotoStorage::store($this->photoFile, $teacher);
         }
 
-        $teacher->update($this->teacherProfilePayload(
-            $photoPath,
-            $locking,
-            $locking ? auth('tenant')->id() : null
-        ));
-        $teacher->subjects()->sync(array_map('intval', $this->subjectIds));
+        try {
+            $teacher->update($this->teacherProfilePayload(
+                $photoPath,
+                $locking,
+                $locking ? auth('tenant')->id() : null
+            ));
+            $teacher->subjects()->sync(array_values(array_map('intval', $this->subjectIds)));
+        } catch (\Throwable $e) {
+            report($e);
+            notify()->error('Impossible d’enregistrer le dossier enseignant. '.$e->getMessage());
+
+            return;
+        }
 
         notify()->success($locking
             ? 'Dossier validé. Il ne peut plus être modifié par l’enseignant.'
