@@ -1,19 +1,24 @@
 <div class="page-body">
     <section class="cc-card" style="margin-bottom:14px;">
         <div class="cc-card__head">
-            <div>
-                <h2 class="cc-card__title" style="margin:0;">{{ $meta['label'] }}</h2>
-                <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
-                    <span class="badge badge-secondary"><code>{{ $meta['key'] }}</code></span>
-                    <span class="badge badge-secondary">{{ $meta['group_label'] }}</span>
-                    @if ($meta['core'])
-                        <span class="badge badge-success">Core</span>
-                    @else
-                        <span class="badge badge-secondary">Optionnel</span>
-                    @endif
-                    @if ($meta['module_family'])
-                        <span class="badge badge-secondary">Famille · {{ $meta['module_family'] }}</span>
-                    @endif
+            <div class="cc-mod-show__head">
+                <span class="cc-mod-icon cc-mod-icon--{{ $meta['group'] }}" aria-hidden="true">
+                    <x-sidebar-icon :icon="$meta['icon'] ?? 'cog'" />
+                </span>
+                <div>
+                    <h2 class="cc-card__title" style="margin:0;">{{ $meta['label'] }}</h2>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">
+                        <span class="badge badge-secondary"><code>{{ $meta['key'] }}</code></span>
+                        <span class="badge badge-secondary">{{ $meta['group_label'] }}</span>
+                        @if ($meta['core'])
+                            <span class="badge badge-success">Core</span>
+                        @else
+                            <span class="badge badge-secondary">Optionnel</span>
+                        @endif
+                        @if ($meta['module_family'])
+                            <span class="badge badge-secondary">Famille · {{ $meta['module_family'] }}</span>
+                        @endif
+                    </div>
                 </div>
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap;">

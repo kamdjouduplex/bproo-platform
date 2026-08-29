@@ -95,6 +95,7 @@
         <div class="dashboard-panel">
             <div class="dashboard-panel__head">
                 <h2 class="dashboard-panel__title">Répartition par application</h2>
+                <a href="{{ route('system.apps') }}" class="dashboard-panel__link">Voir les apps</a>
             </div>
             <div class="dashboard-panel__body">
                 <div class="table-scroll">
@@ -103,7 +104,9 @@
                         <tbody>
                             @forelse ($productTypes as $key => $cfg)
                                 <tr>
-                                    <td>{{ $cfg['label'] ?? $key }}</td>
+                                    <td>
+                                        <a href="{{ route('system.tenants', ['product' => $key]) }}">{{ $cfg['label'] ?? $key }}</a>
+                                    </td>
                                     <td>{{ $byApp[$key] ?? 0 }}</td>
                                 </tr>
                             @empty

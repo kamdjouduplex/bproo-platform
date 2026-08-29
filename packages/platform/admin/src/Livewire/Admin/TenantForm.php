@@ -43,6 +43,10 @@ class TenantForm extends Component
     public function mount(?Tenant $tenant = null): void
     {
         $this->type = (string) config('tenant_types.default', 'erp');
+        $requestedType = request()->query('type');
+        if (is_string($requestedType) && array_key_exists($requestedType, config('tenant_types.types', []))) {
+            $this->type = Tenant::normalizeType($requestedType);
+        }
 
         if ($tenant) {
             $this->tenantId = $tenant->id;

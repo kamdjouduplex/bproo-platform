@@ -43,6 +43,40 @@
         </div>
 
         <div class="cc-sidebar__group">
+            <div class="cc-sidebar__label">Plateforme</div>
+            <a href="{{ route('system.apps') }}" class="cc-nav__link {{ $navActive('system.apps') }}" @click="sidebarOpen = false">
+                <span class="cc-nav__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+                </span>
+                <span>Apps</span>
+            </a>
+            <a href="{{ route('system.modules') }}" class="cc-nav__link {{ $navActive('system.modules') }}" @click="sidebarOpen = false">
+                <span class="cc-nav__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 12 4 7.5M12 12l8-4.5M12 12v9"/></svg>
+                </span>
+                <span>Modules</span>
+            </a>
+            <a href="{{ route('system.tenant.modules') }}" class="cc-nav__link {{ $navActive('system.tenant.modules') }}" @click="sidebarOpen = false">
+                <span class="cc-nav__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3"/></svg>
+                </span>
+                <span>Activation</span>
+            </a>
+            <a href="{{ route('system.tenants.health') }}" class="cc-nav__link {{ $routeName === 'system.tenants.health' ? 'cc-nav__link--active' : '' }}" @click="sidebarOpen = false">
+                <span class="cc-nav__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                </span>
+                <span>Santé</span>
+            </a>
+            <a href="{{ route('system.module.events') }}" class="cc-nav__link {{ $navActive('system.module.events') }}" @click="sidebarOpen = false">
+                <span class="cc-nav__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6M8 13h8M8 17h8"/></svg>
+                </span>
+                <span>Événements</span>
+            </a>
+        </div>
+
+        <div class="cc-sidebar__group">
             <div class="cc-sidebar__label">Relation client</div>
             <a href="{{ route('system.prospects') }}" class="cc-nav__link {{ $navActive('system.prospects') }}" @click="sidebarOpen = false">
                 <span class="cc-nav__icon" aria-hidden="true">
@@ -111,34 +145,6 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v10M9.5 9.5c.6-.7 1.5-1.1 2.5-1.1 1.5 0 2.5.9 2.5 2.1S13.5 12.5 12 12.5 9.5 13.4 9.5 14.6c0 1.2 1 2.1 2.5 2.1 1 0 1.9-.4 2.5-1.1"/></svg>
                 </span>
                 <span>Devises</span>
-            </a>
-        </div>
-
-        <div class="cc-sidebar__group">
-            <div class="cc-sidebar__label">Plateforme</div>
-            <a href="{{ route('system.modules') }}" class="cc-nav__link {{ $navActive('system.modules') }}" @click="sidebarOpen = false">
-                <span class="cc-nav__icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 12 4 7.5M12 12l8-4.5M12 12v9"/></svg>
-                </span>
-                <span>Modules</span>
-            </a>
-            <a href="{{ route('system.tenant.modules') }}" class="cc-nav__link {{ $navActive('system.tenant.modules') }}" @click="sidebarOpen = false">
-                <span class="cc-nav__icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3"/></svg>
-                </span>
-                <span>Activation</span>
-            </a>
-            <a href="{{ route('system.tenants.health') }}" class="cc-nav__link {{ $routeName === 'system.tenants.health' ? 'cc-nav__link--active' : '' }}" @click="sidebarOpen = false">
-                <span class="cc-nav__icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-                </span>
-                <span>Santé</span>
-            </a>
-            <a href="{{ route('system.module.events') }}" class="cc-nav__link {{ $navActive('system.module.events') }}" @click="sidebarOpen = false">
-                <span class="cc-nav__icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path stroke-linecap="round" stroke-linejoin="round" d="M14 2v6h6M8 13h8M8 17h8"/></svg>
-                </span>
-                <span>Événements</span>
             </a>
         </div>
     </nav>

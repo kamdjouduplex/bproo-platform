@@ -28,6 +28,16 @@ class ModulesIndex extends Component
         notify()->success('Catalogue modules synchronisé.');
     }
 
+    public function filterType(string $type): void
+    {
+        $this->type = $this->type === $type ? '' : $type;
+    }
+
+    public function filterGroup(string $group): void
+    {
+        $this->group = $this->group === $group ? '' : $group;
+    }
+
     public function render()
     {
         $config = collect(config('modules', []))
@@ -56,6 +66,7 @@ class ModulesIndex extends Component
                 'key' => $key,
                 'label' => $cfg['label'] ?? $key,
                 'description' => $cfg['description'] ?? ($db?->description ?? ''),
+                'icon' => $cfg['icon'] ?? 'cog',
                 'group' => $cfg['group'] ?? 'system',
                 'group_label' => $groupLabels[$cfg['group'] ?? 'system'] ?? ($cfg['group'] ?? 'system'),
                 'core' => $core,
@@ -85,11 +96,24 @@ class ModulesIndex extends Component
 
         $rows = $rows->sortBy('label')->values();
 
-        $groups = $config->pluck('group')->filter()->unique()->sort()->values()
+        $groupOrder = array_keys($groupLabels);
+        $grouped = $rows->groupBy('group')->sortBy(function ($_, string $group) use ($groupOrder) {
+            $index = array_search($group, $groupOrder, true);
+
+            return $index === false ? 999 : $index;
+        });
+
+        $groups = $config->pluck('group')->filter()->unique()->values()
+            ->sortBy(function ($g) use ($groupOrder) {
+                $index = array_search($g, $groupOrder, true);
+
+                return $index === false ? 999 : $index;
+            })
             ->mapWithKeys(fn ($g) => [$g => $groupLabels[$g] ?? $g]);
 
         return view('livewire.admin.modules-index', [
             'modules' => $rows,
+            'grouped' => $grouped,
             'groups' => $groups,
             'tenantTotal' => $tenantTotal,
             'kpis' => [
@@ -100,7 +124,7 @@ class ModulesIndex extends Component
             ],
         ])->layout('layouts.app', [
             'title' => 'Modules',
-            'subtitle' => 'Catalogue plateforme',
+            'subtitle' => 'Catalogue des capacités plateforme',
         ]);
     }
 }

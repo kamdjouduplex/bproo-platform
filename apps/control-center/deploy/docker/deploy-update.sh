@@ -76,10 +76,10 @@ if [[ -n "${TENANT_CODE:-}" ]]; then
 fi
 
 if [[ "${SKIP_CACHE:-}" != "1" ]]; then
-  echo "==> config/route/view cache"
+  echo "==> config cache (skip route/view cache — Livewire)"
+  dc exec -T app php artisan route:clear || true
+  dc exec -T app php artisan view:clear || true
   dc exec -T app php artisan config:cache
-  dc exec -T app php artisan route:cache
-  dc exec -T app php artisan view:cache
 fi
 
 echo

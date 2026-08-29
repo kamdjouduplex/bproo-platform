@@ -27,11 +27,21 @@ class Tenants extends Component
 
     protected $paginationTheme = 'cc';
 
+    protected $queryString = [
+        'product' => ['except' => ''],
+        'seats' => ['except' => ''],
+    ];
+
     public function mount(): void
     {
         $seats = request()->query('seats');
         if (in_array($seats, ['exceeded', 'limited'], true)) {
             $this->seats = $seats;
+        }
+
+        $product = request()->query('product');
+        if (is_string($product) && array_key_exists($product, config('tenant_types.types', []))) {
+            $this->product = $product;
         }
     }
 

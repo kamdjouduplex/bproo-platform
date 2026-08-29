@@ -3,6 +3,7 @@
 use App\Http\Controllers\Admin\AuthController as AdminAuthController;
 use App\Http\Controllers\Admin\ModuleEventsExportController;
 use App\Livewire\Admin\ActivitiesIndex;
+use App\Livewire\Admin\AppsIndex;
 use App\Livewire\Admin\BillingPayments;
 use App\Livewire\Admin\BillingSubscriptions;
 use App\Livewire\Admin\Dashboard as AdminDashboard;
@@ -47,6 +48,7 @@ Route::prefix('admin')->group(function () {
     Route::middleware('auth')->group(function () {
         Route::get('/', AdminDashboard::class)->name('system.dashboard');
         Route::post('/logout', [AdminAuthController::class, 'logout'])->name('system.logout');
+        Route::get('/apps', AppsIndex::class)->name('system.apps');
         Route::get('/modules', ModulesIndex::class)->name('system.modules');
         Route::redirect('/modules/create', '/admin/modules');
         Route::get('/modules/{moduleKey}', ModuleShow::class)

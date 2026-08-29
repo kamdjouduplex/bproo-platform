@@ -30,6 +30,7 @@ return [
         'erp' => [
             'label' => 'ERP / POS',
             'description' => 'Boutique, stock, ventes, facturation — application ERP.',
+            'icon' => 'shopping-cart',
             'app_key' => 'erp',
             'login_path' => '/app/login',
             'base_url' => env('PRODUCT_ERP_URL', 'http://127.0.0.1:8000'),
@@ -39,6 +40,7 @@ return [
         'pharma' => [
             'label' => 'Bproo Pharma',
             'description' => 'Pharmacie — POS, lots, ordonnances — application Pharma.',
+            'icon' => 'beaker',
             'app_key' => 'pharma',
             'login_path' => '/app/login',
             'base_url' => env('PRODUCT_PHARMA_URL', 'http://127.0.0.1:8003'),
@@ -48,6 +50,7 @@ return [
         'school' => [
             'label' => 'Bproo School',
             'description' => 'École — années académiques, étudiants, inscriptions, notes, examens, paiements, cartes ID — application School.',
+            'icon' => 'academic-cap',
             'app_key' => 'school',
             'login_path' => '/app/login',
             'base_url' => env('PRODUCT_SCHOOL_URL', 'http://127.0.0.1:8000'),
@@ -57,6 +60,7 @@ return [
         'pressing' => [
             'label' => 'Pressing',
             'description' => 'Réception, production, livraisons — application Pressing.',
+            'icon' => 'paint-brush',
             'app_key' => 'pressing',
             'login_path' => '/app/login',
             'base_url' => env('PRODUCT_PRESSING_URL', 'http://127.0.0.1:8001'),
@@ -66,6 +70,7 @@ return [
         'bat' => [
             'label' => 'BAT / BTP',
             'description' => 'Chantiers, devis, maintenance — application BAT.',
+            'icon' => 'building-office',
             'app_key' => 'bat',
             'login_path' => '/app/login',
             'base_url' => env('PRODUCT_BAT_URL', 'http://127.0.0.1:8002'),

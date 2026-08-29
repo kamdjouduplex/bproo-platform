@@ -30,9 +30,12 @@ if [ ! -e "public/storage" ] && [ -d "storage/app/public" ]; then
 fi
 
 if [ -n "${APP_KEY}" ]; then
+  # config:cache is safe. route:cache / view:cache break Livewire full-page
+  # components (login works, dashboard 500). Named volume bootstrap/cache can
+  # keep a stale routes-v7.php across rebuilds — always drop it on boot.
+  php artisan route:clear >/dev/null 2>&1 || true
+  php artisan view:clear >/dev/null 2>&1 || true
   php artisan config:cache || true
-  php artisan route:cache || true
-  php artisan view:cache || true
 fi
 
 exec "$@"
