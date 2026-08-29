@@ -8381,10 +8381,13 @@ tbody tr.client-row--debt-active {
 .dash-panel__body {
     padding: 12px 16px 16px;
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .dash-table {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
     font-size: 12.5px;
 }
@@ -8395,12 +8398,39 @@ tbody tr.client-row--debt-active {
     text-align: left;
     border-bottom: 1px solid #f1f5f9;
     white-space: nowrap;
+    overflow: hidden;
+    vertical-align: middle;
+}
+
+.dash-table th:nth-child(1),
+.dash-table td:nth-child(1) {
+    width: 7.2rem;
 }
 
 .dash-table__client {
-    white-space: normal;
+    width: auto;
+    max-width: none;
     min-width: 0;
-    max-width: 180px;
+}
+
+.dash-table__client span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dash-table__date {
+    width: 7rem;
+}
+
+.dash-table__status {
+    width: 6.5rem;
+}
+
+.dash-table__num {
+    width: 7.5rem;
+    text-align: right;
 }
 
 .dash-table th {
@@ -8415,10 +8445,6 @@ tbody tr.client-row--debt-active {
     border-bottom: 0;
     font-weight: 700;
     padding-top: 10px;
-}
-
-.dash-table__num {
-    text-align: right;
 }
 
 .dash-table__link {

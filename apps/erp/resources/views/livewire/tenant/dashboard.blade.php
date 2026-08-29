@@ -118,10 +118,10 @@
                             <tr>
                                 <th>N° facture</th>
                                 <th>Client</th>
-                                <th>Date</th>
-                                <th>Échéance</th>
+                                <th class="dash-table__date">Date</th>
+                                <th class="dash-table__date">Échéance</th>
                                 <th class="dash-table__num">Montant (TTC)</th>
-                                <th>Statut</th>
+                                <th class="dash-table__status">Statut</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -134,11 +134,13 @@
                                             <strong>{{ $invoice['invoice_number'] }}</strong>
                                         @endif
                                     </td>
-                                    <td class="dash-table__client">{{ $invoice['client_name'] ?? '—' }}</td>
-                                    <td>{{ \Carbon\Carbon::parse($invoice['invoice_date'])->format('d/m/Y') }}</td>
-                                    <td>{{ $invoice['due_date'] ? \Carbon\Carbon::parse($invoice['due_date'])->format('d/m/Y') : '—' }}</td>
+                                    <td class="dash-table__client" title="{{ $invoice['client_name'] ?? '' }}">
+                                        <span>{{ $invoice['client_name'] ?? '—' }}</span>
+                                    </td>
+                                    <td class="dash-table__date">{{ \Carbon\Carbon::parse($invoice['invoice_date'])->format('d/m/Y') }}</td>
+                                    <td class="dash-table__date">{{ $invoice['due_date'] ? \Carbon\Carbon::parse($invoice['due_date'])->format('d/m/Y') : '—' }}</td>
                                     <td class="dash-table__num">{{ fmt_money($invoice['total']) }}</td>
-                                    <td>
+                                    <td class="dash-table__status">
                                         <span class="dash-tag dash-tag--{{ $invoice['urgency'] }}">{{ $urgencyLabel[$invoice['urgency']] ?? $invoice['urgency'] }}</span>
                                     </td>
                                 </tr>
@@ -172,9 +174,9 @@
                             <tr>
                                 <th>N° facture</th>
                                 <th>Client</th>
-                                <th>Date</th>
+                                <th class="dash-table__date">Date</th>
                                 <th class="dash-table__num">Montant (TTC)</th>
-                                <th>Statut</th>
+                                <th class="dash-table__status">Statut</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -187,10 +189,12 @@
                                             <strong>{{ $invoice['invoice_number'] }}</strong>
                                         @endif
                                     </td>
-                                    <td class="dash-table__client">{{ $invoice['client_name'] ?? '—' }}</td>
-                                    <td>{{ \Carbon\Carbon::parse($invoice['invoice_date'])->format('d/m/Y') }}</td>
+                                    <td class="dash-table__client" title="{{ $invoice['client_name'] ?? '' }}">
+                                        <span>{{ $invoice['client_name'] ?? '—' }}</span>
+                                    </td>
+                                    <td class="dash-table__date">{{ \Carbon\Carbon::parse($invoice['invoice_date'])->format('d/m/Y') }}</td>
                                     <td class="dash-table__num">{{ fmt_money($invoice['total']) }}</td>
-                                    <td>
+                                    <td class="dash-table__status">
                                         <span class="dash-tag dash-tag--status-{{ $invoice['status'] }}">{{ $statusLabel[$invoice['status']] ?? $invoice['status'] }}</span>
                                     </td>
                                 </tr>
