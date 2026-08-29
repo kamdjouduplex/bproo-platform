@@ -9,6 +9,8 @@ use InovCom\Purchases\Models\PurchaseOrder;
 use InovCom\Purchases\Services\PurchasePriceHistoryService;
 use InovCom\Purchases\Services\PurchaseDocumentNumberService;
 use InovCom\Purchases\Services\PurchasesService;
+use InovCom\Purchases\Support\PurchaseVatCalculator;
+use InovCom\Quotations\Services\QuotationsService;
 use Livewire\Component;
 
 class PurchaseForm extends Component
@@ -30,10 +32,16 @@ class PurchaseForm extends Component
     public string $itemSearch = '';
     public array $searchResults = [];
 
+    public bool $has_vat = false;
+    public string $price_mode = PurchaseVatCalculator::MODE_HT;
+    public string $vat_rate = '0';
+    public bool $vat_deductible = true;
+
     public function mount(?PurchaseOrder $purchase = null): void
     {
         if (!$purchase) {
             $this->order_date = now()->format('Y-m-d');
+            $this->vat_rate = (string) QuotationsService::tenantTaxRate();
             return;
         }
 
@@ -52,6 +60,12 @@ class PurchaseForm extends Component
         $this->order_date = $purchase->order_date->format('Y-m-d');
         $this->expected_date = $purchase->expected_date?->format('Y-m-d');
         $this->notes = $purchase->notes;
+        $this->has_vat = (bool) ($purchase->has_vat ?? false);
+        $this->price_mode = in_array($purchase->price_mode ?? 'ht', ['ht', 'ttc'], true)
+            ? (string) $purchase->price_mode
+            : PurchaseVatCalculator::MODE_HT;
+        $this->vat_rate = (string) ($purchase->vat_rate ?? QuotationsService::tenantTaxRate());
+        $this->vat_deductible = (bool) ($purchase->vat_deductible ?? true);
 
         $purchase->loadMissing('lines.item');
 
@@ -62,7 +76,7 @@ class PurchaseForm extends Component
                 'item_sku' => $line->item?->sku,
                 'item_name' => $line->item_name,
                 'quantity' => (string) $line->quantity,
-                'unit_price' => fmt_num_plain($line->unit_price, 0),
+                'unit_price' => fmt_num_plain($line->entered_unit_price ?? $line->unit_price, 0),
                 'line_total' => (string) $line->line_total,
             ];
         }
@@ -207,7 +221,7 @@ class PurchaseForm extends Component
         foreach ($this->cart as $index => $cartItem) {
             if ($cartItem['item_id'] == $item['id']) {
                 $this->cart[$index]['quantity'] = (string) ((float) $this->cart[$index]['quantity'] + 1);
-                $this->cart[$index]['line_total'] = (string) ((float) $this->cart[$index]['quantity'] * (float) $this->cart[$index]['unit_price']);
+                $this->recalculateCartLine($index);
                 $this->itemSearch = '';
                 $this->searchResults = [];
                 return;
@@ -223,6 +237,7 @@ class PurchaseForm extends Component
             'unit_price' => $unitCost,
             'line_total' => $unitCost,
         ];
+        $this->recalculateCartLine(count($this->cart) - 1);
 
         $this->itemSearch = '';
         $this->searchResults = [];
@@ -242,24 +257,66 @@ class PurchaseForm extends Component
         }
 
         $this->cart[$index]['quantity'] = $quantity;
-        $this->cart[$index]['line_total'] = (string) ((float) $quantity * (float) $this->cart[$index]['unit_price']);
+        $this->recalculateCartLine($index);
     }
 
     public function updateCartPrice(int $index, string $price): void
     {
-        $normalized = fmt_num_plain(max(0, (float) $price), 0);
-        $this->cart[$index]['unit_price'] = $normalized;
-        $this->cart[$index]['line_total'] = (string) ((float) $this->cart[$index]['quantity'] * (float) $normalized);
+        $this->cart[$index]['unit_price'] = fmt_num_plain(max(0, (float) $price), 0);
+        $this->recalculateCartLine($index);
+    }
+
+    public function updatedHasVat(): void
+    {
+        $this->recalculateCart();
+    }
+
+    public function updatedPriceMode(): void
+    {
+        $this->recalculateCart();
+    }
+
+    public function updatedVatRate(): void
+    {
+        $this->recalculateCart();
+    }
+
+    public function updatedVatDeductible(): void
+    {
+        $this->recalculateCart();
+    }
+
+    public function getVatBreakdownProperty(): array
+    {
+        $ht = 0.0;
+        $vat = 0.0;
+        $ttc = 0.0;
+        $cost = 0.0;
+
+        foreach ($this->cart as $index => $row) {
+            $line = $this->lineVat((float) ($row['unit_price'] ?? 0), (float) ($row['quantity'] ?? 0));
+            $ht += $line['line_total_ht'];
+            $vat += $line['vat_amount'];
+            $ttc += $line['line_total_ttc'];
+            $cost += $line['line_total'];
+        }
+
+        return [
+            'ht' => round($ht, 2),
+            'vat' => round($vat, 2),
+            'ttc' => round($ttc, 2),
+            'stock_cost' => round($cost, 2),
+        ];
     }
 
     public function getSubtotalProperty(): float
     {
-        return array_sum(array_map(fn ($row) => (float) ($row['line_total'] ?? 0), $this->cart));
+        return $this->vatBreakdown['ht'];
     }
 
     public function getTotalProperty(): float
     {
-        return $this->subtotal;
+        return $this->vatBreakdown['ttc'];
     }
 
     public function saveDraft(): void
@@ -302,7 +359,21 @@ class PurchaseForm extends Component
             'order_date' => 'required|date',
             'expected_date' => 'nullable|date|after_or_equal:order_date',
             'notes' => 'nullable|string',
+            'has_vat' => 'boolean',
+            'price_mode' => 'required|in:ht,ttc',
+            'vat_rate' => 'nullable|numeric|min:0|max:100',
+            'vat_deductible' => 'boolean',
         ]);
+
+        $vatFields = [];
+        if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('purchase_orders', 'has_vat')) {
+            $vatFields = [
+                'has_vat' => (bool) $this->has_vat,
+                'price_mode' => $this->price_mode,
+                'vat_rate' => $this->has_vat ? (float) $this->vat_rate : 0,
+                'vat_deductible' => (bool) $this->vat_deductible,
+            ];
+        }
 
         $purchasesService = app(PurchasesService::class);
 
@@ -312,11 +383,16 @@ class PurchaseForm extends Component
                 session()->flash('error', 'Cette commande ne peut plus être modifiée.');
                 return null;
             }
-            $order->fill($data);
+            $order->fill([
+                'provider_id' => $data['provider_id'] ?: null,
+                'order_date' => $data['order_date'],
+                'expected_date' => $data['expected_date'],
+                'notes' => $data['notes'],
+            ] + $vatFields);
             $order->save();
             $order->lines()->delete();
         } else {
-            $order = $purchasesService->createPurchaseOrder([
+            $order = $purchasesService->createPurchaseOrder(array_merge([
                 'order_number' => app(PurchaseDocumentNumberService::class)->nextOrderNumber(
                     (int) date('Y', strtotime($data['order_date']))
                 ),
@@ -326,18 +402,31 @@ class PurchaseForm extends Component
                 'status' => PurchasesService::STATUS_DRAFT,
                 'notes' => $data['notes'],
                 'created_by' => auth('tenant')->id(),
-            ]);
+            ], $vatFields));
         }
 
         foreach ($this->cart as $cartItem) {
             $item = Item::find($cartItem['item_id']);
-            $purchasesService->addLineToOrder($order->id, [
+            $computed = $this->lineVat((float) $cartItem['unit_price'], (float) $cartItem['quantity']);
+            $lineData = [
                 'item_id' => $cartItem['item_id'],
                 'item_name' => $item->name,
                 'quantity' => (float) $cartItem['quantity'],
-                'unit_price' => (float) $cartItem['unit_price'],
-                'line_total' => (float) $cartItem['line_total'],
-            ]);
+                'unit_price' => $computed['unit_price'],
+                'line_total' => $computed['line_total'],
+            ];
+            if (\Illuminate\Support\Facades\Schema::connection('tenant')->hasColumn('purchase_lines', 'unit_price_ht')) {
+                $lineData += [
+                    'entered_unit_price' => (float) $cartItem['unit_price'],
+                    'unit_price_ht' => $computed['unit_price_ht'],
+                    'unit_price_ttc' => $computed['unit_price_ttc'],
+                    'vat_rate' => $computed['vat_rate'],
+                    'vat_amount' => $computed['vat_amount'],
+                    'line_total_ht' => $computed['line_total_ht'],
+                    'line_total_ttc' => $computed['line_total_ttc'],
+                ];
+            }
+            $purchasesService->addLineToOrder($order->id, $lineData);
         }
 
         if (!$skipRedirect) {
@@ -357,7 +446,45 @@ class PurchaseForm extends Component
             ])
             ->with([
                 'canConfirm' => $this->canPurchase('purchases.confirm'),
+                'vatBreakdown' => $this->vatBreakdown,
             ]);
+    }
+
+    private function recalculateCart(): void
+    {
+        foreach (array_keys($this->cart) as $index) {
+            $this->recalculateCartLine((int) $index);
+        }
+    }
+
+    private function recalculateCartLine(int $index): void
+    {
+        if (!isset($this->cart[$index])) {
+            return;
+        }
+
+        $computed = $this->lineVat(
+            (float) ($this->cart[$index]['unit_price'] ?? 0),
+            (float) ($this->cart[$index]['quantity'] ?? 0)
+        );
+        $this->cart[$index]['line_total'] = (string) $computed['line_total'];
+    }
+
+    /**
+     * @return array<string, float>
+     */
+    private function lineVat(float $enteredUnitPrice, float $quantity): array
+    {
+        return PurchaseVatCalculator::fromEntered(
+            $enteredUnitPrice,
+            $quantity,
+            (float) $this->vat_rate,
+            $this->price_mode === PurchaseVatCalculator::MODE_TTC
+                ? PurchaseVatCalculator::MODE_TTC
+                : PurchaseVatCalculator::MODE_HT,
+            (bool) $this->has_vat,
+            (bool) $this->vat_deductible
+        );
     }
 
     private function tenantCode(): ?string

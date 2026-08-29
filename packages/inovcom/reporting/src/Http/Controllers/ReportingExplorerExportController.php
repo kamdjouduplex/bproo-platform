@@ -8,26 +8,27 @@ use App\Support\PrintDocument;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use InovCom\Reporting\Services\ReportingService;
+use InovCom\Reporting\Services\ReportRunner;
 use Symfony\Component\HttpFoundation\Response;
 
 class ReportingExplorerExportController
 {
     public function pdf(Request $request): Response
     {
-        [$report, $periodLabel, $slug] = $this->resolveReport($request);
+        [$result, $periodLabel, $slug] = $this->resolveReport($request);
 
         $tenant = app(TenantManager::class)->tenant();
         $settings = app(TenantBrandingService::class)->documentSettings($tenant);
+        [$headers, $rows] = $this->flatten($result);
 
         $filename = 'reporting-'.$slug.'-'.now()->format('Y-m-d').'.pdf';
 
         $pdf = Pdf::loadView('inovcom-reporting::print.explorer-report', [
-            'title' => (string) ($report['title'] ?? 'Rapport'),
+            'title' => (string) ($result['title'] ?? 'Rapport'),
             'periodLabel' => $periodLabel,
-            'headers' => $report['headers'] ?? [],
-            'rows' => $report['rows'] ?? [],
-            'meta' => $report['meta'] ?? [],
+            'headers' => $headers,
+            'rows' => $rows,
+            'meta' => $this->meta($result),
             'shopName' => $settings['shop_name'] ?? ($tenant?->name),
             'generatedAt' => now(),
             'forPdf' => true,
@@ -39,10 +40,11 @@ class ReportingExplorerExportController
 
     public function print(Request $request): View
     {
-        [$report, $periodLabel, $slug] = $this->resolveReport($request);
+        [$result, $periodLabel, $slug] = $this->resolveReport($request);
 
         $tenant = app(TenantManager::class)->tenant();
         $settings = app(TenantBrandingService::class)->documentSettings($tenant);
+        [$headers, $rows] = $this->flatten($result);
 
         $printContext = PrintDocument::context(
             $request,
@@ -52,11 +54,11 @@ class ReportingExplorerExportController
         );
 
         return view('inovcom-reporting::print.explorer-report', array_merge([
-            'title' => (string) ($report['title'] ?? 'Rapport'),
+            'title' => (string) ($result['title'] ?? 'Rapport'),
             'periodLabel' => $periodLabel,
-            'headers' => $report['headers'] ?? [],
-            'rows' => $report['rows'] ?? [],
-            'meta' => $report['meta'] ?? [],
+            'headers' => $headers,
+            'rows' => $rows,
+            'meta' => $this->meta($result),
             'shopName' => $settings['shop_name'] ?? ($tenant?->name),
             'generatedAt' => now(),
             'forPdf' => false,
@@ -77,39 +79,82 @@ class ReportingExplorerExportController
             abort(403, 'Permission d\'export insuffisante.');
         }
 
-        $reportType = (string) $request->query('report_type', 'stock_low');
-        $period = (string) $request->query('period', 'monthly');
-        $periodValue = $request->query('period_value');
-        $periodValue = is_string($periodValue) && $periodValue !== '' ? $periodValue : null;
-        $dateFrom = $request->query('date_from');
-        $dateTo = $request->query('date_to');
-        $clientId = $request->query('client_id');
-        $clientId = is_numeric($clientId) ? (int) $clientId : null;
-        $limit = (int) $request->query('limit', 100);
-        $limit = max(1, min(500, $limit));
+        $filters = [
+            'module' => (string) $request->query('module', 'invoicing'),
+            'report' => (string) $request->query('report_type', 'journal_factures'),
+            'from' => (string) $request->query('date_from', now()->startOfMonth()->format('Y-m-d')),
+            'to' => (string) $request->query('date_to', now()->format('Y-m-d')),
+            'store_id' => $this->intOrNull($request->query('store_id')),
+            'client_id' => $this->intOrNull($request->query('client_id')),
+            'status' => (string) $request->query('status', ''),
+            'user_id' => $this->intOrNull($request->query('user_id')),
+            'category_id' => $this->intOrNull($request->query('category_id')),
+            'item_id' => $this->intOrNull($request->query('item_id')),
+            'amount_min' => $request->query('amount_min'),
+            'amount_max' => $request->query('amount_max'),
+            'sort' => (string) $request->query('sort', 'date'),
+            'dir' => (string) $request->query('dir', 'desc'),
+        ];
 
-        $reporting = app(ReportingService::class);
+        $result = app(ReportRunner::class)->run($filters, 1, ReportRunner::EXPORT_MAX, true);
+        $periodLabel = $filters['from'] === $filters['to']
+            ? \Carbon\Carbon::parse($filters['from'])->format('d/m/Y')
+            : \Carbon\Carbon::parse($filters['from'])->format('d/m/Y').' — '.\Carbon\Carbon::parse($filters['to'])->format('d/m/Y');
+        $slug = preg_replace('/[^a-z0-9\-]+/i', '-', $filters['report']) ?: 'rapport';
 
-        if ($period === 'custom' && is_string($dateFrom) && is_string($dateTo)) {
-            $start = \Carbon\Carbon::parse($dateFrom)->startOfDay();
-            $end = \Carbon\Carbon::parse($dateTo)->endOfDay();
-        } else {
-            [$start, $end] = $reporting->getDateRange($period, $periodValue);
-        }
-
-        $report = $reporting->getExplorerReport($reportType, $start, $end, $clientId, $limit);
-        $periodLabel = $this->periodLabel($start, $end);
-        $slug = preg_replace('/[^a-z0-9\-]+/i', '-', $reportType) ?: 'rapport';
-
-        return [$report, $periodLabel, $slug];
+        return [$result, $periodLabel, $slug];
     }
 
-    private function periodLabel(\Carbon\CarbonInterface $start, \Carbon\CarbonInterface $end): string
+    private function intOrNull(mixed $value): ?int
     {
-        if ($start->toDateString() === $end->toDateString()) {
-            return $start->format('d/m/Y');
+        return is_numeric($value) && (int) $value > 0 ? (int) $value : null;
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @return array{0: list<string>, 1: list<list<mixed>>}
+     */
+    private function flatten(array $result): array
+    {
+        $headers = [];
+        $keys = [];
+        foreach ($result['headers'] ?? [] as $col) {
+            $headers[] = $col['label'] ?? $col;
+            $keys[] = $col['key'] ?? null;
         }
 
-        return $start->format('d/m/Y').' — '.$end->format('d/m/Y');
+        $rows = [];
+        foreach ($result['rows'] ?? [] as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            if ($keys !== [] && $keys[0] !== null) {
+                $line = [];
+                foreach ($keys as $key) {
+                    $line[] = $row[$key.'_label'] ?? $row[$key] ?? '';
+                }
+                $rows[] = $line;
+            } else {
+                $rows[] = array_values($row);
+            }
+        }
+
+        return [$headers, $rows];
+    }
+
+    /**
+     * @param  array<string, mixed>  $result
+     * @return array<string, mixed>
+     */
+    private function meta(array $result): array
+    {
+        $totals = $result['totals'] ?? [];
+
+        return [
+            'count' => $result['paginator']->total() ?? count($result['rows'] ?? []),
+            'total' => $totals['total'] ?? $totals['amount'] ?? null,
+            'total_ttc' => $totals['ttc'] ?? null,
+            'tva_total' => $totals['tva'] ?? null,
+        ];
     }
 }

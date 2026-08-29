@@ -45,6 +45,16 @@ class InvoiceSchedule extends TenantModel
         return $this->status === 'paid' || $this->remaining() <= 0.01;
     }
 
+    public function isDue(): bool
+    {
+        if ($this->isPaid()) {
+            return false;
+        }
+
+        return $this->status === 'overdue'
+            || $this->due_date->lte(\Carbon\Carbon::today());
+    }
+
     public static function statusLabel(string $status): string
     {
         return match ($status) {

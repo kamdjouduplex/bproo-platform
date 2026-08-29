@@ -17,7 +17,8 @@ class ReportingServiceProvider extends ServiceProvider
 
     public function register(): void
     {
-        $this->app->singleton(Services\ReportingService::class, Services\ReportingService::class);
+        $this->app->singleton(Services\ReportingService::class);
+        $this->app->singleton(Services\ReportRunner::class);
     }
 
     public function boot(): void

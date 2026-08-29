@@ -53,6 +53,7 @@
                             <th>Payé</th>
                             <th>Reste</th>
                             <th>Statut</th>
+                            <th></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -65,6 +66,11 @@
                                 <td>{{ fmt_money($sch->amount_paid) }}</td>
                                 <td><strong>{{ fmt_money($remaining) }}</strong></td>
                                 <td>{{ \InovCom\Invoicing\Models\InvoiceSchedule::statusLabel($sch->status) }}</td>
+                                <td>
+                                    @if ($canReceive && $sch->isDue())
+                                        <button type="button" class="btn btn-primary btn-sm" wire:click="paySchedule({{ $sch->id }})">Encaisser</button>
+                                    @endif
+                                </td>
                             </tr>
                         @endforeach
                     </tbody>
@@ -76,15 +82,26 @@
     @if ($canReceive)
         <form wire:submit.prevent="save" class="card" style="padding: 16px; margin-bottom: 16px;">
             <h3 style="margin-bottom: 12px;">Nouvel encaissement</h3>
+            @if ($targetSchedule ?? null)
+                <div class="alert" style="margin-bottom:12px;background:#eff6ff;border:1px solid #93c5fd;padding:12px;">
+                    Échéance n°{{ $targetSchedule->installment_number }}
+                    ({{ $targetSchedule->due_date->format('d/m/Y') }})
+                    — montant prérempli : <strong>{{ fmt_money($targetSchedule->remaining()) }}</strong>.
+                </div>
+            @endif
             <div class="form-grid">
                 <div class="form-group">
                     <label class="field-label">Montant (FCFA) *</label>
-                    <input class="input" type="number" step="0.01" min="0.01" max="{{ $invoice->balance }}"
-                           wire:model="amount">
+                    <input class="input" type="number" step="1" min="0" max="{{ (int) round((float) $invoice->balance) }}"
+                           wire:model.live="amount">
                     @error('amount') <span class="text-error">{{ $message }}</span> @enderror
                     <button type="button" class="btn btn-secondary btn-sm" style="margin-top:6px;" wire:click="payFullBalance">
-                        Solde complet ({{ fmt_money($invoice->balance) }})
+                        Recalculer le montant à percevoir
                     </button>
+                    <p style="margin:8px 0 0;font-size:12px;color:#6b7280;">
+                        Saisissez le taux de retenue : le montant retenu est arrondi au franc (pas de centimes en FCFA),
+                        et l’argent à percevoir se calcule tout seul (solde − retenues).
+                    </p>
                 </div>
                 <div class="form-group">
                     <label class="field-label">Date d'encaissement *</label>
@@ -110,11 +127,99 @@
                 <label class="field-label">Notes</label>
                 <textarea class="input" wire:model="notes" rows="2"></textarea>
             </div>
-            @if ((float) $amount > 0)
-                <p style="font-size:13px;margin-top:12px;color:#6b7280;">
-                    Après cet encaissement, le solde sera d'environ
-                    <strong>{{ fmt_money(max(0, (float) $invoice->balance - (float) $amount)) }} FCFA</strong>.
-                </p>
+
+            <div style="margin-top:16px;padding:14px;border:1px solid #93c5fd;border-radius:8px;background:#eff6ff;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
+                    <div>
+                        <strong>Retenues fiscales à la source</strong>
+                        <p style="margin:4px 0 0;font-size:12px;color:#1e40af;">
+                            Cliquez sur un type (TVA retenue, IS retenu, etc.) pour l’ajouter au règlement. Encaissé + retenues = montant soldé sur la facture.
+                        </p>
+                    </div>
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                        @foreach ($withholdingTypes as $type)
+                            <button type="button" class="btn btn-secondary btn-sm" wire:click="addWithholding({{ $type->id }})">
+                                + {{ $type->name }}
+                            </button>
+                        @endforeach
+                        <button type="button" class="btn btn-secondary btn-sm" wire:click="addWithholding">+ Autre</button>
+                    </div>
+                </div>
+                @if ($canManageWithholdings ?? false)
+                    <p style="font-size:12px;margin-bottom:8px;">
+                        <a href="{{ route('tenant.invoice_payments.withholding_types', ['tenant' => $tenantCode]) }}">Configurer les types de retenues</a>
+                    </p>
+                @endif
+                @if (count($withholdings) > 0)
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Base</th>
+                                    <th>Taux %</th>
+                                    <th>Montant retenu</th>
+                                    <th>Compte</th>
+                                    <th>Justificatif</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($withholdings as $index => $row)
+                                    <tr wire:key="wh-{{ $index }}">
+                                        <td>
+                                            <select class="input input-sm" wire:model.live="withholdings.{{ $index }}.type_id">
+                                                <option value="">Choisir…</option>
+                                                @foreach ($withholdingTypes as $type)
+                                                    <option value="{{ $type->id }}">{{ $type->name }}</option>
+                                                @endforeach
+                                            </select>
+                                        </td>
+                                        <td><input class="input input-sm" type="number" step="1" min="0" wire:model.live="withholdings.{{ $index }}.base_amount" style="width:110px;"></td>
+                                        <td><input class="input input-sm" type="number" step="0.01" min="0" wire:model.live="withholdings.{{ $index }}.rate" style="width:80px;"></td>
+                                        <td><input class="input input-sm" type="number" step="1" min="0" wire:model.live="withholdings.{{ $index }}.amount" style="width:110px;"></td>
+                                        <td><input class="input input-sm" wire:model="withholdings.{{ $index }}.account_code" placeholder="Compte" style="width:90px;"></td>
+                                        <td><input class="input input-sm" wire:model="withholdings.{{ $index }}.comment" placeholder="Commentaire"></td>
+                                        <td><button type="button" class="btn btn-secondary btn-sm" wire:click="removeWithholding({{ $index }})">×</button></td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @else
+                    <p style="font-size:12px;color:#6b7280;margin:0;">Aucune retenue. Le client règle le montant encaissé ci-dessus.</p>
+                @endif
+            </div>
+
+            @php $s = $settlement ?? null; @endphp
+            @if ($s)
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:14px;">
+                    <div style="padding:10px;background:#f9fafb;border-radius:6px;">
+                        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;">Total facture</div>
+                        <strong>{{ fmt_money($s['invoice_total']) }}</strong>
+                    </div>
+                    <div style="padding:10px;background:#f0fdf4;border-radius:6px;">
+                        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;">Montant encaissé</div>
+                        <strong style="color:#166534;">{{ fmt_money($s['cash_received']) }}</strong>
+                    </div>
+                    <div style="padding:10px;background:#eff6ff;border-radius:6px;">
+                        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;">Total des retenues</div>
+                        <strong style="color:#1d4ed8;">{{ fmt_money($s['withholding_total']) }}</strong>
+                    </div>
+                    <div style="padding:10px;background:#111;color:#fff;border-radius:6px;">
+                        <div style="font-size:11px;text-transform:uppercase;opacity:.8;">Total réglé</div>
+                        <strong>{{ fmt_money($s['settled']) }}</strong>
+                    </div>
+                    <div style="padding:10px;background:{{ $s['exceeds'] ? '#fef2f2' : '#fffbeb' }};border-radius:6px;">
+                        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;">Solde restant</div>
+                        <strong style="color:{{ $s['exceeds'] ? '#b91c1c' : '#b45309' }};">{{ fmt_money(max(0, $s['remaining'])) }}</strong>
+                    </div>
+                </div>
+                @if ($s['exceeds'])
+                    <p style="margin-top:10px;color:#b91c1c;font-size:13px;">
+                        Incohérence : montant encaissé + retenues dépasse le solde de la facture.
+                    </p>
+                @endif
             @endif
             <div class="page-actions" style="margin-top:16px;">
                 <button type="submit" class="btn btn-primary">Enregistrer et imprimer le reçu</button>
@@ -161,6 +266,9 @@
                                 </td>
                                 <td style="{{ (float) $p->amount < 0 ? 'color:#b91c1c;' : ($p->isActive() ? 'color:#166534;font-weight:600;' : '') }}">
                                     {{ (float) $p->amount < 0 ? '−' : '+' }}{{ fmt_money(abs((float) $p->amount)) }}
+                                    @if ($p->withholdingTotal() > 0)
+                                        <div style="font-size:11px;color:#1d4ed8;">+ {{ fmt_money($p->withholdingTotal()) }} retenues</div>
+                                    @endif
                                 </td>
                                 <td>{{ \InovCom\InvoicePayments\Models\InvoicePayment::methodLabel($p->payment_method) }}</td>
                                 <td style="font-size:12px;">{{ $p->external_reference ?? '—' }}</td>

@@ -62,6 +62,15 @@ class Invoice extends TenantModel
         return $this->belongsTo(Quotation::class);
     }
 
+    public static function openForQuotation(int $quotationId): ?self
+    {
+        return self::query()
+            ->where('quotation_id', $quotationId)
+            ->whereNotIn('status', ['cancelled'])
+            ->orderBy('id')
+            ->first();
+    }
+
     public function lines()
     {
         return $this->hasMany(InvoiceLine::class)->orderBy('id');

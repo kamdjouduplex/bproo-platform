@@ -10,6 +10,7 @@ use Illuminate\Validation\Rule;
 use InovCom\Clients\Models\Client;
 use InovCom\Items\Models\Item;
 use InovCom\Invoicing\Models\Invoice;
+use InovCom\Invoicing\Services\DeliveryNotesService;
 use InovCom\Invoicing\Services\InvoiceScheduleService;
 use InovCom\Invoicing\Services\InvoicingService;
 use Illuminate\Support\Facades\Schema;
@@ -162,6 +163,15 @@ class InvoiceForm extends Component
             return;
         }
 
+        $existing = Invoice::openForQuotation($quotation->id);
+        if ($existing) {
+            $this->redirectToExistingInvoice(
+                $existing,
+                'Ce devis a déjà une facture ('.$existing->invoice_number.'). Complétez les livraisons depuis cette facture.'
+            );
+            return;
+        }
+
         $this->quotation_id = $quotation->id;
         $this->client_id = $quotation->client_id;
         $this->syncClientPicker($quotation->client);
@@ -224,19 +234,22 @@ class InvoiceForm extends Component
     private function loadFromDeliveryNote(int $deliveryNoteId): void
     {
         $note = \InovCom\Invoicing\Models\DeliveryNote::with([
-            'lines.invoiceLine',
-            'lines.quotationLine',
+            'lines',
             'client',
             'quotation.lines',
             'quotation.taxLines',
+            'invoice',
         ])->findOrFail($deliveryNoteId);
 
         if (!$note->isConfirmed()) {
             session()->flash('error', 'Le bon de livraison doit être validé avant facturation.');
             return;
         }
-        if ($note->invoice_id) {
-            session()->flash('error', 'Ce bon de livraison est déjà facturé.');
+        if ($note->invoice_id && $note->invoice) {
+            $this->redirectToExistingInvoice(
+                $note->invoice,
+                'Ce bon de livraison est déjà rattaché à la facture '.$note->invoice->invoice_number.'.'
+            );
             return;
         }
         if (!$note->quotation_id) {
@@ -244,79 +257,27 @@ class InvoiceForm extends Component
             return;
         }
 
+        $existing = Invoice::openForQuotation($note->quotation_id);
+        if ($existing) {
+            $this->redirectToExistingInvoice(
+                $existing,
+                'Ce devis a déjà une facture ('.$existing->invoice_number.'). Les livraisons s’y rattachent — complétez-les depuis la facture.'
+            );
+            return;
+        }
+
         $this->deliveryNoteId = $note->id;
-        $quotation = $note->quotation;
-
-        $this->client_id = $note->client_id ?? $quotation?->client_id;
-        $this->quotation_id = $quotation?->id;
-        $this->syncClientPicker($note->client ?? $quotation?->client);
         $this->delivery_note_number = $note->delivery_number;
-        $this->quotation_reference = $quotation?->number;
-        $this->customer_reference = $quotation?->customer_purchase_order;
-        $this->notes = $quotation?->notes;
-        if ($quotation) {
-            $this->applyDocumentDiscountFromModel($quotation);
-        }
+        $this->loadFromQuotation((int) $note->quotation_id);
+    }
 
-        if ($quotation && $quotation->valid_until) {
-            $this->due_date = $quotation->valid_until->format('Y-m-d');
-            $this->applyDueDaysBaseFromDueDate();
-        }
-
-        if ($quotation && $quotation->taxLines->count() > 0) {
-            $this->tax_lines = $quotation->taxLines
-                ->map(fn ($t) => [
-                    'name' => (string) $t->tax_name,
-                    'mode' => ($t->tax_mode ?? 'amount') === 'percent' ? 'percent' : 'amount',
-                    'rate' => $t->tax_rate !== null ? (string) $t->tax_rate : '',
-                    'amount' => (string) $t->tax_amount,
-                    'effect' => DocumentTaxCalculator::normalizeEffect($t->tax_effect ?? DocumentTaxCalculator::EFFECT_ADD),
-                ])
-                ->toArray();
-            $this->tax_amount = (string) $quotation->tax_amount;
-        }
-
-        $quotationLinesById = $quotation ? $quotation->lines->keyBy('id') : collect();
-
-        $this->cart = $note->lines->map(function ($dnLine) use ($quotationLinesById) {
-            $qLine = $dnLine->quotation_line_id ? $quotationLinesById->get($dnLine->quotation_line_id) : null;
-            $iLine = $dnLine->invoiceLine;
-            $unitPrice = $qLine
-                ? (float) $qLine->unit_price
-                : ($iLine ? (float) $iLine->unit_price : 0.0);
-            $discountFields = $qLine
-                ? $this->mapLineDiscountFromSource($qLine)
-                : ($iLine ? $this->mapLineDiscountFromSource($iLine) : [
-                    'line_discount_mode' => 'percent',
-                    'line_discount' => '0',
-                    'unit_price_net' => $this->cartUnitPricePlain($unitPrice),
-                    'net_locked' => false,
-                ]);
-            $qty = (float) $dnLine->quantity;
-            $puNet = (float) $discountFields['unit_price_net'];
-
-            return [
-                'item_id' => $dnLine->item_id,
-                'item_name' => $dnLine->item_name,
-                'item_sku' => $dnLine->item_sku,
-                'quantity' => (string) $qty,
-                'unit_price' => $this->cartUnitPricePlain($unitPrice),
-                'unit_cost' => $qLine && $qLine->unit_cost !== null
-                    ? (string) $qLine->unit_cost
-                    : ($iLine && $iLine->unit_cost !== null ? (string) $iLine->unit_cost : ''),
-                'line_discount_mode' => $discountFields['line_discount_mode'],
-                'line_discount' => $discountFields['line_discount'],
-                'unit_price_net' => $discountFields['unit_price_net'],
-                'net_locked' => $discountFields['net_locked'],
-                'line_total' => (string) round($qty * $puNet, 2),
-                'line_number' => $qLine && Schema::connection('tenant')->hasColumn('quotation_lines', 'line_number')
-                    ? (int) ($qLine->line_number ?? 0)
-                    : DocumentLineNumbers::nextNumber(array_column($this->cart, 'line_number')),
-            ];
-        })->toArray();
-
-        $this->syncLinesDiscountModeFromCart();
-        $this->updatedCart();
+    private function redirectToExistingInvoice(Invoice $invoice, string $message): void
+    {
+        session()->flash('success', $message);
+        $this->redirect(route('tenant.invoicing.edit', [
+            $invoice->id,
+            'tenant' => request()->query('tenant'),
+        ]), navigate: true);
     }
 
     public function loadDeliveryNote(): void
@@ -956,7 +917,15 @@ class InvoiceForm extends Component
             if ($this->deliveryNoteId && !$this->invoiceId) {
                 $note = \InovCom\Invoicing\Models\DeliveryNote::findOrFail($this->deliveryNoteId);
                 $invoice = $service->createFromDeliveryNote($note, $data, $lines, $andIssue);
-                session()->flash('success', 'Facture créée depuis le bon de livraison ' . $note->delivery_number . ' : ' . $invoice->invoice_number);
+                session()->flash(
+                    'success',
+                    'Facture de la commande complète créée : '.$invoice->invoice_number.'. Elle reste en livraison partielle tant qu’il reste un reliquat.'
+                );
+                $this->redirect(route('tenant.invoicing.edit', [
+                    $invoice->id,
+                    'tenant' => $this->tenantCode(),
+                ]), navigate: true);
+                return;
             } elseif ($this->quotation_id && !$this->invoiceId) {
                 $quotation = Quotation::findOrFail($this->quotation_id);
                 $invoice = $service->createFromQuotation($quotation, $data, $lines, $andIssue);
@@ -1057,10 +1026,16 @@ class InvoiceForm extends Component
 
         $availableDeliveryNotes = collect();
         if (!$invoice && !$this->deliveryNoteId) {
+            $invoicedQuotationIds = Invoice::query()
+                ->whereNotNull('quotation_id')
+                ->whereNotIn('status', ['cancelled'])
+                ->pluck('quotation_id');
+
             $availableDeliveryNotes = \InovCom\Invoicing\Models\DeliveryNote::query()
                 ->where('status', \InovCom\Invoicing\Models\DeliveryNote::STATUS_CONFIRMED)
                 ->whereNull('invoice_id')
                 ->whereNotNull('quotation_id')
+                ->when($invoicedQuotationIds->isNotEmpty(), fn ($q) => $q->whereNotIn('quotation_id', $invoicedQuotationIds))
                 ->with(['client', 'quotation.client'])
                 ->orderByDesc('delivery_date')
                 ->limit(100)
@@ -1071,6 +1046,45 @@ class InvoiceForm extends Component
         $scheduleAmountDueNow = $invoice && $invoice->schedules->isNotEmpty()
             ? app(InvoiceScheduleService::class)->amountCurrentlyDue($invoice)
             : null;
+
+        $invoiceDeliveryProgress = ['status' => 'n/a', 'ordered' => 0.0, 'delivered' => 0.0, 'remaining' => 0.0];
+        $invoiceDeliveryNotes = collect();
+        $canCreateDelivery = false;
+        $invoiceStatusSummary = ['facts' => [], 'next' => null];
+        if ($invoice && Schema::connection('tenant')->hasTable('delivery_notes')) {
+            $deliveryService = app(DeliveryNotesService::class);
+            $invoiceDeliveryProgress = $deliveryService->invoiceDeliveryProgress($invoice);
+            $invoiceDeliveryNotes = $deliveryService->notesForInvoice($invoice);
+            $canCreateDelivery = in_array($invoice->status, ['issued', 'partial', 'paid'], true)
+                && $this->can('invoicing.delivery.create')
+                && $invoiceDeliveryProgress['remaining'] > 0.0001;
+            if ($invoice->quotation_id) {
+                $quotation = $invoice->quotation ?? Quotation::find($invoice->quotation_id);
+                if ($quotation) {
+                    $deliveryService->syncQuotationFulfillment($quotation);
+                }
+            }
+        }
+        if ($invoice) {
+            $invoiceStatusSummary = $this->invoiceStatusSummary($invoice, $invoiceDeliveryProgress);
+        }
+
+        $sourceDeliveryHint = null;
+        if (!$invoice && $this->deliveryNoteId && $this->quotation_id) {
+            $note = \InovCom\Invoicing\Models\DeliveryNote::with('lines')->find($this->deliveryNoteId);
+            $quotation = Quotation::with('lines')->find($this->quotation_id);
+            if ($note && $quotation) {
+                $progress = app(DeliveryNotesService::class)->quotationFulfillmentProgress($quotation);
+                $sourceDeliveryHint = [
+                    'bl_number' => $note->delivery_number,
+                    'bl_qty' => (float) $note->lines->sum('quantity'),
+                    'ordered' => $progress['ordered'],
+                    'delivered' => $progress['delivered'],
+                    'remaining' => $progress['remaining'],
+                    'quotation_number' => $quotation->number,
+                ];
+            }
+        }
 
         return view('inovcom-invoicing::livewire.invoices.form')
             ->layout('layouts.app', [
@@ -1097,13 +1111,19 @@ class InvoiceForm extends Component
                 'canPay' => $invoice && $invoice->canReceivePayment() && $this->can('invoice_payments.receive'),
                 'invoicePayments' => $invoicePayments,
                 'hasPaymentHistory' => $invoicePayments->contains(
-                    fn ($p) => $p->isActive() && (float) $p->amount > 0
+                    fn ($p) => $p->isActive() && $p->settledAmount() > 0
                 ),
                 'paymentModes' => $this->paymentModeOptionsForForm(),
                 'requiresDocumentReferences' => $this->requiresManualDocumentReferences(),
                 'canManageSchedule' => $canManageSchedule,
                 'invoiceSchedules' => $invoice?->schedules ?? collect(),
                 'scheduleAmountDueNow' => $scheduleAmountDueNow,
+                'canCreateDelivery' => $canCreateDelivery,
+                'invoiceDeliveryStatus' => $invoiceDeliveryProgress['status'],
+                'invoiceDeliveryProgress' => $invoiceDeliveryProgress,
+                'invoiceDeliveryNotes' => $invoiceDeliveryNotes,
+                'invoiceStatusSummary' => $invoiceStatusSummary,
+                'sourceDeliveryHint' => $sourceDeliveryHint,
             ]);
     }
 
@@ -1130,6 +1150,101 @@ class InvoiceForm extends Component
     private function requiresManualDocumentReferences(): bool
     {
         return !$this->invoiceId && !$this->quotation_id && !$this->deliveryNoteId;
+    }
+
+    /**
+     * @param  array{status: string, ordered: float, delivered: float, remaining: float}  $deliveryProgress
+     * @return array{facts: list<array{key: string, label: string, value: string, tone: string}>, next: ?string}
+     */
+    private function invoiceStatusSummary(Invoice $invoice, array $deliveryProgress): array
+    {
+        $cancelled = $invoice->status === 'cancelled';
+        $isDraft = $invoice->isDraft();
+        $issued = !in_array($invoice->status, ['draft', 'cancelled'], true);
+        $paid = $invoice->status === 'paid';
+        $deliveryStatus = $deliveryProgress['status'] ?? 'n/a';
+
+        if ($cancelled) {
+            $issueValue = 'Annulée';
+            $issueTone = 'danger';
+        } elseif ($isDraft) {
+            $issueValue = 'Brouillon';
+            $issueTone = 'warn';
+        } else {
+            $issueValue = 'Émise';
+            $issueTone = 'ok';
+        }
+
+        if ($isDraft || $cancelled || $deliveryStatus === 'n/a') {
+            $deliveryValue = '—';
+            $deliveryTone = 'muted';
+        } elseif ($deliveryStatus === 'delivered') {
+            $deliveryValue = 'Terminée';
+            $deliveryTone = 'ok';
+        } elseif ($deliveryStatus === 'partial') {
+            $deliveryValue = fmt_num($deliveryProgress['delivered'] ?? 0) . ' / ' . fmt_num($deliveryProgress['ordered'] ?? 0);
+            $deliveryTone = 'warn';
+        } else {
+            $deliveryValue = 'À livrer';
+            $deliveryTone = 'warn';
+        }
+
+        if ($cancelled || $isDraft) {
+            $payValue = '—';
+            $payTone = 'muted';
+            $payLabel = 'Solde';
+        } elseif ($paid) {
+            $payValue = 'Soldée';
+            $payTone = 'ok';
+            $payLabel = 'Paiement';
+        } else {
+            $payValue = fmt_money(max(0, (float) $invoice->balance));
+            $payTone = 'warn';
+            $payLabel = 'Solde dû';
+        }
+
+        $next = null;
+        if ($cancelled) {
+            $next = null;
+        } elseif ($isDraft) {
+            $next = 'Enregistrez puis émettez la facture.';
+        } elseif ($deliveryStatus === 'partial') {
+            $next = 'Reliquat à livrer : ' . fmt_num($deliveryProgress['remaining'] ?? 0) . ' article(s).';
+        } elseif ($issued && in_array($deliveryStatus, ['pending', 'n/a'], true) && ($deliveryProgress['ordered'] ?? 0) > 0) {
+            $next = 'Créer un bon de livraison.';
+        } elseif (!$paid) {
+            $next = 'Encaisser le solde restant.';
+        }
+
+        return [
+            'facts' => [
+                [
+                    'key' => 'created',
+                    'label' => 'Créée le',
+                    'value' => $invoice->invoice_date?->format('d/m/Y') ?? '—',
+                    'tone' => 'ok',
+                ],
+                [
+                    'key' => 'issue',
+                    'label' => 'Facture',
+                    'value' => $issueValue,
+                    'tone' => $issueTone,
+                ],
+                [
+                    'key' => 'delivery',
+                    'label' => 'Livraison',
+                    'value' => $deliveryValue,
+                    'tone' => $deliveryTone,
+                ],
+                [
+                    'key' => 'payment',
+                    'label' => $payLabel,
+                    'value' => $payValue,
+                    'tone' => $payTone,
+                ],
+            ],
+            'next' => $next,
+        ];
     }
 
     /**

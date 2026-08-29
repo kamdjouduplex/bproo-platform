@@ -2,35 +2,72 @@
 
 namespace App\Livewire\Tenant;
 
-use App\Services\DashboardService;
+use App\Services\DashboardOverviewService;
 use App\Services\ModuleManager;
 use App\Services\TenantManager;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Route;
 use Livewire\Component;
 
 class Dashboard extends Component
 {
+    public string $month = '';
+
     /** @var array<string, mixed>|null */
     private ?array $dashboardViewData = null;
 
+    private ?string $dashboardViewMonth = null;
+
+    public function mount(): void
+    {
+        $this->month = now()->format('Y-m');
+    }
+
+    public function updatedMonth(mixed $value): void
+    {
+        $month = is_string($value) ? $value : (string) $this->month;
+        if (! preg_match('/^\d{4}-\d{2}$/', $month)) {
+            $this->month = now()->format('Y-m');
+        } else {
+            $parsed = Carbon::createFromFormat('Y-m', $month);
+            if (! $parsed) {
+                $this->month = now()->format('Y-m');
+            } else {
+                $parsed = $parsed->startOfMonth();
+                $min = now()->copy()->subYears(3)->startOfMonth();
+                $max = now()->copy()->endOfMonth();
+                $this->month = ($parsed->lt($min) || $parsed->gt($max))
+                    ? now()->format('Y-m')
+                    : $month;
+            }
+        }
+
+        $this->dashboardViewData = null;
+        $this->dashboardViewMonth = null;
+    }
+
     /**
-     * Livewire 4 injects this into the Blade view on every render.
-     *
      * @return array<string, mixed>
      */
     public function with(): array
     {
-        return $this->dashboardViewData ??= $this->buildDashboardData();
+        if ($this->dashboardViewData !== null && $this->dashboardViewMonth === $this->month) {
+            return $this->dashboardViewData;
+        }
+
+        $this->dashboardViewMonth = $this->month;
+        $this->dashboardViewData = $this->buildDashboardData();
+
+        return $this->dashboardViewData;
     }
 
     public function render()
     {
-        $data = $this->with();
-
-        return view('livewire.tenant.dashboard')
+        return view('livewire.tenant.dashboard', $this->with())
             ->layout('layouts.app', [
                 'title' => 'Tableau de bord',
-                'subtitle' => $data['layoutSubtitle'],
+                'subtitle' => 'Vue d’ensemble de votre activité',
+                'hidePageHeader' => true,
             ]);
     }
 
@@ -41,99 +78,60 @@ class Dashboard extends Component
     {
         $tenant = app(TenantManager::class)->tenant();
         $tenantUser = auth('tenant')->user();
-        $dashboard = app(DashboardService::class);
         $moduleLinks = $tenant ? app(ModuleManager::class)->navLinksForTenant($tenant, $tenantUser) : [];
         $moduleKeys = collect($moduleLinks)->pluck('key')->all();
 
-        $hasInvoicing = in_array('invoicing', $moduleKeys, true);
-        $hasSales = in_array('sales', $moduleKeys, true) || $hasInvoicing;
-        $hasStock = in_array('stock', $moduleKeys, true);
-        $hasReporting = in_array('reporting', $moduleKeys, true);
-
         $currency = $tenant ? (string) $tenant->getSetting('currency', 'XOF') : 'XOF';
-        $userName = $tenantUser?->name ?? '';
         $tenantCode = (string) ($tenant?->code ?? request()->query('tenant') ?? session('tenant_code') ?? '');
-
-        $canViewReporting = (bool) ($tenantUser
-            && method_exists($tenantUser, 'hasPermission')
-            && $tenantUser->hasPermission('reporting.view'));
-
-        $monthLabel = now()->translatedFormat('F Y');
-        $invoiceRevenueMonth = $hasInvoicing ? (float) $dashboard->salesMonth() : 0.0;
-        $invoiceCollectedMonth = $hasInvoicing ? (float) $dashboard->invoiceCollectedMonth() : 0.0;
-        $invoiceCountMonth = $hasInvoicing ? (int) $dashboard->salesCountMonth() : 0;
+        $hasInvoicing = in_array('invoicing', $moduleKeys, true);
 
         return [
-            'userName' => $userName,
             'tenantCode' => $tenantCode,
             'currency' => $currency,
-            'hasSales' => $hasSales,
-            'hasStock' => $hasStock,
             'hasInvoicing' => $hasInvoicing,
-            'hasReporting' => $hasReporting,
-            'canViewReporting' => $canViewReporting,
-            'moduleLinks' => $moduleLinks,
-            'quickActions' => $this->buildQuickActions($moduleLinks, $tenantCode),
-            'salesChart' => $hasSales ? $dashboard->salesLast7Days() : [],
-            'invoiceRevenueMonth' => $invoiceRevenueMonth,
-            'invoiceCollectedMonth' => $invoiceCollectedMonth,
-            'invoiceCountMonth' => $invoiceCountMonth,
-            'expensesMonth' => $canViewReporting ? (float) $dashboard->expensesMonth() : 0.0,
-            'recentInvoices' => $hasInvoicing ? $dashboard->recentInvoices(8) : [],
-            'storePerformance' => $dashboard->storePerformanceMonth(),
-            'storeDimensionReady' => $dashboard->hasStoreDimension(),
-            'lowStockItems' => $hasStock ? $dashboard->lowStockItems(6) : [],
-            'pendingInvoices' => $hasInvoicing ? (int) $dashboard->pendingInvoicesCount() : 0,
-            'unpaidInvoicesTotal' => $hasInvoicing ? (float) $dashboard->unpaidInvoicesTotal() : 0.0,
-            'monthLabel' => $monthLabel,
-            'layoutSubtitle' => $hasInvoicing
-                ? 'CA facture '.$monthLabel.' : '.fmt_money($invoiceRevenueMonth).' '.$currency
-                : 'Vue d\'ensemble de votre activité',
+            'overview' => app(DashboardOverviewService::class)->snapshot($this->monthStart()),
+            'quickActions' => $this->buildQuickActions(),
         ];
     }
 
-    /**
-     * @param  array<int, array{key: string, label: string, route: string, icon?: string}>  $moduleLinks
-     * @return array<int, array{label: string, route: string, style: string}>
-     */
-    private function buildQuickActions(array $moduleLinks, ?string $tenantCode): array
+    private function monthStart(): Carbon
     {
-        $priority = [
-            'sales' => ['label' => 'Nouvelle vente', 'style' => 'primary'],
-            'stock' => ['label' => 'Stock', 'style' => 'secondary'],
-            'caisse' => ['label' => 'Caisse', 'style' => 'secondary'],
-            'invoicing' => ['label' => 'Facturation', 'style' => 'secondary'],
-            'reporting' => ['label' => 'Rapports', 'style' => 'secondary'],
-            'clients' => ['label' => 'Clients', 'style' => 'secondary'],
+        $month = preg_match('/^\d{4}-\d{2}$/', $this->month) ? $this->month : now()->format('Y-m');
+
+        return Carbon::parse($month.'-01')->startOfMonth();
+    }
+
+    /**
+     * @return array<int, array{label: string, route: string, icon: string}>
+     */
+    private function buildQuickActions(): array
+    {
+        $catalog = [
+            ['label' => 'Nouvelle vente', 'route' => 'tenant.sales.create', 'icon' => 'shopping-bag'],
+            ['label' => 'Devis', 'route' => 'tenant.quotations.create', 'icon' => 'document'],
+            ['label' => 'Facture', 'route' => 'tenant.invoicing.create', 'icon' => 'receipt'],
+            ['label' => 'Paiement', 'route' => 'tenant.invoice_payments.index', 'icon' => 'credit-card'],
+            ['label' => 'Nouvel achat', 'route' => 'tenant.purchases.create', 'icon' => 'package'],
+            ['label' => 'Dépense', 'route' => 'tenant.expenses.create', 'icon' => 'banknotes'],
+            ['label' => 'Transfert caisse', 'route' => 'tenant.caisse.index', 'icon' => 'wallet'],
+            ['label' => 'Rapport journalier', 'route' => 'tenant.sales.daily-report', 'fallback' => 'tenant.reporting.index', 'icon' => 'chart'],
         ];
 
         $actions = [];
-        $byKey = collect($moduleLinks)->keyBy('key');
-
-        foreach ($priority as $key => $meta) {
-            $link = $byKey->get($key);
-            if (! $link || ! Route::has($link['route'])) {
-                continue;
+        foreach ($catalog as $item) {
+            $route = $item['route'];
+            if (! Route::has($route) && ! empty($item['fallback']) && Route::has($item['fallback'])) {
+                $route = $item['fallback'];
             }
-
-            if ($key === 'sales' && Route::has('tenant.sales.create')) {
-                $actions[] = [
-                    'label' => $meta['label'],
-                    'route' => 'tenant.sales.create',
-                    'style' => $meta['style'],
-                ];
+            if (! Route::has($route)) {
                 continue;
             }
 
             $actions[] = [
-                'label' => $key === 'sales' ? $meta['label'] : ($meta['label'] ?? $link['label']),
-                'route' => $link['route'],
-                'style' => $meta['style'],
+                'label' => $item['label'],
+                'route' => $route,
+                'icon' => $item['icon'],
             ];
-
-            if (count($actions) >= 5) {
-                break;
-            }
         }
 
         return $actions;

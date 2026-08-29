@@ -67,6 +67,15 @@ class DeliveryNoteForm extends Component
             if (!$quotation->isAccepted()) {
                 abort(403);
             }
+            $existingInvoice = Invoice::openForQuotation($quotation->id);
+            if ($existingInvoice && in_array($existingInvoice->status, ['issued', 'partial', 'paid'], true)) {
+                $this->redirect(route('tenant.invoicing.deliveries.create', [
+                    'invoice' => $existingInvoice->id,
+                    'tenant' => request()->query('tenant'),
+                ]), navigate: true);
+
+                return;
+            }
             $this->mode = 'quotation';
             $this->quotationId = $quotation->id;
             $this->prefillPurchaseOrderFromQuotation($quotation);
@@ -76,6 +85,16 @@ class DeliveryNoteForm extends Component
 
         if (!$invoice) {
             abort(404);
+        }
+
+        if ($service->invoiceDeliveryProgress($invoice)['remaining'] <= 0.0001) {
+            session()->flash('error', 'Cette facture est déjà entièrement livrée. Aucun nouveau bon de livraison n’est nécessaire.');
+            $this->redirect(route('tenant.invoicing.edit', [
+                $invoice->id,
+                'tenant' => request()->query('tenant'),
+            ]), navigate: true);
+
+            return;
         }
 
         $this->mode = 'invoice';

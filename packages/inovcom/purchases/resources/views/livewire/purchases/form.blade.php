@@ -65,7 +65,7 @@
                                     <tr>
                                         <th>Article</th>
                                         <th>Qté</th>
-                                        <th>Coût d'achat</th>
+                                        <th>{{ $this->has_vat && $this->price_mode === 'ttc' ? 'Prix TTC saisi' : ($this->has_vat ? 'Prix HT saisi' : 'Coût d\'achat') }}</th>
                                         <th>Total</th>
                                         <th></th>
                                     </tr>
@@ -214,10 +214,55 @@
                     </div>
 
                     <div style="margin-top: 20px; padding: 16px; background: #f5f5f5; border-radius: 4px;">
+                        <div class="form-group" style="margin-bottom:12px;">
+                            <label style="display:flex;gap:8px;align-items:flex-start;">
+                                <input type="checkbox" wire:model.live="has_vat">
+                                <span>
+                                    <strong>Achat avec TVA</strong>
+                                    <span style="display:block;font-size:12px;color:#6b7280;">Décochez pour un achat hors régime réel / sans TVA.</span>
+                                </span>
+                            </label>
+                        </div>
+                        @if ($this->has_vat)
+                            <div class="form-group" style="margin-bottom:10px;">
+                                <label class="field-label">Prix saisis</label>
+                                <select class="input" wire:model.live="price_mode">
+                                    <option value="ht">Hors taxe (HT)</option>
+                                    <option value="ttc">TVA incluse (TTC)</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin-bottom:10px;">
+                                <label class="field-label">Taux de TVA (%)</label>
+                                <input class="input" type="number" step="0.01" min="0" wire:model.live="vat_rate">
+                            </div>
+                            <label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:12px;">
+                                <input type="checkbox" wire:model.live="vat_deductible">
+                                <span>
+                                    <strong>TVA déductible</strong>
+                                    <span style="display:block;font-size:12px;color:#6b7280;">Le stock et le coût de revient utilisent alors le HT.</span>
+                                </span>
+                            </label>
+                        @endif
+                        <div style="display:flex; justify-content: space-between; padding: 6px 0; font-size: 13px;">
+                            <span>Total HT</span>
+                            <strong>{{ fmt_money($vatBreakdown['ht'] ?? $this->subtotal) }} FCFA</strong>
+                        </div>
+                        @if ($this->has_vat)
+                            <div style="display:flex; justify-content: space-between; padding: 6px 0; font-size: 13px;">
+                                <span>TVA</span>
+                                <strong>{{ fmt_money($vatBreakdown['vat'] ?? 0) }} FCFA</strong>
+                            </div>
+                        @endif
                         <div style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 2px solid #333; font-size: 18px;">
-                            <span><strong>TOTAL:</strong></span>
+                            <span><strong>TOTAL TTC:</strong></span>
                             <strong>{{ fmt_money($this->total) }} FCFA</strong>
                         </div>
+                        @if ($this->has_vat)
+                            <p style="margin:10px 0 0;font-size:12px;color:#6b7280;">
+                                Coût stock / marge : <strong>{{ fmt_money($vatBreakdown['stock_cost'] ?? 0) }} FCFA</strong>
+                                ({{ $this->vat_deductible ? 'HT, TVA déductible' : 'TTC, TVA non déductible' }}).
+                            </p>
+                        @endif
                     </div>
                 </section>
             </div>

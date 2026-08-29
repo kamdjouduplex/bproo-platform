@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Schema;
 use InovCom\Clients\Models\Client;
 use InovCom\Items\Models\Item;
 use InovCom\Invoicing\Models\DeliveryNote;
+use InovCom\Invoicing\Models\Invoice;
+use InovCom\Invoicing\Services\DeliveryNotesService;
 use InovCom\Quotations\Models\Quotation;
 use InovCom\Quotations\Services\QuotationsService;
 use Livewire\Component;
@@ -981,12 +983,21 @@ class QuotationForm extends Component
 
         $savedTotals = null;
         $linkedDeliveryNote = null;
+        $deliveryNotes = collect();
+        $fulfillment = null;
+        $hasDeliverableRemaining = false;
+        $linkedInvoice = null;
         if ($quotation && $quotation->isAccepted() && Schema::connection('tenant')->hasTable('delivery_notes')) {
-            $linkedDeliveryNote = DeliveryNote::query()
-                ->where('quotation_id', $quotation->id)
-                ->orderByRaw("CASE WHEN status = 'draft' THEN 0 ELSE 1 END")
-                ->orderByDesc('id')
-                ->first(['id', 'delivery_number', 'status']);
+            $deliveryService = app(DeliveryNotesService::class);
+            $deliveryNotes = $deliveryService->notesForQuotation($quotation);
+            $linkedDeliveryNote = $deliveryNotes->first();
+            $fulfillment = $deliveryService->quotationFulfillmentProgress($quotation);
+            $hasDeliverableRemaining = $deliveryService->quotationHasDeliverableLines($quotation, false);
+            $deliveryService->syncQuotationFulfillment($quotation->fresh());
+            $quotation->refresh();
+        }
+        if ($quotation && Schema::connection('tenant')->hasTable('invoices')) {
+            $linkedInvoice = Invoice::openForQuotation($quotation->id);
         }
 
         if ($quotation && !$quotation->isEditable()) {
@@ -1040,6 +1051,10 @@ class QuotationForm extends Component
                 'canDelete' => $this->can('quotations.delete'),
                 'canCreate' => $this->can('quotations.create'),
                 'linkedDeliveryNote' => $linkedDeliveryNote,
+                'deliveryNotes' => $deliveryNotes,
+                'fulfillment' => $fulfillment,
+                'hasDeliverableRemaining' => $hasDeliverableRemaining,
+                'linkedInvoice' => $linkedInvoice,
             ]);
     }
 

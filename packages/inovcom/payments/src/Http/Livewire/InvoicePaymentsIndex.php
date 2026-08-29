@@ -67,6 +67,7 @@ class InvoicePaymentsIndex extends Component
                 'recentPayments' => $recentPayments,
                 'totalOutstanding' => app(InvoicePaymentsService::class)->getOutstandingTotal(),
                 'canReceive' => $this->can('invoice_payments.receive'),
+                'canManageWithholdings' => $this->can('invoice_payments.manage_withholdings'),
             ]);
     }
 

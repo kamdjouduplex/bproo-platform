@@ -16,7 +16,10 @@ class InvoicePaymentPrintController
         $tenant = app(TenantManager::class)->tenant();
         $settings = app(TenantBrandingService::class)->documentSettings($tenant);
 
-        $invoicePayment->loadMissing(['invoice.client', 'creator']);
+        $invoicePayment->loadMissing(array_merge(
+            ['invoice.client', 'creator'],
+            InvoicePayment::optionalWithholdingsRelation()
+        ));
 
         return view('inovcom-invoice-payments::print.payment-receipt', array_merge([
             'payment' => $invoicePayment,

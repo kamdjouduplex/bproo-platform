@@ -158,6 +158,12 @@ class QuotationsService
         if ($status === 'accepted') {
             $quotation->validated_by = $userId ?? auth('tenant')->id();
             $quotation->validated_at = now();
+            if (Schema::connection('tenant')->hasColumn('quotations', 'fulfillment_status')) {
+                $quotation->fulfillment_status = 'pending';
+            }
+        } elseif (Schema::connection('tenant')->hasColumn('quotations', 'fulfillment_status')
+            && in_array($status, ['draft', 'sent', 'suspended', 'rejected'], true)) {
+            $quotation->fulfillment_status = 'none';
         }
 
         $quotation->save();

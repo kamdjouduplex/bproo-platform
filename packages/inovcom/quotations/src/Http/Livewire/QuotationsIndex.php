@@ -3,7 +3,9 @@
 namespace InovCom\Quotations\Http\Livewire;
 
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use InovCom\Clients\Models\Client;
+use InovCom\Invoicing\Services\DeliveryNotesService;
 use InovCom\Quotations\Models\Quotation;
 use InovCom\Quotations\Services\QuotationsService;
 use Livewire\Component;
@@ -84,6 +86,17 @@ class QuotationsIndex extends Component
             ->orderByDesc('quote_date')
             ->orderByDesc('created_at')
             ->paginate($this->perPage);
+
+        if (Schema::connection('tenant')->hasTable('delivery_notes')
+            && Schema::connection('tenant')->hasColumn('quotations', 'fulfillment_status')) {
+            $deliveryService = app(DeliveryNotesService::class);
+            foreach ($quotations as $q) {
+                if ($q->isAccepted()) {
+                    $deliveryService->syncQuotationFulfillment($q);
+                    $q->refresh();
+                }
+            }
+        }
 
         return view('inovcom-quotations::livewire.quotations.index')
             ->layout('layouts.app', [

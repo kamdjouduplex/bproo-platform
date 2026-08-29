@@ -4,7 +4,9 @@ namespace InovCom\Invoicing\Http\Livewire;
 
 use Illuminate\Support\Facades\Auth;
 use InovCom\Invoicing\Models\DeliveryNote;
+use InovCom\Invoicing\Models\Invoice;
 use InovCom\Invoicing\Services\DeliveryNotesService;
+use InovCom\Quotations\Models\Quotation;
 use Livewire\Component;
 
 class DeliveryNoteShow extends Component
@@ -150,6 +152,7 @@ class DeliveryNoteShow extends Component
         $deliveryNote = DeliveryNote::with([
             'invoice.client',
             'quotation.client',
+            'quotation.lines',
             'client',
             'lines.invoiceLine',
             'lines.quotationLine',
@@ -163,6 +166,22 @@ class DeliveryNoteShow extends Component
                 $deliveryNote,
                 trim($this->customer_purchase_order) !== '' ? $this->customer_purchase_order : null
             );
+        }
+
+        $linkedInvoice = $deliveryNote->invoice;
+        if (!$linkedInvoice && $deliveryNote->quotation_id) {
+            $linkedInvoice = Invoice::openForQuotation($deliveryNote->quotation_id);
+        }
+
+        $orderFulfillment = null;
+        if ($deliveryNote->quotation) {
+            $orderFulfillment = app(DeliveryNotesService::class)
+                ->quotationFulfillmentProgress($deliveryNote->quotation);
+        } elseif ($deliveryNote->quotation_id) {
+            $quotation = Quotation::with('lines')->find($deliveryNote->quotation_id);
+            if ($quotation) {
+                $orderFulfillment = app(DeliveryNotesService::class)->quotationFulfillmentProgress($quotation);
+            }
         }
 
         return view('inovcom-invoicing::livewire.invoices.delivery-show')
@@ -180,6 +199,12 @@ class DeliveryNoteShow extends Component
                 'canEdit' => $this->canCreate() && $deliveryNote->isDraft(),
                 'canEditPrintOptions' => $this->canCreate() && ($deliveryNote->isDraft() || $deliveryNote->isConfirmed()),
                 'printUrl' => $this->buildPrintUrl($deliveryNote),
+                'linkedInvoice' => $linkedInvoice,
+                'orderFulfillment' => $orderFulfillment,
+                'canCreateInvoiceFromNote' => $deliveryNote->isConfirmed()
+                    && $deliveryNote->quotation_id
+                    && !$linkedInvoice
+                    && $this->can('invoicing.create'),
             ]);
     }
 

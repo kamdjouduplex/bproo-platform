@@ -40,6 +40,27 @@ if (!function_exists('fmt_money')) {
     }
 }
 
+if (!function_exists('money_decimals')) {
+    /**
+     * ISO minor units: XAF/XOF have none — banks book whole francs only.
+     */
+    function money_decimals(?string $code = null): int
+    {
+        return match (currency_code($code)) {
+            'XAF', 'XOF', 'GNF' => 0,
+            default => 2,
+        };
+    }
+}
+
+if (!function_exists('money_round')) {
+    /** Commercial round to the currency's cash unit (nearest franc for FCFA). */
+    function money_round(mixed $value, ?string $code = null): float
+    {
+        return round((float) $value, money_decimals($code), PHP_ROUND_HALF_UP);
+    }
+}
+
 if (! function_exists('currency_code')) {
     /** Tenant default ISO currency code, or an explicit override. */
     function currency_code(?string $code = null): string

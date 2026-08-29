@@ -22,6 +22,13 @@ class InvoicingService
             throw new \RuntimeException('Seul un devis validé peut être converti en facture.');
         }
 
+        $existing = Invoice::openForQuotation($quotation->id);
+        if ($existing) {
+            throw new \RuntimeException(
+                'Ce devis a déjà une facture ('.$existing->invoice_number.'). Ouvrez-la pour compléter les livraisons.'
+            );
+        }
+
         $declarationType = (string) ($header['declaration_type'] ?? '');
         if (!in_array($declarationType, ['declared', 'non_declared'], true)) {
             throw new \InvalidArgumentException('Type de facture invalide.');
@@ -72,12 +79,15 @@ class InvoicingService
             $header['tax_amount'] = (float) $quotation->tax_amount;
         }
 
-        return $this->create($header, $lines, $userId);
+        $invoice = $this->create($header, $lines, $userId);
+        app(DeliveryNotesService::class)->attachQuotationDeliveriesToInvoice($quotation, $invoice);
+
+        return $invoice;
     }
 
     /**
      * Crée une facture à partir d'un bon de livraison confirmé (workflow Devis → Livraison → Facture).
-     * Les quantités facturées correspondent aux quantités livrées ; les prix/remises proviennent du devis.
+     * Les quantités facturées sont celles du devis (commande complète), pas seulement ce BL.
      */
     public function createFromDeliveryNote(DeliveryNote $deliveryNote, array $header, array $lines = [], bool $issue = true, ?int $userId = null): Invoice
     {
@@ -96,40 +106,51 @@ class InvoicingService
         $quotation = $deliveryNote->quotation;
         if ($quotation) {
             $quotation->loadMissing(['lines', 'taxLines']);
+            $existing = Invoice::openForQuotation($quotation->id);
+            if ($existing) {
+                throw new \RuntimeException(
+                    'Ce devis a déjà une facture ('.$existing->invoice_number.'). Complétez les livraisons depuis cette facture.'
+                );
+            }
         }
         $deliveryNote->loadMissing('lines');
 
-        // Les lignes (avec remises) viennent du formulaire ; on ne reconstruit depuis le devis
-        // que si le formulaire n'en a fourni aucune (appel direct au service).
-        if ($lines === []) {
-            $quotationLinesById = $quotation ? $quotation->lines->keyBy('id') : collect();
-            $lines = $deliveryNote->lines->map(function ($dnLine) use ($quotationLinesById) {
-                $qLine = $dnLine->quotation_line_id ? $quotationLinesById->get($dnLine->quotation_line_id) : null;
-
-                return [
-                    'item_id' => $dnLine->item_id,
-                    'item_name' => $dnLine->item_name,
-                    'item_sku' => $dnLine->item_sku,
-                    'quantity' => (float) $dnLine->quantity,
-                    'unit_price' => $qLine ? (float) $qLine->unit_price : 0.0,
-                    'line_discount' => $qLine ? (float) ($qLine->line_discount ?? 0) : 0.0,
-                    'line_discount_mode' => $qLine ? (string) ($qLine->line_discount_mode ?? 'amount') : 'amount',
-                    'line_discount_input' => $qLine && $qLine->line_discount_input !== null
-                        ? (float) $qLine->line_discount_input
-                        : ($qLine ? (float) ($qLine->line_discount ?? 0) : 0.0),
-                ];
-            })->all();
+        // Toujours la commande complète du devis, jamais les seules quantités de ce BL.
+        if ($quotation) {
+            $lines = $quotation->lines->map(fn ($line) => [
+                'item_id' => $line->item_id,
+                'item_name' => $line->item_name,
+                'item_sku' => $line->item_sku,
+                'quantity' => (float) $line->quantity,
+                'unit_price' => (float) $line->unit_price,
+                'line_discount' => (float) ($line->line_discount ?? 0),
+                'line_discount_mode' => (string) ($line->line_discount_mode ?? 'amount'),
+                'line_discount_input' => $line->line_discount_input !== null
+                    ? (float) $line->line_discount_input
+                    : (float) ($line->line_discount ?? 0),
+            ])->all();
+        } elseif ($lines === []) {
+            $lines = $deliveryNote->lines->map(fn ($dnLine) => [
+                'item_id' => $dnLine->item_id,
+                'item_name' => $dnLine->item_name,
+                'item_sku' => $dnLine->item_sku,
+                'quantity' => (float) $dnLine->quantity,
+                'unit_price' => 0.0,
+                'line_discount' => 0.0,
+                'line_discount_mode' => 'amount',
+                'line_discount_input' => 0.0,
+            ])->all();
         }
 
-        $header['client_id'] = $header['client_id'] ?? $deliveryNote->client_id ?? ($quotation->client_id ?? null);
-        $header['quotation_id'] = $header['quotation_id'] ?? ($quotation->id ?? null);
+        $header['client_id'] = $header['client_id'] ?? $deliveryNote->client_id ?? ($quotation?->client_id);
+        $header['quotation_id'] = $header['quotation_id'] ?? ($quotation?->id);
         $header['declaration_type'] = $declarationType;
         $header['invoice_date'] = $header['invoice_date'] ?? now()->toDateString();
-        $header['due_date'] = $header['due_date'] ?? ($quotation->valid_until?->toDateString() ?? null);
-        $header['notes'] = $header['notes'] ?? ($quotation->notes ?? null);
-        $header['quotation_reference'] = $header['quotation_reference'] ?? ($quotation->number ?? null);
+        $header['due_date'] = $header['due_date'] ?? ($quotation?->valid_until?->toDateString());
+        $header['notes'] = $header['notes'] ?? ($quotation?->notes);
+        $header['quotation_reference'] = $header['quotation_reference'] ?? ($quotation?->number);
         $header['delivery_note_number'] = $header['delivery_note_number'] ?? $deliveryNote->delivery_number;
-        $header['customer_reference'] = $header['customer_reference'] ?? ($quotation->customer_purchase_order ?? null);
+        $header['customer_reference'] = $header['customer_reference'] ?? ($quotation?->customer_purchase_order);
         if ($quotation) {
             $this->mergeQuotationDiscountHeader($quotation, $header);
         }
@@ -155,8 +176,12 @@ class InvoicingService
 
         $invoice = $this->create($header, $lines, $userId);
 
-        $deliveryNote->invoice_id = $invoice->id;
-        $deliveryNote->save();
+        $deliveryService = app(DeliveryNotesService::class);
+        if ($quotation) {
+            $deliveryService->attachQuotationDeliveriesToInvoice($quotation, $invoice);
+        } else {
+            $deliveryService->attachToInvoice($deliveryNote, $invoice);
+        }
 
         return $invoice;
     }

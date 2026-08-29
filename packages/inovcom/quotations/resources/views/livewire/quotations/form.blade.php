@@ -33,13 +33,18 @@
     @if ($quotation)
         <div style="margin-bottom: 16px;">
             <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom: 12px;">
-                <span class="badge badge-info">Statut : {{ \InovCom\Quotations\Models\Quotation::statusLabel($quotation->status) }}</span>
+                <span class="badge badge-info">Statut : {{ $quotation->commercialStatusLabel() }}</span>
                 <span class="badge badge-secondary">N° {{ $quotation->number }}</span>
                 @if ($quotation->revision > 1)
                     <span class="badge badge-secondary">Rév. {{ $quotation->revision }}</span>
                 @endif
                 @if ($quotation->isAccepted())
                     <span class="badge badge-success">Accepté le {{ $quotation->validated_at?->format('d/m/Y H:i') }}</span>
+                    @if (($fulfillment['status'] ?? '') === 'partial')
+                        <span class="badge badge-warning">Livraison partielle</span>
+                    @elseif (($fulfillment['status'] ?? '') === 'delivered')
+                        <span class="badge badge-success">Livré</span>
+                    @endif
                 @endif
             </div>
             <div class="page-actions" style="flex-wrap:wrap; gap:8px;">
@@ -89,18 +94,25 @@
                 @endif
 
                 @if ($quotation->canCreateInvoice())
-                    @if ($linkedDeliveryNote)
-                        <a class="btn btn-primary btn-sm" href="{{ route('tenant.invoicing.deliveries.show', ['deliveryNote' => $linkedDeliveryNote->id, 'tenant' => $tenantCode]) }}">
-                            Voir bon de livraison
-                        </a>
-                    @else
+                    @if ($hasDeliverableRemaining ?? true)
                         <a class="btn btn-primary btn-sm" href="{{ route('tenant.invoicing.deliveries.from_quotation', ['tenant' => $tenantCode, 'quotation_id' => $quotation->id]) }}">
-                            Créer bon de livraison
+                            {{ ($deliveryNotes ?? collect())->isNotEmpty() ? 'Compléter la commande (reliquat)' : 'Créer bon de livraison' }}
                         </a>
                     @endif
-                    <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoicing.create', ['tenant' => $tenantCode, 'quotation_id' => $quotation->id]) }}">
-                        Facturer directement
-                    </a>
+                    @if ($linkedDeliveryNote)
+                        <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoicing.deliveries.show', ['deliveryNote' => $linkedDeliveryNote->id, 'tenant' => $tenantCode]) }}">
+                            Voir le dernier BL
+                        </a>
+                    @endif
+                    @if ($linkedInvoice ?? null)
+                        <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoicing.edit', [$linkedInvoice->id, 'tenant' => $tenantCode]) }}">
+                            Voir la facture {{ $linkedInvoice->invoice_number }}
+                        </a>
+                    @else
+                        <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoicing.create', ['tenant' => $tenantCode, 'quotation_id' => $quotation->id]) }}">
+                            Facturer la commande
+                        </a>
+                    @endif
                 @endif
 
                 @if ($canDelete && $quotation->status === 'draft')
@@ -110,6 +122,87 @@
                 @endif
             </div>
         </div>
+
+        @if ($quotation->isAccepted() && ($fulfillment['lines'] ?? []))
+            <section class="card" style="margin-bottom:16px;padding:16px;">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+                    <h3 style="margin:0 0 8px;">{{ ($fulfillment['status'] ?? '') === 'delivered' ? 'Livraison' : 'Reliquat de commande' }}</h3>
+                    @if (($fulfillment['status'] ?? '') === 'delivered')
+                        <span class="badge badge-success">Livraison complète</span>
+                    @elseif (($fulfillment['status'] ?? '') === 'partial')
+                        <span class="badge badge-warning">Livraison partielle</span>
+                    @endif
+                </div>
+                <p style="margin:0 0 12px;font-size:13px;color:#6b7280;">
+                    @if (($fulfillment['status'] ?? '') === 'delivered')
+                        Toute la commande a été livrée
+                        ({{ fmt_num($fulfillment['delivered'] ?? 0) }} / {{ fmt_num($fulfillment['ordered'] ?? 0) }}).
+                    @else
+                        Les livraisons successives restent rattachées à ce devis. La facture porte sur la <strong>commande complète</strong>
+                        ({{ fmt_num($fulfillment['ordered'] ?? 0) }}), même si une livraison est partielle.
+                        Quantité restante :
+                        <strong>{{ fmt_num($fulfillment['remaining'] ?? 0) }}</strong>
+                        / {{ fmt_num($fulfillment['ordered'] ?? 0) }} commandé(s).
+                    @endif
+                </p>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Article</th>
+                                <th>Commandé</th>
+                                <th>Livré</th>
+                                <th>Reste</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($fulfillment['lines'] as $line)
+                                <tr>
+                                    <td>{{ $line['item_name'] }}</td>
+                                    <td>{{ fmt_num($line['ordered']) }}</td>
+                                    <td>{{ fmt_num($line['delivered']) }}</td>
+                                    <td><strong>{{ fmt_num($line['remaining']) }}</strong></td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        @endif
+
+        @if (($deliveryNotes ?? collect())->isNotEmpty())
+            <section class="card" style="margin-bottom:16px;padding:16px;">
+                <h3 style="margin:0 0 12px;">Historique des livraisons</h3>
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>BL</th>
+                                <th>Date</th>
+                                <th>Statut</th>
+                                <th>Qté</th>
+                                <th>Par</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($deliveryNotes as $note)
+                                <tr>
+                                    <td><strong>{{ $note->delivery_number }}</strong></td>
+                                    <td>{{ $note->delivery_date?->format('d/m/Y') }}</td>
+                                    <td>{{ $note->status === 'confirmed' ? 'Confirmé' : ($note->status === 'draft' ? 'Brouillon' : 'Annulé') }}</td>
+                                    <td>{{ fmt_num($note->lines->sum('quantity')) }}</td>
+                                    <td>{{ $note->confirmer?->name ?? $note->creator?->name ?? '—' }}</td>
+                                    <td>
+                                        <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoicing.deliveries.show', ['deliveryNote' => $note->id, 'tenant' => $tenantCode]) }}">Voir</a>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        @endif
     @endif
 
     <form wire:submit.prevent="save">

@@ -213,7 +213,7 @@
 
         @if ($payment->isActive())
             <div class="amount-box">
-                <div class="label">Montant encaissé</div>
+                <div class="label">Montant effectivement encaissé</div>
                 <div class="value">+ {{ fmt_money($payment->amount) }} FCFA</div>
             </div>
         @elseif ($payment->isCancelled())
@@ -234,9 +234,19 @@
                     <td class="value">{{ fmt_money($paidBefore) }} FCFA</td>
                 </tr>
                 <tr class="highlight">
-                    <td class="label">Montant de cet encaissement</td>
+                    <td class="label">Montant effectivement encaissé</td>
                     <td class="value" style="color:#166534;">+ {{ fmt_money($payment->amount) }} FCFA</td>
                 </tr>
+                @if ($payment->withholdingTotal() > 0)
+                    <tr>
+                        <td class="label">Total des retenues fiscales</td>
+                        <td class="value">{{ fmt_money($payment->withholdingTotal()) }} FCFA</td>
+                    </tr>
+                    <tr>
+                        <td class="label">Total réglé (encaissé + retenues)</td>
+                        <td class="value">{{ fmt_money($payment->settledAmount()) }} FCFA</td>
+                    </tr>
+                @endif
                 <tr>
                     <td class="label">Total encaissé après ce paiement</td>
                     <td class="value">{{ fmt_money($paidAfter) }} FCFA</td>
@@ -247,6 +257,28 @@
                 </tr>
             </table>
         </div>
+
+        @if (optional($payment->withholdings)->isNotEmpty())
+            <div class="panel" style="margin-top:16px;">
+                <div class="panel-title">Retenues fiscales</div>
+                <table class="info">
+                    @foreach ($payment->withholdings as $wh)
+                        <tr>
+                            <td>{{ $wh->type_name }}@if($wh->rate > 0) ({{ fmt_num((float) $wh->rate, 2) }} %)@endif</td>
+                            <td>
+                                <strong>{{ fmt_money($wh->amount) }} FCFA</strong>
+                                @if ($wh->account_code)
+                                    <div style="font-size:9px;color:#6b7280;">Compte {{ $wh->account_code }}</div>
+                                @endif
+                                @if ($wh->comment)
+                                    <div style="font-size:9px;color:#6b7280;">{{ $wh->comment }}</div>
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                </table>
+            </div>
+        @endif
 
         @if ($payment->isCancelled() && $payment->cancellation_reason)
             <div class="panel" style="margin-top:16px;border-color:#b91c1c;">

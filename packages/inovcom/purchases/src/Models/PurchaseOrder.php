@@ -17,8 +17,15 @@ class PurchaseOrder extends TenantModel
         'cancelled_at',
         'cancellation_reason',
         'subtotal',
+        'vat_amount',
+        'total_ht',
+        'total_ttc',
         'total',
         'notes',
+        'has_vat',
+        'price_mode',
+        'vat_rate',
+        'vat_deductible',
         'created_by',
     ];
 
@@ -28,7 +35,13 @@ class PurchaseOrder extends TenantModel
         'confirmed_at' => 'datetime',
         'cancelled_at' => 'datetime',
         'subtotal' => 'decimal:2',
+        'vat_amount' => 'decimal:2',
+        'total_ht' => 'decimal:2',
+        'total_ttc' => 'decimal:2',
         'total' => 'decimal:2',
+        'has_vat' => 'boolean',
+        'vat_deductible' => 'boolean',
+        'vat_rate' => 'decimal:4',
     ];
 
     public function lines()

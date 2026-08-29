@@ -60,14 +60,16 @@
                         <td>{{ $q->revision }}</td>
                         <td>{{ fmt_money($q->total) }} FCFA</td>
                         <td>
-                            @php $badge = match($q->status) {
-                                'accepted', 'validated' => 'badge-success',
-                                'rejected' => 'badge-error',
-                                'suspended' => 'badge-warning',
-                                'sent' => 'badge-info',
+                            @php $badge = match(true) {
+                                in_array($q->status, ['accepted', 'validated']) && ($q->fulfillment_status ?? '') === 'delivered' => 'badge-success',
+                                in_array($q->status, ['accepted', 'validated']) && ($q->fulfillment_status ?? '') === 'partial' => 'badge-warning',
+                                in_array($q->status, ['accepted', 'validated']) => 'badge-success',
+                                $q->status === 'rejected' => 'badge-error',
+                                $q->status === 'suspended' => 'badge-warning',
+                                $q->status === 'sent' => 'badge-info',
                                 default => 'badge-secondary',
                             }; @endphp
-                            <span class="badge {{ $badge }}">{{ \InovCom\Quotations\Models\Quotation::statusLabel($q->status) }}</span>
+                            <span class="badge {{ $badge }}">{{ $q->commercialStatusLabel() }}</span>
                         </td>
                         <td style="display:flex; gap:4px; flex-wrap:wrap;">
                             <a class="btn btn-secondary btn-sm" href="{{ route('tenant.quotations.edit', [$q->id, 'tenant' => $tenantCode]) }}">Voir</a>

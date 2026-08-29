@@ -4,6 +4,7 @@ namespace InovCom\Invoicing\Http\Livewire;
 
 use Illuminate\Support\Facades\Auth;
 use InovCom\Invoicing\Models\DeliveryNote;
+use InovCom\Invoicing\Models\Invoice;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -47,15 +48,28 @@ class DeliveryNotesIndex extends Component
             ->when($this->status !== '', fn ($q) => $q->where('status', $this->status))
             ->orderByDesc('created_at');
 
+        $notes = $query->paginate($this->perPage);
+        $quotationIds = collect($notes->items())->pluck('quotation_id')->filter()->unique()->values();
+        $invoicesByQuotation = $quotationIds->isEmpty()
+            ? collect()
+            : Invoice::query()
+                ->whereIn('quotation_id', $quotationIds)
+                ->whereNotIn('status', ['cancelled'])
+                ->orderBy('id')
+                ->get()
+                ->unique('quotation_id')
+                ->keyBy('quotation_id');
+
         return view('inovcom-invoicing::livewire.invoices.deliveries-index')
             ->layout('layouts.app', [
                 'title' => 'Bons de livraison',
                 'subtitle' => 'Livraisons facturation B2B',
             ])
             ->with([
-                'notes' => $query->paginate($this->perPage),
+                'notes' => $notes,
                 'tenantCode' => $this->tenantCode(),
                 'canInvoice' => $this->can('invoicing.create'),
+                'invoicesByQuotation' => $invoicesByQuotation,
             ]);
     }
 

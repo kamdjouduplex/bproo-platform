@@ -6,6 +6,7 @@ use InovCom\Invoicing\Models\Invoice;
 use InovCom\Kernel\TenantModel;
 use InovCom\Users\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
 
 class InvoicePayment extends TenantModel
 {
@@ -18,6 +19,8 @@ class InvoicePayment extends TenantModel
         'reference',
         'invoice_id',
         'amount',
+        'withholding_total',
+        'settled_amount',
         'status',
         'amount_paid_before',
         'balance_after',
@@ -33,6 +36,8 @@ class InvoicePayment extends TenantModel
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'withholding_total' => 'decimal:2',
+        'settled_amount' => 'decimal:2',
         'amount_paid_before' => 'decimal:2',
         'balance_after' => 'decimal:2',
         'payment_date' => 'date',
@@ -52,6 +57,48 @@ class InvoicePayment extends TenantModel
     public function canceller()
     {
         return $this->belongsTo(User::class, 'cancelled_by');
+    }
+
+    public function withholdings()
+    {
+        return $this->hasMany(InvoicePaymentWithholding::class);
+    }
+
+    private static ?bool $withholdingsTableExists = null;
+
+    public static function hasWithholdingsTable(): bool
+    {
+        if (self::$withholdingsTableExists === null) {
+            self::$withholdingsTableExists = Schema::connection('tenant')->hasTable('invoice_payment_withholdings');
+        }
+
+        return self::$withholdingsTableExists;
+    }
+
+    public static function rememberWithholdingsTable(?bool $exists): void
+    {
+        self::$withholdingsTableExists = $exists;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function optionalWithholdingsRelation(): array
+    {
+        return self::hasWithholdingsTable() ? ['withholdings'] : [];
+    }
+
+    public function getWithholdingsAttribute()
+    {
+        if (!self::hasWithholdingsTable()) {
+            return $this->relations['withholdings'] = $this->newCollection();
+        }
+
+        if ($this->relationLoaded('withholdings')) {
+            return $this->relations['withholdings'];
+        }
+
+        return $this->getRelationshipFromMethod('withholdings');
     }
 
     public function scopeActive(Builder $query): Builder
@@ -74,12 +121,26 @@ class InvoicePayment extends TenantModel
 
     public function isReceipt(): bool
     {
-        return (float) $this->amount > 0 && $this->isActive();
+        return $this->settledAmount() > 0 && $this->isActive();
+    }
+
+    public function settledAmount(): float
+    {
+        if ($this->settled_amount !== null) {
+            return round((float) $this->settled_amount, 2);
+        }
+
+        return round((float) $this->amount + (float) ($this->withholding_total ?? 0), 2);
+    }
+
+    public function withholdingTotal(): float
+    {
+        return round((float) ($this->withholding_total ?? 0), 2);
     }
 
     public function amountPaidAfter(): float
     {
-        return round((float) ($this->amount_paid_before ?? 0) + (float) $this->amount, 2);
+        return round((float) ($this->amount_paid_before ?? 0) + $this->settledAmount(), 2);
     }
 
     public static function methodLabel(string $method): string

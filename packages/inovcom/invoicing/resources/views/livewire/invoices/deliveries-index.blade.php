@@ -63,7 +63,12 @@
                                 @endphp
                                 <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoicing.deliveries.print', ['deliveryNote' => $note->id]) }}?{{ http_build_query($printQuery) }}">Imprimer</a>
                                 @if ($canInvoice && $note->isConfirmed() && $note->quotation_id && !$note->invoice_id)
-                                    <a class="btn btn-primary btn-sm" href="{{ route('tenant.invoicing.create', ['tenant' => $tenantCode, 'delivery_note' => $note->id]) }}">Créer facture</a>
+                                    @php $quoteInvoice = ($invoicesByQuotation ?? collect())->get($note->quotation_id); @endphp
+                                    @if ($quoteInvoice)
+                                        <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoicing.edit', [$quoteInvoice->id, 'tenant' => $tenantCode]) }}">Voir facture</a>
+                                    @else
+                                        <a class="btn btn-primary btn-sm" href="{{ route('tenant.invoicing.create', ['tenant' => $tenantCode, 'delivery_note' => $note->id]) }}">Facturer la commande</a>
+                                    @endif
                                 @endif
                             </td>
                         </tr>

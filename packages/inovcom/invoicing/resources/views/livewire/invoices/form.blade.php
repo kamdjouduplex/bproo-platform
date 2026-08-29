@@ -4,45 +4,133 @@
     @if (session()->has('error'))<div class="alert alert-error" style="margin-bottom: 16px;">{{ session('error') }}</div>@endif
 
     @if ($invoice)
-        <div style="margin-bottom: 16px;">
-            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom: 12px;">
-                <span class="badge badge-info">{{ \InovCom\Invoicing\Models\Invoice::declarationLabel($invoice->declaration_type) }}</span>
-                <span class="badge badge-info">{{ \InovCom\Invoicing\Models\Invoice::statusLabel($invoice->status) }}</span>
-                @if ($invoice->quotation)
-                    <span class="badge badge-secondary">Devis {{ $invoice->quotation->number }}</span>
-                @endif
-            </div>
-            <div class="page-actions" style="flex-wrap:wrap; gap:8px;">
-                <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoicing.index', ['tenant' => $tenantCode]) }}">← Liste</a>
-                @if (!in_array($invoice->status, ['draft', 'cancelled']))
-                    @if ($canPay)
-                        <a class="btn btn-primary btn-sm" href="{{ route('tenant.invoice_payments.pay', [$invoice->id, 'tenant' => $tenantCode]) }}">Encaissement</a>
-                    @elseif (in_array($invoice->status, ['issued','partial','paid']) && ($hasPaymentHistory ?? false))
-                        <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoice_payments.pay', [$invoice->id, 'tenant' => $tenantCode]) }}">Historique encaissements</a>
+        @php
+            $deliveryProgress = $invoiceDeliveryProgress ?? ['status' => 'n/a', 'ordered' => 0, 'delivered' => 0, 'remaining' => 0];
+            $statusSummary = $invoiceStatusSummary ?? ['facts' => [], 'next' => null];
+        @endphp
+        <div class="invoice-workspace">
+            <div class="invoice-workspace__head">
+                <div>
+                    <a class="invoice-workspace__back" href="{{ route('tenant.invoicing.index', ['tenant' => $tenantCode]) }}">← Factures</a>
+                    <h2 class="invoice-workspace__title">
+                        {{ $invoice->invoice_number }}
+                        @if (($deliveryProgress['status'] ?? '') === 'partial')
+                            <span class="badge badge-warning" style="vertical-align:middle;margin-left:8px;font-size:12px;">Livraison partielle</span>
+                        @elseif (($deliveryProgress['status'] ?? '') === 'delivered')
+                            <span class="badge badge-success" style="vertical-align:middle;margin-left:8px;font-size:12px;">Livré</span>
+                        @endif
+                    </h2>
+                    <p class="invoice-workspace__client">
+                        {{ $invoice->client?->name ?? '—' }}
+                        · {{ \InovCom\Invoicing\Models\Invoice::declarationLabel($invoice->declaration_type) }}
+                        @if ($invoice->quotation)
+                            · Devis {{ $invoice->quotation->number }}
+                        @endif
+                    </p>
+                </div>
+                <div class="invoice-workspace__actions">
+                    @if ($canCreateDelivery)
+                        <a class="btn btn-primary btn-sm" href="{{ route('tenant.invoicing.deliveries.create', ['invoice' => $invoice->id, 'tenant' => $tenantCode]) }}">
+                            {{ ($deliveryProgress['status'] ?? '') === 'partial' ? 'Compléter la livraison' : 'Créer une livraison' }}
+                        </a>
                     @endif
-                    <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoicing.print', [$invoice->id, 'tenant' => $tenantCode]) }}">Imprimer</a>
+                    @if ($canPay)
+                        <a class="btn {{ $canCreateDelivery ? 'btn-secondary' : 'btn-primary' }} btn-sm" href="{{ route('tenant.invoice_payments.pay', [$invoice->id, 'tenant' => $tenantCode]) }}">Encaisser facture</a>
+                    @elseif (in_array($invoice->status, ['issued','partial','paid']) && ($hasPaymentHistory ?? false))
+                        <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoice_payments.pay', [$invoice->id, 'tenant' => $tenantCode]) }}">Encaissements</a>
+                    @endif
+                    @if (!in_array($invoice->status, ['draft', 'cancelled']))
+                        <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoicing.print', [$invoice->id, 'tenant' => $tenantCode]) }}">Imprimer</a>
+                    @endif
+                    @if ($canUpdate && $invoice->isDraft())
+                        <button type="button" class="btn btn-secondary btn-sm" wire:click="deleteInvoice"
+                                wire:confirm="Supprimer définitivement ce brouillon ?">Supprimer</button>
+                    @endif
+                    @if ($canCancel && ! $invoice->isDraft() && ! in_array($invoice->status, ['paid', 'cancelled']) && (float) $invoice->amount_paid <= 0)
+                        <button type="button" class="btn btn-secondary btn-sm" wire:click="cancelInvoice"
+                                wire:confirm="Annuler cette facture ? Elle ne pourra plus être encaissée.">Annuler</button>
+                    @endif
+                </div>
+            </div>
+
+            @if (($statusSummary['facts'] ?? []) !== [])
+                <dl class="invoice-status-facts">
+                    @foreach ($statusSummary['facts'] as $fact)
+                        <div class="invoice-status-facts__item invoice-status-facts__item--{{ $fact['tone'] }}">
+                            <dt>{{ $fact['label'] }}</dt>
+                            <dd>{{ $fact['value'] }}</dd>
+                        </div>
+                    @endforeach
+                </dl>
+                @if (!empty($statusSummary['next']))
+                    <p class="invoice-status-facts__next">{{ $statusSummary['next'] }}</p>
                 @endif
-                @if ($canUpdate && $invoice->isDraft())
-                    <button type="button" class="btn btn-secondary btn-sm" wire:click="deleteInvoice"
-                            wire:confirm="Supprimer définitivement ce brouillon ?">Supprimer</button>
-                @endif
-                @if ($canCancel && ! $invoice->isDraft() && ! in_array($invoice->status, ['paid', 'cancelled']) && (float) $invoice->amount_paid <= 0)
-                    <button type="button" class="btn btn-secondary btn-sm" wire:click="cancelInvoice"
-                            wire:confirm="Annuler cette facture ? Elle ne pourra plus être encaissée.">Annuler</button>
+            @endif
+        </div>
+
+        @if ($invoice->status !== 'cancelled' && ($deliveryProgress['status'] ?? 'n/a') !== 'n/a')
+            <div class="card" style="margin-bottom:16px; padding:14px;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">
+                    <div>
+                        <strong>Livraison</strong>
+                        <p style="margin:4px 0 0; font-size:12px; color:#6b7280;">
+                            {{ fmt_num($deliveryProgress['delivered'] ?? 0) }}
+                            / {{ fmt_num($deliveryProgress['ordered'] ?? 0) }} livré(s)
+                            @if (($deliveryProgress['remaining'] ?? 0) > 0.0001)
+                                — reste {{ fmt_num($deliveryProgress['remaining']) }}
+                            @endif
+                        </p>
+                    </div>
+                    <span class="badge {{ ($deliveryProgress['status'] ?? '') === 'delivered' ? 'badge-success' : (($deliveryProgress['status'] ?? '') === 'partial' ? 'badge-warning' : 'badge-secondary') }}">
+                        {{ \InovCom\Invoicing\Services\DeliveryNotesService::deliveryStatusLabel($deliveryProgress['status'] ?? 'pending') }}
+                    </span>
+                </div>
+                <div style="background:#e5e7eb; border-radius:4px; height:8px; margin-top:10px;">
+                    @php
+                        $orderedQty = max(0.0001, (float) ($deliveryProgress['ordered'] ?? 0));
+                        $deliveredPct = min(100, max(0, ((float) ($deliveryProgress['delivered'] ?? 0) / $orderedQty) * 100));
+                    @endphp
+                    <div style="background:#16a34a; height:8px; border-radius:4px; width:{{ $deliveredPct }}%;"></div>
+                </div>
+                @if (($invoiceDeliveryNotes ?? collect())->isNotEmpty())
+                    <div class="table-scroll" style="margin-top:12px;">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>N° BL</th>
+                                    <th>Date</th>
+                                    <th>Statut</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach ($invoiceDeliveryNotes as $note)
+                                    <tr>
+                                        <td><strong>{{ $note->delivery_number }}</strong></td>
+                                        <td>{{ $note->delivery_date?->format('d/m/Y') ?? '—' }}</td>
+                                        <td>{{ \InovCom\Invoicing\Models\DeliveryNote::statusLabel($note->status) }}</td>
+                                        <td>
+                                            @if (\Illuminate\Support\Facades\Route::has('tenant.invoicing.deliveries.show'))
+                                                <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoicing.deliveries.show', ['deliveryNote' => $note->id, 'tenant' => $tenantCode]) }}">Voir</a>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @elseif (($deliveryProgress['status'] ?? '') === 'delivered')
+                    <p style="font-size:13px;color:#166534;margin-top:10px;">Livraison complète. Aucun nouveau BL n’est nécessaire.</p>
                 @endif
             </div>
-        </div>
-        @if ($invoice->delivery_note_number && !in_array($invoice->status, ['draft', 'cancelled']))
-            <p style="font-size:13px;color:#6b7280;margin-bottom:12px;">
-                Bon de livraison : <strong>{{ $invoice->delivery_note_number }}</strong>
-            </p>
         @endif
+
         @if (in_array($invoice->status, ['issued','partial','paid']))
             <div class="card" style="margin-bottom:16px; padding:14px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                     <strong>Encaissements</strong>
                     @if ($canPay)
-                        <a class="btn btn-primary btn-sm" href="{{ route('tenant.invoice_payments.pay', [$invoice->id, 'tenant' => $tenantCode]) }}">+ Encaissement</a>
+                        <a class="btn btn-primary btn-sm" href="{{ route('tenant.invoice_payments.pay', [$invoice->id, 'tenant' => $tenantCode]) }}">Encaisser facture</a>
                     @endif
                 </div>
                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;font-size:13px;">
@@ -122,6 +210,7 @@
                                     <th>Payé</th>
                                     <th>Reste</th>
                                     <th>Statut</th>
+                                    <th></th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -137,6 +226,14 @@
                                         <td style="color:#166534;">{{ fmt_money($sch->amount_paid) }}</td>
                                         <td style="font-weight:600;">{{ fmt_money($remaining) }}</td>
                                         <td>{{ \InovCom\Invoicing\Models\InvoiceSchedule::statusLabel($sch->status) }}</td>
+                                        <td>
+                                            @if ($canPay && $sch->isDue())
+                                                <a class="btn btn-primary btn-sm"
+                                                   href="{{ route('tenant.invoice_payments.pay', ['invoice' => $invoice->id, 'tenant' => $tenantCode, 'schedule' => $sch->id]) }}">
+                                                    Encaisser
+                                                </a>
+                                            @endif
+                                        </td>
                                     </tr>
                                 @endforeach
                             </tbody>
@@ -183,8 +280,22 @@
 
     @if (!$invoice && $deliveryNoteId)
         <div class="alert alert-info" style="margin-bottom:16px;">
-            Facture depuis le bon de livraison <strong>{{ $delivery_note_number }}</strong>
-            <button type="button" class="btn btn-secondary btn-sm" style="margin-left:8px;" wire:click="clearDeliveryNoteSource">Saisie manuelle</button>
+            <strong>Facture de la commande complète</strong>
+            (devis {{ $sourceDeliveryHint['quotation_number'] ?? $quotation_reference }}) — pas seulement ce BL.
+            @if (!empty($sourceDeliveryHint))
+                <p style="margin:8px 0 0;font-size:13px;">
+                    Commandé : <strong>{{ fmt_num($sourceDeliveryHint['ordered']) }}</strong>
+                    · déjà livré : <strong>{{ fmt_num($sourceDeliveryHint['delivered']) }}</strong>
+                    (dont {{ $sourceDeliveryHint['bl_number'] }} : {{ fmt_num($sourceDeliveryHint['bl_qty']) }})
+                    @if (($sourceDeliveryHint['remaining'] ?? 0) > 0.0001)
+                        · reliquat : <strong>{{ fmt_num($sourceDeliveryHint['remaining']) }}</strong>
+                    @endif
+                </p>
+                <p style="margin:6px 0 0;font-size:13px;">
+                    Une fois émise, la facture restera marquée <strong>livraison partielle</strong> tant que le reliquat n’est pas livré.
+                </p>
+            @endif
+            <button type="button" class="btn btn-secondary btn-sm" style="margin-top:8px;" wire:click="clearDeliveryNoteSource">Saisie manuelle</button>
         </div>
     @endif
 
@@ -362,7 +473,7 @@
             </div>
         </section>
 
-        @if ($canEdit)
+        @if ($canEdit && !$quotation_id)
         <section class="card" style="margin-bottom: 16px;">
             <h3 class="form-section-title">Ajouter des articles</h3>
             <input class="input" type="search" wire:model.live.debounce.200ms="itemSearch" placeholder="Désignation, référence ou code-barres… (min. 2 caractères)" autocomplete="off">
@@ -392,6 +503,9 @@
         <section class="card app-table-card" style="margin-bottom: 16px;">
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:12px;">
                 <h3 class="form-section-title" style="border:none; padding:0; margin:0;">Lignes de facture</h3>
+                @if ($quotation_id)
+                    <p class="field-hint" style="margin:0;">Quantités de la commande (devis) — elles ne suivent pas le reliquat du BL.</p>
+                @endif
                 <div class="lines-discount-mode">
                     <span class="lines-discount-mode__label">Remise ligne</span>
                     <div class="lines-discount-mode__toggle" role="group" aria-label="Unité de remise par ligne">
@@ -421,10 +535,10 @@
                             <th>Remise unit.</th>
                             <th title="Saisissez le prix de vente souhaité — la remise se calcule">P.U. net</th>
                             <th>Total</th>
-                            @if ($canEdit)<th></th>@endif
+                            @if ($canEdit && !$quotation_id)<th></th>@endif
                         </tr>
                     </thead>
-                    @php $lineColspan = 7 + ($canEdit ? 1 : 0); @endphp
+                    @php $lineColspan = 7 + ($canEdit && !$quotation_id ? 1 : 0); @endphp
                     <tbody>
                         @forelse ($cart as $index => $row)
                         @php
@@ -443,7 +557,7 @@
                             <td>
                                 <x-item-label :reference="$row['item_sku'] ?? null" :name="$row['item_name'] ?? null" />
                             </td>
-                            <td><input class="input input-sm" type="number" step="0.001" wire:model.live="cart.{{ $index }}.quantity" @disabled(!$canEdit) style="width:90px;"></td>
+                            <td><input class="input input-sm" type="number" step="0.001" wire:model.live="cart.{{ $index }}.quantity" @disabled(!$canEdit || $quotation_id) style="width:90px;"></td>
                             <td><input class="input input-sm" type="number" step="0.01" wire:model.live="cart.{{ $index }}.unit_price" @disabled(!$canEdit) style="width:110px;" placeholder=""></td>
                             <td>
                                 <div class="quote-line-discount">
@@ -476,7 +590,7 @@
                                 >
                             </td>
                             <td>{{ fmt_money((float)($row['line_total'] ?? 0)) }}</td>
-                            @if ($canEdit)
+                            @if ($canEdit && !$quotation_id)
                             <td><button type="button" class="btn btn-secondary btn-sm" wire:click="removeFromCart({{ $index }})" title="Retirer">×</button></td>
                             @endif
                         </tr>

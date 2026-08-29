@@ -16,6 +16,7 @@ class Quotation extends TenantModel
         'quote_date',
         'valid_until',
         'status',
+        'fulfillment_status',
         'subtotal',
         'discount_amount',
         'discount_percent',
@@ -103,6 +104,43 @@ class Quotation extends TenantModel
     public function canCreateInvoice(): bool
     {
         return $this->isAccepted();
+    }
+
+    public function isPartiallyDelivered(): bool
+    {
+        return $this->isAccepted() && ($this->fulfillment_status ?? 'none') === 'partial';
+    }
+
+    public function isFullyDelivered(): bool
+    {
+        return $this->isAccepted() && ($this->fulfillment_status ?? 'none') === 'delivered';
+    }
+
+    public function commercialStatusLabel(): string
+    {
+        if ($this->status === 'rejected') {
+            return 'Annulée';
+        }
+
+        if (!$this->isAccepted()) {
+            return self::statusLabel($this->status);
+        }
+
+        return match ($this->fulfillment_status ?? 'none') {
+            'partial' => 'Partiellement livrée',
+            'delivered' => 'Entièrement livrée',
+            default => 'Confirmée',
+        };
+    }
+
+    public static function fulfillmentLabel(?string $status): string
+    {
+        return match ($status) {
+            'pending' => 'À livrer',
+            'partial' => 'Partiellement livrée',
+            'delivered' => 'Entièrement livrée',
+            default => '—',
+        };
     }
 
     public static function statusLabel(string $status): string

@@ -13,6 +13,7 @@ class InvoicePaymentsModule implements ModuleLifecycle
             ['key' => 'invoice_payments.view', 'name' => 'Voir les paiements factures', 'description' => 'Liste des paiements et statuts factures'],
             ['key' => 'invoice_payments.receive', 'name' => 'Encaisser sur factures', 'description' => 'Enregistrer des paiements sur les factures émises'],
             ['key' => 'invoice_payments.cancel', 'name' => 'Annuler un encaissement', 'description' => 'Annuler un encaissement erroné (traçabilité conservée)'],
+            ['key' => 'invoice_payments.manage_withholdings', 'name' => 'Configurer les retenues fiscales', 'description' => 'Gérer les types de retenues applicables à l\'encaissement'],
         ];
     }
 
@@ -24,6 +25,8 @@ class InvoicePaymentsModule implements ModuleLifecycle
                 ['name' => $p['name'], 'description' => $p['description'] ?? null]
             );
         }
+
+        \InovCom\InvoicePayments\Support\WithholdingSchema::ensure();
     }
 
     public function uninstall(object $tenant): void

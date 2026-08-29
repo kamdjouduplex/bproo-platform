@@ -9,11 +9,31 @@
 
         <h2 class="card-title">{{ $deliveryNote->delivery_number }}</h2>
 
+        @if (($orderFulfillment['ordered'] ?? 0) > 0)
+            <div style="margin:0 0 16px;padding:12px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;font-size:13px;">
+                Commande (devis) :
+                <strong>{{ fmt_num($orderFulfillment['delivered']) }}</strong>
+                / {{ fmt_num($orderFulfillment['ordered']) }} livré(s)
+                @if (($orderFulfillment['remaining'] ?? 0) > 0.0001)
+                    — reste <strong>{{ fmt_num($orderFulfillment['remaining']) }}</strong>
+                @endif
+                @if (($orderFulfillment['status'] ?? '') === 'partial')
+                    <span class="badge badge-warning" style="margin-left:8px;">Livraison partielle</span>
+                @elseif (($orderFulfillment['status'] ?? '') === 'delivered')
+                    <span class="badge badge-success" style="margin-left:8px;">Livré</span>
+                @endif
+            </div>
+        @endif
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
             <div>
                 @if ($deliveryNote->invoice_id)
                     <p><strong>Facture :</strong>
                         <a href="{{ route('tenant.invoicing.edit', [$deliveryNote->invoice_id, 'tenant' => $tenantCode]) }}">{{ $deliveryNote->invoice?->invoice_number }}</a>
+                    </p>
+                @elseif ($linkedInvoice ?? null)
+                    <p><strong>Facture de la commande :</strong>
+                        <a href="{{ route('tenant.invoicing.edit', [$linkedInvoice->id, 'tenant' => $tenantCode]) }}">{{ $linkedInvoice->invoice_number }}</a>
                     </p>
                 @endif
                 @if ($deliveryNote->quotation_id)
@@ -183,9 +203,13 @@
             <a class="btn btn-primary" href="{{ $printUrl ?? route('tenant.invoicing.deliveries.print', ['deliveryNote' => $deliveryNote->id, 'tenant' => $tenantCode]) }}">Imprimer le BL</a>
             @if ($deliveryNote->invoice_id)
                 <a class="btn btn-secondary" href="{{ route('tenant.invoicing.edit', [$deliveryNote->invoice_id, 'tenant' => $tenantCode]) }}">Voir facture</a>
+            @elseif ($linkedInvoice ?? null)
+                <a class="btn btn-secondary" href="{{ route('tenant.invoicing.edit', [$linkedInvoice->id, 'tenant' => $tenantCode]) }}">Voir facture {{ $linkedInvoice->invoice_number }}</a>
             @endif
-            @if ($deliveryNote->isConfirmed() && $deliveryNote->quotation_id && !$deliveryNote->invoice_id && ($canInvoice ?? false))
-                <a class="btn btn-primary" href="{{ route('tenant.invoicing.create', ['tenant' => $tenantCode, 'delivery_note' => $deliveryNote->id]) }}">Créer la facture</a>
+            @if ($canCreateInvoiceFromNote ?? false)
+                <a class="btn btn-primary" href="{{ route('tenant.invoicing.create', ['tenant' => $tenantCode, 'delivery_note' => $deliveryNote->id]) }}">
+                    Facturer la commande (quantités du devis)
+                </a>
             @endif
             @if ($canEdit)
                 <a class="btn btn-secondary" href="{{ route('tenant.invoicing.deliveries.edit', ['deliveryNote' => $deliveryNote->id, 'tenant' => $tenantCode]) }}">Modifier brouillon</a>
@@ -201,5 +225,10 @@
                         wire:confirm="Annuler ce brouillon de livraison ?">Annuler le brouillon</button>
             @endif
         </div>
+        @if ($canCreateInvoiceFromNote ?? false)
+            <p style="margin-top:8px;font-size:13px;color:#6b7280;">
+                La facture reprend les quantités du devis, pas seulement ce BL. Elle restera marquée « livraison partielle » tant que le reliquat n’est pas livré.
+            </p>
+        @endif
     </section>
 </div>

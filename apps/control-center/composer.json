@@ -48,6 +48,10 @@
         },
         {
             "type": "path",
+            "url": "../../packages/inovcom/treasury"
+        },
+        {
+            "type": "path",
             "url": "../../packages/inovcom/losses"
         },
         {
@@ -166,6 +170,7 @@
         "bproo/crm": "@dev",
         "bproo/debts": "@dev",
         "bproo/expenses": "@dev",
+        "bproo/treasury": "@dev",
         "bproo/hr": "@dev",
         "bproo/inventory": "@dev",
         "bproo/inventory-count": "@dev",
@@ -223,6 +228,7 @@
             "InovCom\\Clients\\": "../../packages/inovcom/crm/src/",
             "InovCom\\Providers\\": "../../packages/inovcom/providers/src/",
             "InovCom\\Expenses\\": "../../packages/inovcom/expenses/src/",
+            "InovCom\\Treasury\\": "../../packages/inovcom/treasury/src/",
             "InovCom\\Inventory\\": "../../packages/inovcom/inventory-count/src/",
             "InovCom\\Debts\\": "../../packages/inovcom/debts/src/",
             "InovCom\\Losses\\": "../../packages/inovcom/losses/src/",

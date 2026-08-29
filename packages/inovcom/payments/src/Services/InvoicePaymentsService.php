@@ -4,11 +4,27 @@ namespace InovCom\InvoicePayments\Services;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use InovCom\InvoicePayments\Models\FiscalWithholdingType;
 use InovCom\InvoicePayments\Models\InvoicePayment;
+use InovCom\InvoicePayments\Models\InvoicePaymentWithholding;
+use InovCom\InvoicePayments\Support\WithholdingCalculator;
+use InovCom\InvoicePayments\Support\WithholdingSchema;
 use InovCom\Invoicing\Models\Invoice;
 
 class InvoicePaymentsService
 {
+    /**
+     * @param  list<array{
+     *     type_id?: int|null,
+     *     type_code?: string|null,
+     *     type_name?: string|null,
+     *     base_amount?: float|int|string|null,
+     *     rate?: float|int|string|null,
+     *     amount?: float|int|string|null,
+     *     account_code?: string|null,
+     *     comment?: string|null
+     * }>  $withholdings
+     */
     public function recordPayment(
         int $invoiceId,
         float $amount,
@@ -16,9 +32,12 @@ class InvoicePaymentsService
         string $paymentMethod = 'cash',
         ?string $notes = null,
         ?string $externalRef = null,
-        ?int $userId = null
+        ?int $userId = null,
+        array $withholdings = []
     ): InvoicePayment {
-        $amount = round($amount, 2);
+        $amount = WithholdingCalculator::roundMoney(max(0, $amount));
+        WithholdingSchema::ensure();
+        $normalizedWithholdings = $this->normalizeWithholdings($withholdings);
 
         return DB::connection('tenant')->transaction(function () use (
             $invoiceId,
@@ -27,17 +46,25 @@ class InvoicePaymentsService
             $paymentMethod,
             $notes,
             $externalRef,
-            $userId
+            $userId,
+            $normalizedWithholdings
         ) {
             $invoice = Invoice::lockForUpdate()->findOrFail($invoiceId);
 
-            $this->assertCanReceivePayment($invoice, $amount);
+            $summary = WithholdingCalculator::summarize(
+                (float) $invoice->total,
+                (float) $invoice->amount_paid,
+                $amount,
+                $normalizedWithholdings
+            );
+
+            $this->assertCanReceivePayment($invoice, $summary['settled'], $summary['cash_received'], $summary['withholding_total']);
 
             $paidBefore = round((float) $invoice->amount_paid, 2);
-            $total = round((float) $invoice->total, 2);
-            $balanceAfter = round($total - $paidBefore - $amount, 2);
+            $balanceAfter = WithholdingCalculator::roundMoney($summary['remaining']);
+            $hasWithholdingColumns = Schema::connection('tenant')->hasColumn('invoice_payments', 'settled_amount');
 
-            $payment = InvoicePayment::create([
+            $payload = [
                 'reference' => $this->generateReceiptReference(),
                 'invoice_id' => $invoiceId,
                 'amount' => $amount,
@@ -49,7 +76,16 @@ class InvoicePaymentsService
                 'external_reference' => $externalRef,
                 'notes' => $notes,
                 'created_by' => $userId ?? auth('tenant')->id(),
-            ]);
+            ];
+
+            if ($hasWithholdingColumns) {
+                $payload['withholding_total'] = $summary['withholding_total'];
+                $payload['settled_amount'] = $summary['settled'];
+            }
+
+            $payment = InvoicePayment::create($payload);
+
+            $this->persistWithholdings($payment, $normalizedWithholdings);
 
             $this->syncInvoiceFromPayments($invoice);
 
@@ -57,7 +93,7 @@ class InvoicePaymentsService
                 ->reallocateFromInvoicePaid($invoice->fresh());
 
             // Auto-capture caisse : seuls les encaissements espèces alimentent le tiroir.
-            if ($paymentMethod === 'cash') {
+            if ($paymentMethod === 'cash' && $amount > 0.01) {
                 $invoiceLabel = $invoice->number ?? $invoice->invoice_number ?? ('#' . $invoice->id);
                 \App\Support\CashLedger::recordIn(
                     \App\Support\CashLedger::INVOICE_PAYMENT_CASH_IN,
@@ -72,7 +108,7 @@ class InvoicePaymentsService
                 );
             }
 
-            return $payment->fresh(['invoice', 'creator']);
+            return $payment->fresh(array_merge(['invoice', 'creator'], InvoicePayment::optionalWithholdingsRelation()));
         });
     }
 
@@ -90,7 +126,7 @@ class InvoicePaymentsService
                 throw new \RuntimeException('Ce paiement est déjà annulé.');
             }
 
-            if ((float) $payment->amount <= 0) {
+            if ($payment->settledAmount() <= 0) {
                 throw new \RuntimeException('Seuls les encaissements positifs peuvent être annulés.');
             }
 
@@ -125,13 +161,17 @@ class InvoicePaymentsService
             return $invoice;
         }
 
-        $amountPaid = (float) InvoicePayment::query()
+        $payments = InvoicePayment::query()
             ->where('invoice_id', $invoice->id)
             ->active()
-            ->sum('amount');
+            ->get();
 
-        $invoice->amount_paid = round($amountPaid, 2);
-        $invoice->balance = round((float) $invoice->total - $amountPaid, 2);
+        $amountPaid = WithholdingCalculator::roundMoney(
+            (float) $payments->sum(fn (InvoicePayment $payment) => $payment->settledAmount())
+        );
+
+        $invoice->amount_paid = $amountPaid;
+        $invoice->balance = WithholdingCalculator::roundMoney((float) $invoice->total - $amountPaid);
         $invoice->updatePaymentStatus();
 
         return $invoice;
@@ -142,8 +182,12 @@ class InvoicePaymentsService
         return (float) Invoice::whereIn('status', ['issued', 'partial'])->sum('balance');
     }
 
-    private function assertCanReceivePayment(Invoice $invoice, float $amount): void
-    {
+    private function assertCanReceivePayment(
+        Invoice $invoice,
+        float $settledAmount,
+        float $cashReceived = 0.0,
+        float $withholdingTotal = 0.0
+    ): void {
         if ($invoice->isCancellationDocument()) {
             throw new \RuntimeException('Une facture d\'annulation ne reçoit pas d\'encaissement.');
         }
@@ -160,15 +204,96 @@ class InvoicePaymentsService
             throw new \RuntimeException('Cette facture n\'accepte pas d\'encaissement.');
         }
 
-        if ($amount <= 0) {
-            throw new \InvalidArgumentException('Le montant doit être strictement positif.');
+        if ($settledAmount <= 0) {
+            throw new \InvalidArgumentException('Le montant encaissé ou le total des retenues doit être strictement positif.');
         }
 
-        if ($amount > (float) $invoice->balance + 0.01) {
+        if ($cashReceived < -0.01 || $withholdingTotal < -0.01) {
+            throw new \InvalidArgumentException('Les montants d\'encaissement et de retenue ne peuvent pas être négatifs.');
+        }
+
+        if ($settledAmount > (float) $invoice->balance + 0.01) {
             throw new \RuntimeException(
-                'Le montant (' . fmt_money($amount) . ' FCFA) dépasse le solde restant ('
+                'Montant encaissé + retenues (' . fmt_money($settledAmount) . ' FCFA) dépasse le solde restant ('
                 . fmt_money($invoice->balance) . ' FCFA).'
             );
+        }
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $withholdings
+     * @return list<array{
+     *     type_id: int|null,
+     *     type_code: string|null,
+     *     type_name: string,
+     *     base_amount: float,
+     *     rate: float,
+     *     amount: float,
+     *     account_code: string|null,
+     *     comment: string|null
+     * }>
+     */
+    private function normalizeWithholdings(array $withholdings): array
+    {
+        $normalized = [];
+
+        foreach ($withholdings as $row) {
+            $amount = WithholdingCalculator::roundMoney((float) ($row['amount'] ?? 0));
+            if ($amount <= 0) {
+                continue;
+            }
+
+            $typeId = isset($row['type_id']) && $row['type_id'] ? (int) $row['type_id'] : null;
+            $type = null;
+            if ($typeId && Schema::connection('tenant')->hasTable('fiscal_withholding_types')) {
+                $type = FiscalWithholdingType::query()->find($typeId);
+            }
+
+            $typeName = trim((string) ($row['type_name'] ?? $type?->name ?? ''));
+            if ($typeName === '') {
+                throw new \InvalidArgumentException('Chaque retenue doit avoir un type identifiable.');
+            }
+
+            $normalized[] = [
+                'type_id' => $type?->id,
+                'type_code' => $type?->code ?? (isset($row['type_code']) ? (string) $row['type_code'] : null),
+                'type_name' => $typeName,
+                'base_amount' => WithholdingCalculator::roundMoney((float) ($row['base_amount'] ?? 0)),
+                'rate' => round((float) ($row['rate'] ?? 0), 4),
+                'amount' => $amount,
+                'account_code' => isset($row['account_code']) && trim((string) $row['account_code']) !== ''
+                    ? trim((string) $row['account_code'])
+                    : ($type?->default_account),
+                'comment' => isset($row['comment']) && trim((string) $row['comment']) !== ''
+                    ? trim((string) $row['comment'])
+                    : null,
+            ];
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $withholdings
+     */
+    private function persistWithholdings(InvoicePayment $payment, array $withholdings): void
+    {
+        if ($withholdings === [] || !Schema::connection('tenant')->hasTable('invoice_payment_withholdings')) {
+            return;
+        }
+
+        foreach ($withholdings as $row) {
+            InvoicePaymentWithholding::create([
+                'invoice_payment_id' => $payment->id,
+                'withholding_type_id' => $row['type_id'],
+                'type_code' => $row['type_code'],
+                'type_name' => $row['type_name'],
+                'base_amount' => $row['base_amount'],
+                'rate' => $row['rate'],
+                'amount' => $row['amount'],
+                'account_code' => $row['account_code'],
+                'comment' => $row['comment'],
+            ]);
         }
     }
 

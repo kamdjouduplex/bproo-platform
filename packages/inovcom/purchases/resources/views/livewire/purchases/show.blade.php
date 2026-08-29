@@ -63,7 +63,15 @@
             </div>
             <div>
                 <p><strong>Fournisseur :</strong> {{ $purchase->provider?->name ?? '—' }}</p>
-                <p><strong>Total :</strong> {{ fmt_money($purchase->total) }} FCFA</p>
+                <p><strong>Total HT :</strong> {{ fmt_money($purchase->total_ht ?? $purchase->subtotal) }} FCFA</p>
+                @if ($purchase->has_vat)
+                    <p><strong>TVA {{ fmt_num((float) $purchase->vat_rate, 2) }} % :</strong> {{ fmt_money($purchase->vat_amount) }} FCFA
+                        ({{ $purchase->price_mode === 'ttc' ? 'prix saisis TTC' : 'prix saisis HT' }},
+                        {{ $purchase->vat_deductible ? 'déductible' : 'non déductible' }})</p>
+                    <p><strong>Total TTC :</strong> {{ fmt_money($purchase->total_ttc ?? $purchase->total) }} FCFA</p>
+                @else
+                    <p><strong>Total :</strong> {{ fmt_money($purchase->total) }} FCFA</p>
+                @endif
                 <p><strong>Réception :</strong> {{ fmt_num($purchase->reception_percent) }} %</p>
             </div>
             <div>
@@ -95,8 +103,10 @@
                         <th>Active</th>
                         <th>Reçue</th>
                         <th>Reste</th>
-                        <th>Coût achat</th>
-                        <th>Total ligne</th>
+                        <th>Coût stock</th>
+                        <th>HT</th>
+                        <th>TVA</th>
+                        <th>TTC</th>
                         <th>Dernier coût d'achat</th>
                     </tr>
                 </thead>
@@ -113,7 +123,9 @@
                             <td>{{ fmt_num($line->received_quantity) }}</td>
                             <td><strong>{{ fmt_num($line->remaining_quantity) }}</strong></td>
                             <td>{{ fmt_money($line->unit_price) }}</td>
-                            <td>{{ fmt_money($line->line_total) }}</td>
+                            <td>{{ fmt_money($line->unit_price_ht ?? $line->unit_price) }}</td>
+                            <td>{{ fmt_money($line->vat_amount ?? 0) }}</td>
+                            <td>{{ fmt_money($line->line_total_ttc ?? $line->line_total) }}</td>
                             <td>
                                 @if ($latest)
                                     <strong style="color: var(--color-primary, #2563eb);">{{ fmt_money($latest->unit_price) }}</strong>

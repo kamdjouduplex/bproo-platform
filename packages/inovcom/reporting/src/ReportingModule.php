@@ -10,7 +10,7 @@ class ReportingModule implements ModuleLifecycle
     public static function defaultPermissions(): array
     {
         return [
-            ['key' => 'reporting.view', 'name' => 'Voir les rapports', 'description' => 'Accès aux rapports et analyses'],
+            ['key' => 'reporting.view', 'name' => 'Voir les rapports', 'description' => 'Accès aux rapports, filtres et exports'],
             ['key' => 'reporting.export', 'name' => 'Exporter les rapports', 'description' => 'Exporter les données en PDF/Excel'],
         ];
     }

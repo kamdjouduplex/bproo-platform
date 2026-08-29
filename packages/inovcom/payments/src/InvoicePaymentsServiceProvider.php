@@ -7,6 +7,7 @@ use Illuminate\Support\ServiceProvider;
 use InovCom\InvoicePayments\Http\Controllers\InvoicePaymentPrintController;
 use InovCom\InvoicePayments\Http\Livewire\InvoicePaymentForm;
 use InovCom\InvoicePayments\Http\Livewire\InvoicePaymentsIndex;
+use InovCom\InvoicePayments\Http\Livewire\WithholdingTypesIndex;
 use InovCom\InvoicePayments\Models\InvoicePayment;
 use InovCom\Invoicing\Models\Invoice;
 use InovCom\Kernel\Traits\LazyModuleBoot;
@@ -37,6 +38,7 @@ class InvoicePaymentsServiceProvider extends ServiceProvider
 
         Livewire::component('inovcom-invoice-payments.index', InvoicePaymentsIndex::class);
         Livewire::component('inovcom-invoice-payments.payment-form', InvoicePaymentForm::class);
+        Livewire::component('inovcom-invoice-payments.withholding-types', WithholdingTypesIndex::class);
 
         Route::bind('invoice', fn ($value) => Invoice::on('tenant')->findOrFail($value));
         Route::bind('invoicePayment', fn ($value) => InvoicePayment::on('tenant')->findOrFail($value));
@@ -52,6 +54,9 @@ class InvoicePaymentsServiceProvider extends ServiceProvider
                 Route::get('/invoice-payments', InvoicePaymentsIndex::class)
                     ->middleware(['module:invoice_payments'])
                     ->name('tenant.invoice_payments.index');
+                Route::get('/invoice-payments/withholding-types', WithholdingTypesIndex::class)
+                    ->middleware(['module:invoice_payments'])
+                    ->name('tenant.invoice_payments.withholding_types');
                 Route::get('/invoice-payments/{invoice}/pay', InvoicePaymentForm::class)
                     ->middleware(['module:invoice_payments'])
                     ->name('tenant.invoice_payments.pay');

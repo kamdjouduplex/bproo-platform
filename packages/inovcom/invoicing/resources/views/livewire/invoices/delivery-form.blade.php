@@ -8,6 +8,11 @@
         <p style="color:#6b7280;font-size:14px;margin:0 0 16px;">
             {{ $sourceLabel }} <strong>{{ $sourceNumber }}</strong> — {{ $clientName }}
         </p>
+        @if (($sourceLabel ?? '') === 'Facture')
+            <p class="field-hint" style="margin:-8px 0 16px;">
+                Saisissez uniquement le reliquat à livrer. La facture reste la commande complète ; elle passera à « Livré » quand plus rien ne restera.
+            </p>
+        @endif
 
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
             <div class="field">

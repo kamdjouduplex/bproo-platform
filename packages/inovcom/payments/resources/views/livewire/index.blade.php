@@ -10,13 +10,16 @@
     <section class="card app-table-card" style="margin-bottom: 24px;">
         <div class="table-toolbar">
             <div class="table-title">Factures — statut paiement</div>
-            <div style="display:flex; gap:8px;">
+            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                 <input class="input input-sm" wire:model.live.debounce.300ms="search" placeholder="N° ou client" aria-label="Rechercher facture ou client">
                 <select class="input input-sm" wire:model.live="invoiceStatusFilter" aria-label="Filtrer par statut de paiement">
                     <option value="unpaid">Impayées / partielles</option>
                     <option value="paid">Soldées</option>
                     <option value="all">Toutes émises</option>
                 </select>
+                @if ($canManageWithholdings ?? false)
+                    <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoice_payments.withholding_types', ['tenant' => $tenantCode]) }}">Types de retenues</a>
+                @endif
             </div>
         </div>
         <div class="table-scroll">

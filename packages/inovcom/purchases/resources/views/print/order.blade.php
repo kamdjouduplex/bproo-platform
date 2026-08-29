@@ -51,6 +51,7 @@
                         ])
                     @endif
 
+                    @php $hasVat = (bool) ($purchase->has_vat ?? false); @endphp
                     <table class="lines-table">
                         <thead>
                             <tr>
@@ -58,22 +59,24 @@
                                 <th style="width:38%">Référence / Article</th>
                                 <th style="width:12%">Qté commandée</th>
                                 <th style="width:12%">Qté annulée</th>
-                                <th style="width:14%">Prix unitaire</th>
-                                <th style="width:18%">Total</th>
+                                <th style="width:14%">{{ $hasVat ? 'Prix HT' : 'Prix unitaire' }}</th>
+                                <th style="width:18%">{{ $hasVat ? 'Total HT' : 'Total' }}</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach ($pageLines as $i => $line)
                                 @php
                                     $lineNo = ($line->line_number ?? null) ?: (($lineOffset + $i + 1) * 10);
+                                    $unitHt = $line->unit_price_ht ?? $line->unit_price;
+                                    $lineHt = $line->line_total_ht ?? $line->line_total;
                                 @endphp
                                 <tr>
                                     <td class="qty">{{ $lineNo }}</td>
                                     <td class="left"><x-item-label :reference="$line->item?->sku" :name="$line->item_name" /></td>
                                     <td class="qty">{{ fmt_num($line->quantity) }}</td>
                                     <td class="qty">{{ fmt_num($line->cancelled_quantity) }}</td>
-                                    <td class="num">{{ fmt_money($line->unit_price) }}</td>
-                                    <td class="num">{{ fmt_money($line->line_total) }}</td>
+                                    <td class="num">{{ fmt_money($unitHt) }}</td>
+                                    <td class="num">{{ fmt_money($lineHt) }}</td>
                                 </tr>
                             @endforeach
                         </tbody>
@@ -82,10 +85,25 @@
                     @if ($isLastPage)
                         <div class="totals-wrap">
                             <table class="totals-table">
-                                <tr class="net-row">
-                                    <td class="label">TOTAL</td>
-                                    <td class="value">{{ fmt_money($purchase->total) }} FCFA</td>
-                                </tr>
+                                @if ($hasVat)
+                                    <tr>
+                                        <td class="label">MONTANT HT</td>
+                                        <td class="value">{{ fmt_money($purchase->total_ht ?? $purchase->subtotal) }} FCFA</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="label">TVA {{ fmt_num((float) ($purchase->vat_rate ?? 0), 2) }} %</td>
+                                        <td class="value">{{ fmt_money($purchase->vat_amount ?? 0) }} FCFA</td>
+                                    </tr>
+                                    <tr class="net-row">
+                                        <td class="label">TOTAL TTC</td>
+                                        <td class="value">{{ fmt_money($purchase->total_ttc ?? $purchase->total) }} FCFA</td>
+                                    </tr>
+                                @else
+                                    <tr class="net-row">
+                                        <td class="label">TOTAL</td>
+                                        <td class="value">{{ fmt_money($purchase->total) }} FCFA</td>
+                                    </tr>
+                                @endif
                             </table>
                         </div>
 

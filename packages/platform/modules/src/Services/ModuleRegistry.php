@@ -50,16 +50,29 @@ class ModuleRegistry
             return $module?->core ?? false;
         }
 
-        $cacheKey = $this->getCacheKey($moduleKey, $tenant->id);
-        $tags = $this->getCacheTags($tenant->id);
+        $modules = config('modules', []);
+        if (! empty($modules[$moduleKey]['core'] ?? false)) {
+            return true;
+        }
 
-        return $this->getCacheStore($tags)
-            ->remember($cacheKey, self::CACHE_DURATION, function () use ($moduleKey, $tenant) {
-                return $tenant->modules()
-                    ->where('modules.key', $moduleKey)
-                    ->where('tenant_modules.enabled', true)
-                    ->exists();
-            });
+        $cacheKey = $this->getCacheKey($moduleKey, $tenant->id);
+        $cached = Cache::get($cacheKey);
+        if ($cached === true) {
+            return true;
+        }
+
+        $enabled = $this->moduleEnabledInDb($tenant, $moduleKey);
+
+        // Never cache a negative result: Control Center and ERP do not share file cache,
+        // so a visit before activation would keep returning 403 for an hour.
+        if ($enabled) {
+            $this->getCacheStore($this->getCacheTags($tenant->id))
+                ->put($cacheKey, true, self::CACHE_DURATION);
+        } else {
+            Cache::forget($cacheKey);
+        }
+
+        return $enabled;
     }
 
     /**
@@ -78,13 +91,33 @@ class ModuleRegistry
 
     /**
      * Get enabled module keys for a tenant from DB (no cache). Used for sidebar so it always reflects current state.
+     * Always reads the landlord connection — never the tenant database.
      */
     public function getEnabledModulesFromDb(Tenant $tenant): array
     {
-        return $tenant->modules()
+        $central = $this->centralConnectionName($tenant);
+
+        return DB::connection($central)
+            ->table('tenant_modules')
+            ->join('modules', 'modules.id', '=', 'tenant_modules.module_id')
+            ->where('tenant_modules.tenant_id', $tenant->id)
             ->where('tenant_modules.enabled', true)
             ->pluck('modules.key')
-            ->toArray();
+            ->map(fn ($key) => (string) $key)
+            ->all();
+    }
+
+    private function moduleEnabledInDb(Tenant $tenant, string $moduleKey): bool
+    {
+        $central = $this->centralConnectionName($tenant);
+
+        return DB::connection($central)
+            ->table('tenant_modules')
+            ->join('modules', 'modules.id', '=', 'tenant_modules.module_id')
+            ->where('tenant_modules.tenant_id', $tenant->id)
+            ->where('tenant_modules.enabled', true)
+            ->where('modules.key', $moduleKey)
+            ->exists();
     }
 
     /**
@@ -209,45 +242,52 @@ class ModuleRegistry
 
     public function install(string $moduleKey, Tenant $tenant, ?int $performedBy = null): void
     {
-        // Always set tenant connection before any tenant DB operations (admin activation has no tenant context)
-        $this->ensureTenantConnection($tenant);
+        $central = $this->centralConnectionName($tenant);
+        $tenant->setConnection($central);
 
-        // Only one module per family per tenant (e.g. sales vs sales-restaurant)
-        $this->ensureNoFamilyConflict($moduleKey, $tenant);
+        try {
+            // Always set tenant connection before any tenant DB operations (admin activation has no tenant context)
+            $this->ensureTenantConnection($tenant);
 
-        // Check compatibility before installation
-        $versionService = app(ModuleVersionService::class);
-        if (!$versionService->checkCompatibility($moduleKey)) {
-            $module = Module::where('key', $moduleKey)->first();
-            $compatibility = $module?->compatibility ?? [];
-            throw new \Exception(
-                "Module '{$moduleKey}' is not compatible with current core version. " .
-                "Required: {$compatibility['min_core_version']} - {$compatibility['max_core_version']}"
-            );
+            // Only one module per family per tenant (e.g. sales vs sales-restaurant)
+            $this->ensureNoFamilyConflict($moduleKey, $tenant);
+
+            // Check compatibility before installation
+            $versionService = app(ModuleVersionService::class);
+            if (!$versionService->checkCompatibility($moduleKey)) {
+                $module = Module::on($central)->where('key', $moduleKey)->first();
+                $compatibility = $module?->compatibility ?? [];
+                throw new \Exception(
+                    "Module '{$moduleKey}' is not compatible with current core version. " .
+                    "Required: {$compatibility['min_core_version']} - {$compatibility['max_core_version']}"
+                );
+            }
+
+            $this->runModuleMigrations($moduleKey, $tenant);
+
+            $handler = $this->handlerFor($moduleKey);
+            if ($handler) {
+                $handler->install($tenant);
+            }
+
+            // Track version
+            $module = Module::on($central)->where('key', $moduleKey)->first();
+            if ($module && $module->version) {
+                $versionService->updateTenantModuleVersion($tenant, $moduleKey, $module->version);
+            }
+
+            ModuleEvent::on($central)->create([
+                'tenant_id' => $tenant->id,
+                'module_key' => $moduleKey,
+                'action' => 'install',
+                'performed_by' => $performedBy ?? Auth::guard('web')->id(),
+            ]);
+
+            // Clear cache after installation
+            $this->clearCache($tenant);
+        } finally {
+            $this->restoreCentralConnection($central, $tenant);
         }
-
-        $this->runModuleMigrations($moduleKey, $tenant);
-
-        $handler = $this->handlerFor($moduleKey);
-        if ($handler) {
-            $handler->install($tenant);
-        }
-
-        // Track version
-        $module = Module::where('key', $moduleKey)->first();
-        if ($module && $module->version) {
-            $versionService->updateTenantModuleVersion($tenant, $moduleKey, $module->version);
-        }
-
-        ModuleEvent::create([
-            'tenant_id' => $tenant->id,
-            'module_key' => $moduleKey,
-            'action' => 'install',
-            'performed_by' => $performedBy ?? Auth::guard('web')->id(),
-        ]);
-
-        // Clear cache after installation
-        $this->clearCache($tenant);
     }
 
     public function uninstall(string $moduleKey, Tenant $tenant, ?int $performedBy = null): void
@@ -316,15 +356,54 @@ class ModuleRegistry
             );
         }
 
-        $exit = Artisan::call('migrate', [
-            '--database' => 'tenant',
-            '--path' => 'database/migrations/tenant_modules',
-            '--force' => true,
-        ]);
+        $central = $this->centralConnectionName($tenant);
+        $exit = 1;
+        try {
+            $exit = Artisan::call('migrate', [
+                '--database' => 'tenant',
+                '--path' => 'database/migrations/tenant_modules',
+                '--force' => true,
+            ]);
+        } finally {
+            $this->restoreCentralConnection($central, $tenant);
+        }
         if ($exit !== 0) {
             throw new \RuntimeException(
                 "Migration failed for module [{$moduleKey}] (tag [{$tag}]): ".trim(Artisan::output())
             );
+        }
+    }
+
+    /**
+     * Landlord connection that holds tenants / modules. migrate --database=tenant
+     * temporarily switches the default connection and does not restore it if it throws.
+     */
+    private function centralConnectionName(Tenant $tenant): string
+    {
+        $name = $tenant->getConnectionName();
+        if (is_string($name) && $name !== '' && $name !== 'tenant') {
+            return $name;
+        }
+
+        $current = DB::getDefaultConnection();
+        if (is_string($current) && $current !== '' && $current !== 'tenant') {
+            return $current;
+        }
+
+        $snapshot = config('database.central');
+        if (is_string($snapshot) && $snapshot !== '' && $snapshot !== 'tenant') {
+            return $snapshot;
+        }
+
+        return 'pgsql';
+    }
+
+    private function restoreCentralConnection(string $central, ?Tenant $tenant = null): void
+    {
+        DB::setDefaultConnection($central);
+        config(['database.default' => $central]);
+        if ($tenant) {
+            $tenant->setConnection($central);
         }
     }
 }

@@ -12,6 +12,7 @@ use InovCom\Invoicing\Models\DeliveryNote;
 use InovCom\Invoicing\Models\Invoice;
 use InovCom\Quotations\Models\Quotation;
 use InovCom\Tickets\Models\Ticket;
+use InovCom\Treasury\Services\TreasuryForecastService;
 use InovCom\Users\Models\User;
 
 class PendingActionsService
@@ -69,6 +70,13 @@ class PendingActionsService
                 if ($unassigned['count'] > 0) {
                     $groups[] = $unassigned;
                 }
+            }
+        }
+
+        if ($this->moduleEnabled($tenant, 'treasury') && $this->userCan($user, 'treasury.view')) {
+            $group = $this->upcomingTreasury($tenantCode);
+            if ($group['count'] > 0) {
+                $groups[] = $group;
             }
         }
 
@@ -315,6 +323,43 @@ class PendingActionsService
             Ticket::STATUS_CLOSED => 'Fermé',
             default => $status,
         };
+    }
+
+    private function upcomingTreasury(string $tenantCode): array
+    {
+        if (!Schema::connection('tenant')->hasTable('treasury_commitments')) {
+            return $this->emptyGroup('treasury', 'Échéances de trésorerie');
+        }
+
+        try {
+            $items = app(TreasuryForecastService::class)->alertItems(now());
+        } catch (\Throwable $e) {
+            return $this->emptyGroup('treasury', 'Échéances de trésorerie');
+        }
+
+        $count = count($items);
+        $mapped = array_slice(array_map(function (array $row) use ($tenantCode) {
+            $days = (int) ($row['urgency']['days'] ?? 0);
+            $when = $days < 0
+                ? 'En retard de ' . abs($days) . ' j.'
+                : ($days === 0 ? 'Aujourd\'hui' : 'Dans ' . $days . ' j.');
+
+            return [
+                'id' => 'treasury:' . $row['key'],
+                'title' => $row['label'],
+                'subtitle' => $when . ' — ' . ($row['urgency']['label'] ?? ''),
+                'meta' => fmt_money((float) $row['amount']),
+                'url' => $this->route('tenant.treasury.index', ['tenant' => $tenantCode]),
+            ];
+        }, $items), 0, self::ITEM_LIMIT);
+
+        return [
+            'key' => 'treasury',
+            'label' => 'Échéances de trésorerie',
+            'count' => $count,
+            'list_url' => $this->route('tenant.treasury.index', ['tenant' => $tenantCode]),
+            'items' => $mapped,
+        ];
     }
 
     private function applyStoreScope(Builder $query, string $table): void

@@ -4,6 +4,7 @@ namespace InovCom\Purchases\Services;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use InovCom\Purchases\Models\PurchaseLine;
 use InovCom\Purchases\Models\PurchaseOrder;
 use InovCom\Purchases\Models\ReceiptLine;
@@ -44,9 +45,44 @@ class PurchasesService
     public function updateOrderTotals(int $orderId): void
     {
         $order = PurchaseOrder::findOrFail($orderId);
-        $order->subtotal = $order->lines()->sum('line_total');
-        $order->total = $order->subtotal;
+        $hasVatColumns = Schema::connection('tenant')->hasColumn('purchase_orders', 'total_ht');
+
+        if ($hasVatColumns) {
+            $totalHt = (float) $order->lines()->sum('line_total_ht');
+            $vatAmount = (float) $order->lines()->sum('vat_amount');
+            $totalTtc = (float) $order->lines()->sum('line_total_ttc');
+
+            if ($totalHt <= 0 && $totalTtc <= 0) {
+                $sum = (float) $order->lines()->sum('line_total');
+                $totalHt = $sum;
+                $totalTtc = $sum;
+            }
+
+            $order->total_ht = round($totalHt, 2);
+            $order->vat_amount = round($vatAmount, 2);
+            $order->total_ttc = round($totalTtc > 0 ? $totalTtc : $totalHt + $vatAmount, 2);
+            $order->subtotal = $order->total_ht;
+            $order->total = $order->total_ttc;
+        } else {
+            $order->subtotal = $order->lines()->sum('line_total');
+            $order->total = $order->subtotal;
+        }
+
         $order->save();
+    }
+
+    public static function stockCostForLine(PurchaseLine $line): float
+    {
+        if ($line->unit_price_ht !== null && Schema::connection('tenant')->hasColumn('purchase_orders', 'vat_deductible')) {
+            $order = $line->relationLoaded('purchaseOrder') ? $line->purchaseOrder : $line->purchaseOrder()->first();
+            $deductible = $order ? (bool) ($order->vat_deductible ?? true) : true;
+            $ht = (float) ($line->unit_price_ht ?? $line->unit_price);
+            $ttc = (float) ($line->unit_price_ttc ?? $line->unit_price);
+
+            return $deductible ? $ht : $ttc;
+        }
+
+        return (float) $line->unit_price;
     }
 
     public function confirmOrder(int $orderId): PurchaseOrder
@@ -230,7 +266,7 @@ class PurchasesService
 
             $this->priceHistory->record(
                 (int) $purchaseLine->item_id,
-                (float) $purchaseLine->unit_price,
+                self::stockCostForLine($purchaseLine),
                 $order->id,
                 $purchaseLine->id,
                 $order->provider_id,
