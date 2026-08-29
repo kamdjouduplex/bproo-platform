@@ -13,6 +13,9 @@ class Payment extends TenantModel
         'credit' => 'Crédit',
         'mobile_money' => 'Mobile Money',
         'card' => 'Carte',
+        'check' => 'Chèque',
+        'bank_transfer' => 'Virement',
+        'other' => 'Autre',
     ];
 
     protected $fillable = [

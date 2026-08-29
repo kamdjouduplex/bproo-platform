@@ -6,6 +6,7 @@ use InovCom\Clients\Models\Client;
 use InovCom\Debts\Models\Debt;
 use InovCom\Debts\Services\DebtsService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Component;
 
 class DebtForm extends Component
@@ -122,9 +123,14 @@ class DebtForm extends Component
 
     public function render()
     {
-        $currentDebt = $this->debtId
-            ? Debt::with(['client', 'creator', 'validator', 'payments.creator', 'schedules'])->find($this->debtId)
-            : null;
+        $currentDebt = null;
+        if ($this->debtId) {
+            $with = ['client', 'creator', 'validator', 'payments.creator', 'schedules'];
+            if (Schema::connection('tenant')->hasTable('sales')) {
+                $with[] = 'sale';
+            }
+            $currentDebt = Debt::with($with)->find($this->debtId);
+        }
 
         $totalPaid = $currentDebt
             ? max(0, (float) $currentDebt->total_amount - (float) $currentDebt->balance)

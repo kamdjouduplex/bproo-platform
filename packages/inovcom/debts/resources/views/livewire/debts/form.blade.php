@@ -39,6 +39,14 @@
                     <div style="font-size:12px; color:#6b7280; margin-bottom:6px;">Client</div>
                     <strong>{{ $currentDebt->client->name ?? '-' }}</strong>
                     <div style="font-size:12px; color:#6b7280;">{{ $currentDebt->client->code ?? '' }}</div>
+                    @if ($currentDebt->sale_id && $currentDebt->sale && \Illuminate\Support\Facades\Route::has('tenant.sales.show'))
+                        <div style="margin-top:6px;font-size:13px;">
+                            Origine :
+                            <a href="{{ route('tenant.sales.show', [$currentDebt->sale_id, 'tenant' => $tenantCode]) }}">{{ $currentDebt->sale->sale_number }}</a>
+                        </div>
+                    @elseif ($currentDebt->sale_id)
+                        <div style="margin-top:6px;font-size:13px;">Origine : vente #{{ $currentDebt->sale_id }}</div>
+                    @endif
                 </div>
                 <div>
                     <div style="font-size:12px; color:#6b7280; margin-bottom:6px;">Validation</div>

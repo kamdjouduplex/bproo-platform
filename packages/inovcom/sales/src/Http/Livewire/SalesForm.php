@@ -10,6 +10,7 @@ use InovCom\Items\Models\Item;
 use InovCom\Items\Services\ItemSetService;
 use InovCom\Kernel\Contracts\BatchesApi;
 use InovCom\Kernel\Contracts\ClientsApi;
+use InovCom\Kernel\Contracts\DebtsApi;
 use InovCom\Kernel\Contracts\ItemsApi;
 use InovCom\Kernel\Contracts\PrescriptionsApi;
 use InovCom\Sales\Models\Payment;
@@ -1624,16 +1625,14 @@ class SalesForm extends Component
                 }
             }
 
-            if ($method === 'credit' && $this->client_id && $this->usesCatalogPrices) {
-                $client = Client::on('tenant')->find($this->client_id);
-                if ($client) {
-                    $client->current_balance += $amount;
-                    $client->save();
-                }
-            }
         }
 
+        $linkedDebt = $this->syncCreditSaleToDebt($sale, $creditAmount, $userId);
+
         $successMsg = 'Vente enregistrée: ' . $saleNumber . ' (' . $curLabel . ')';
+        if ($linkedDebt) {
+            $successMsg .= ' — dette '.$linkedDebt['reference'].' créée.';
+        }
         if ($cashPosted > 0) {
             $successMsg .= ' — ' . fmt_money($cashPosted) . ' ' . $curLabel . ' ajoutés à la caisse.';
         }
@@ -1672,6 +1671,64 @@ class SalesForm extends Component
         return 'VTE-' . $year . '-' . str_pad((string) $nextNumber, 6, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * @return array{id: int, reference: string, balance: float, status: string}|null
+     */
+    private function syncCreditSaleToDebt(Sale $sale, float $creditAmount, ?int $userId): ?array
+    {
+        if ($creditAmount <= 0.01 || ! $sale->client_id || ! $this->usesCatalogPrices) {
+            return null;
+        }
+
+        if (app()->bound(DebtsApi::class)) {
+            $api = app(DebtsApi::class);
+            if ($api->isAvailable()) {
+                $recorded = $api->recordCreditSale(
+                    (int) $sale->client_id,
+                    $creditAmount,
+                    (int) $sale->id,
+                    (string) $sale->sale_number,
+                    $userId,
+                    $sale->sale_date?->format('Y-m-d')
+                );
+                if ($recorded) {
+                    return $recorded;
+                }
+            }
+        }
+
+        $client = Client::on('tenant')->find($sale->client_id);
+        if ($client) {
+            $client->current_balance = (float) $client->current_balance + $creditAmount;
+            $client->save();
+        }
+
+        return null;
+    }
+
+    /**
+     * @return array{id: int, reference: string, balance: float, status: string, total_amount: float}|null
+     */
+    private function findLinkedDebt(): ?array
+    {
+        if (! $this->saleId || ! app()->bound(DebtsApi::class)) {
+            return null;
+        }
+
+        $api = app(DebtsApi::class);
+        if (! $api->isAvailable()) {
+            return null;
+        }
+
+        $linked = $api->findBySaleId((int) $this->saleId);
+        if ($linked) {
+            $api->syncLinkedSales([(int) $this->saleId]);
+            $linked = $api->findBySaleId((int) $this->saleId);
+        }
+
+        return $linked;
+    }
+
     public function render()
     {
         $suspendedSales = collect([]);
@@ -1693,6 +1750,7 @@ class SalesForm extends Component
                 'rxRequiredNames' => $rxNames = $this->prescriptionRequiredItemNames(),
                 'cartNeedsPrescription' => $rxNames !== [],
                 'canQuickCreateClient' => $this->canQuickCreateClient(),
+                'linkedDebt' => $this->findLinkedDebt(),
             ]);
     }
 

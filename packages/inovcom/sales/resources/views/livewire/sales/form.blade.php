@@ -70,6 +70,15 @@
                 <div>
                     <p><strong>Date:</strong> {{ $sale->sale_date->format('d/m/Y H:i') }}</p>
                     <p><strong>Client:</strong> {{ $sale->client?->name ?? 'Client occasionnel' }}</p>
+                    @if (!empty($linkedDebt) && \Illuminate\Support\Facades\Route::has('tenant.debts.edit'))
+                        <p>
+                            <strong>Dette :</strong>
+                            <a href="{{ route('tenant.debts.edit', [$linkedDebt['id'], 'tenant' => $tenantCode]) }}">{{ $linkedDebt['reference'] }}</a>
+                            · solde {{ fmt_money($linkedDebt['balance']) }} {{ $saleCur }}
+                        </p>
+                    @elseif (!empty($linkedDebt))
+                        <p><strong>Dette :</strong> {{ $linkedDebt['reference'] }} · solde {{ fmt_money($linkedDebt['balance']) }} {{ $saleCur }}</p>
+                    @endif
                     @if ($sale->prescription_id && $sale->relationLoaded('prescription') && $sale->prescription)
                         <p><strong>Ordonnance:</strong> {{ $sale->prescription->number }}
                             <span style="color:#64748b;">({{ $sale->prescription->dispensationStatusLabel() }})</span>

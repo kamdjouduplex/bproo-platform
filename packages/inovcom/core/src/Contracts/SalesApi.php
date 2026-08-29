@@ -72,4 +72,17 @@ interface SalesApi
         ?int $clientId = null,
         int $limit = 100
     ): array;
+
+    /**
+     * Align POS credit with a linked debt after collection (or return).
+     * Does not post to caisse — the debt payment already does.
+     *
+     * @param  array<int, array{amount: float, method: string, reference?: string|null, user_id?: int|null}>  $collections
+     */
+    public function syncLinkedDebtCollections(
+        int $saleId,
+        float $outstandingCredit,
+        string $debtReference,
+        array $collections
+    ): bool;
 }

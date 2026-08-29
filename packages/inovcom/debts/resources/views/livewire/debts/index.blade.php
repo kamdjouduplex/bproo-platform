@@ -49,7 +49,7 @@
                     class="input input-sm client-filter-bar__search-input"
                     type="search"
                     wire:model.live.debounce.350ms="search"
-                    placeholder="Référence, client ou code…"
+                    placeholder="Référence, client, code ou n° vente…"
                     aria-label="Rechercher une dette"
                 >
             </div>
@@ -153,6 +153,7 @@
                     <tr>
                         <th>Référence</th>
                         <th>Client</th>
+                        <th>Origine</th>
                         <th>Date ouverture</th>
                         <th>Échéance</th>
                         <th>Montant total</th>
@@ -166,6 +167,15 @@
                         <tr wire:key="debt-{{ $debt->id }}">
                             <td><strong>{{ $debt->reference }}</strong></td>
                             <td>{{ $debt->client->name }} ({{ $debt->client->code }})</td>
+                            <td>
+                                @if ($debt->sale_id && $debt->sale && \Illuminate\Support\Facades\Route::has('tenant.sales.show'))
+                                    <a href="{{ route('tenant.sales.show', [$debt->sale_id, 'tenant' => $tenantCode]) }}">{{ $debt->sale->sale_number }}</a>
+                                @elseif ($debt->sale_id)
+                                    Vente #{{ $debt->sale_id }}
+                                @else
+                                    Manuelle
+                                @endif
+                            </td>
                             <td>{{ $debt->opened_at->format('d/m/Y') }}</td>
                             <td>{{ $debt->due_date ? $debt->due_date->format('d/m/Y') : '—' }}</td>
                             <td>{{ fmt_money($debt->total_amount) }} {{ currency_label() }}</td>
@@ -198,7 +208,7 @@
                         </tr>
                     @endforeach
                     @if ($debts->count() === 0)
-                        <tr><td colspan="8">Aucune dette pour ces filtres.</td></tr>
+                        <tr><td colspan="9">Aucune dette pour ces filtres.</td></tr>
                     @endif
                 </tbody>
             </table>

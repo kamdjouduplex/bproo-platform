@@ -10,6 +10,7 @@ use InovCom\Debts\Services\DebtsService;
 use InovCom\Clients\Models\Client;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use Livewire\Component;
 use Livewire\WithPagination;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -215,6 +216,7 @@ class DebtsIndex extends Component
             'Référence',
             'Client',
             'Code client',
+            'Origine',
             'Ouverture',
             'Échéance',
             'Montant',
@@ -237,7 +239,7 @@ class DebtsIndex extends Component
 
             $exported = 0;
             $this->baseQuery()
-                ->with(['client'])
+                ->with($this->eagerRelations())
                 ->orderBy('id')
                 ->chunkById(300, function ($chunk) use (&$exported, $escape) {
                     foreach ($chunk as $debt) {
@@ -250,6 +252,7 @@ class DebtsIndex extends Component
                         echo '<td>'.$escape($row['reference']).'</td>';
                         echo '<td>'.$escape($row['client_name']).'</td>';
                         echo '<td>'.$escape($row['client_code']).'</td>';
+                        echo '<td>'.$escape($row['origin']).'</td>';
                         echo '<td>'.$escape($row['opened_at']).'</td>';
                         echo '<td>'.$escape($row['due_date']).'</td>';
                         echo '<td>'.$escape(fmt_money($row['total_amount'])).'</td>';
@@ -282,7 +285,7 @@ class DebtsIndex extends Component
 
         try {
             $debts = $this->baseQuery()
-                ->with(['client'])
+                ->with($this->eagerRelations())
                 ->orderByDesc('opened_at')
                 ->orderByDesc('created_at')
                 ->limit(5000)
@@ -335,7 +338,7 @@ class DebtsIndex extends Component
     public function render()
     {
         $debts = $this->baseQuery()
-            ->with(['client', 'creator', 'validator'])
+            ->with($this->eagerRelations())
             ->orderByDesc('opened_at')
             ->orderByDesc('created_at')
             ->paginate($this->perPage);
@@ -392,6 +395,9 @@ class DebtsIndex extends Component
                     $q2->where('reference', 'like', $term)
                         ->orWhereHas('client', fn ($q3) => $q3->where('name', 'like', $term)
                             ->orWhere('code', 'like', $term));
+                    if (Schema::connection('tenant')->hasTable('sales')) {
+                        $q2->orWhereHas('sale', fn ($q3) => $q3->where('sale_number', 'like', $term));
+                    }
                 });
             })
             ->when($this->statusFilter !== 'all', fn ($q) => $q->where('status', $this->statusFilter))
@@ -431,6 +437,9 @@ class DebtsIndex extends Component
             'reference' => (string) $debt->reference,
             'client_name' => (string) ($debt->client?->name ?? '—'),
             'client_code' => (string) ($debt->client?->code ?? ''),
+            'origin' => $debt->sale?->sale_number
+                ? (string) $debt->sale->sale_number
+                : ($debt->sale_id ? 'Vente #'.$debt->sale_id : 'Manuelle'),
             'opened_at' => $debt->opened_at?->format('d/m/Y') ?? '—',
             'due_date' => $debt->due_date?->format('d/m/Y') ?? '—',
             'total_amount' => (float) $debt->total_amount,
@@ -438,6 +447,19 @@ class DebtsIndex extends Component
             'status' => (string) $debt->status,
             'status_label' => $statusLabel,
         ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function eagerRelations(): array
+    {
+        $with = ['client', 'creator', 'validator'];
+        if (Schema::connection('tenant')->hasTable('sales')) {
+            $with[] = 'sale';
+        }
+
+        return $with;
     }
 
     private function filterLabel(): string

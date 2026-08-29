@@ -6,6 +6,7 @@ use InovCom\Clients\Models\Client;
 use InovCom\Items\Models\Item;
 use InovCom\Items\Services\ItemSetService;
 use InovCom\Kernel\Contracts\BatchesApi;
+use InovCom\Kernel\Contracts\DebtsApi;
 use InovCom\Sales\Models\Payment;
 use InovCom\Sales\Models\Sale;
 use InovCom\Sales\Models\SaleLine;
@@ -361,10 +362,20 @@ class SaleReturnsService
             ]);
 
             if ($row['method'] === 'credit' && $sale->client_id) {
-                $client = Client::on('tenant')->find($sale->client_id);
-                if ($client) {
-                    $client->current_balance = max(0, (float) $client->current_balance - $row['amount']);
-                    $client->save();
+                $appliedToDebt = false;
+                if (app()->bound(DebtsApi::class)) {
+                    $api = app(DebtsApi::class);
+                    if ($api->isAvailable()) {
+                        $appliedToDebt = $api->applyCreditSaleReturn((int) $sale->id, (float) $row['amount']);
+                    }
+                }
+
+                if (! $appliedToDebt) {
+                    $client = Client::on('tenant')->find($sale->client_id);
+                    if ($client) {
+                        $client->current_balance = max(0, (float) $client->current_balance - $row['amount']);
+                        $client->save();
+                    }
                 }
             } else {
                 $tillRefund += $row['amount'];

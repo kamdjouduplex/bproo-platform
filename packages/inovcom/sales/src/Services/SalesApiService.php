@@ -7,6 +7,8 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use InovCom\Kernel\Contracts\SalesApi;
+use InovCom\Sales\Models\Payment;
+use InovCom\Sales\Models\Sale;
 
 class SalesApiService implements SalesApi
 {
@@ -424,6 +426,139 @@ class SalesApiService implements SalesApi
         ksort($existing);
 
         return $existing;
+    }
+
+    public function syncLinkedDebtCollections(
+        int $saleId,
+        float $outstandingCredit,
+        string $debtReference,
+        array $collections
+    ): bool {
+        if ($saleId <= 0
+            || ! Schema::connection('tenant')->hasTable('payments')
+            || ! Schema::connection('tenant')->hasTable('sales')) {
+            return false;
+        }
+
+        $sale = Sale::query()->find($saleId);
+        if (! $sale) {
+            return false;
+        }
+
+        $notePrefix = 'Encaissement dette '.$debtReference;
+        $existing = Payment::query()
+            ->where('sale_id', $saleId)
+            ->where('notes', 'like', $notePrefix.'%')
+            ->get();
+        $existingSum = round((float) $existing->sum('amount'), 2);
+        $collectionsSum = round(array_sum(array_map(
+            static fn (array $row) => (float) ($row['amount'] ?? 0),
+            $collections
+        )), 2);
+
+        if ($collectionsSum - $existingSum > 0.01) {
+            if ($existingSum < 0.01) {
+                foreach ($collections as $row) {
+                    $this->createDebtCollectionPayment($sale, $row, $notePrefix);
+                }
+            } else {
+                $last = $collections === [] ? null : $collections[array_key_last($collections)];
+                if (is_array($last)) {
+                    $last['amount'] = round($collectionsSum - $existingSum, 2);
+                    $this->createDebtCollectionPayment($sale, $last, $notePrefix);
+                }
+            }
+        }
+
+        $currentCredit = round((float) Payment::query()
+            ->where('sale_id', $saleId)
+            ->where('method', 'credit')
+            ->sum('amount'), 2);
+        $targetCredit = round(max(0, $outstandingCredit), 2);
+        $toReduce = round($currentCredit - $targetCredit, 2);
+        if ($toReduce > 0.01) {
+            $this->reduceCreditPayments($saleId, $toReduce);
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array{amount?: float, method?: string, reference?: string|null, user_id?: int|null}  $row
+     */
+    private function createDebtCollectionPayment(Sale $sale, array $row, string $notePrefix): void
+    {
+        $amount = round((float) ($row['amount'] ?? 0), 2);
+        if ($amount <= 0.01) {
+            return;
+        }
+
+        $method = $this->mapDebtPaymentMethod((string) ($row['method'] ?? 'cash'));
+        $payment = new Payment();
+        $payment->sale_id = $sale->id;
+        $payment->method = $method;
+        $payment->mobile_money_provider = in_array($method, ['orange_money', 'mtn_money'], true) ? $method : null;
+        $payment->transaction_reference = trim((string) ($row['reference'] ?? '')) ?: null;
+        $payment->amount = $amount;
+        $payment->notes = $notePrefix;
+        $payment->received_by = isset($row['user_id']) ? (int) $row['user_id'] : null;
+
+        if (Schema::connection('tenant')->hasColumn('payments', 'currency_code')) {
+            $payment->currency_code = $sale->currency_code;
+            if (Schema::connection('tenant')->hasColumn('payments', 'exchange_rate_to_default')) {
+                $payment->exchange_rate_to_default = $sale->exchange_rate_to_default ?: 1;
+            }
+            if (Schema::connection('tenant')->hasColumn('payments', 'amount_in_default')) {
+                $payment->amount_in_default = $sale->total_in_default !== null && (float) $sale->total > 0
+                    ? round($amount * ((float) $sale->total_in_default / (float) $sale->total), 2)
+                    : $amount;
+            }
+        }
+
+        $payment->save();
+    }
+
+    private function reduceCreditPayments(int $saleId, float $amount): void
+    {
+        $remaining = round($amount, 2);
+        $credits = Payment::query()
+            ->where('sale_id', $saleId)
+            ->where('method', 'credit')
+            ->orderByDesc('id')
+            ->get();
+
+        foreach ($credits as $payment) {
+            if ($remaining <= 0.01) {
+                break;
+            }
+
+            $current = (float) $payment->amount;
+            if ($current <= $remaining + 0.01) {
+                $remaining = round($remaining - $current, 2);
+                $payment->delete();
+                continue;
+            }
+
+            $payment->amount = round($current - $remaining, 2);
+            if (Schema::connection('tenant')->hasColumn('payments', 'amount_in_default')
+                && $payment->amount_in_default !== null
+                && $current > 0) {
+                $payment->amount_in_default = round(
+                    (float) $payment->amount_in_default * ((float) $payment->amount / $current),
+                    2
+                );
+            }
+            $payment->save();
+            $remaining = 0;
+        }
+    }
+
+    private function mapDebtPaymentMethod(string $method): string
+    {
+        return match ($method) {
+            'cash', 'mobile_money', 'orange_money', 'mtn_money', 'card', 'check', 'bank_transfer', 'other' => $method,
+            default => 'cash',
+        };
     }
 
     private function applyStoreFilter(Builder $query, string $table): Builder

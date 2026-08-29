@@ -8,6 +8,7 @@ use App\Services\TenantManager;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Schema;
+use InovCom\Kernel\Contracts\DebtsApi;
 use InovCom\Sales\Models\Sale;
 use InovCom\Sales\Models\SuspendedSale;
 use Livewire\Component;
@@ -127,6 +128,7 @@ class SalesIndex extends Component
                 ->orderBy('sale_date')
                 ->orderBy('id')
                 ->chunkById(300, function ($chunk) use (&$exported, $escape) {
+                    $this->syncSettledCreditSales($chunk->all());
                     foreach ($chunk as $sale) {
                         if ($exported >= 5000) {
                             return false;
@@ -172,6 +174,7 @@ class SalesIndex extends Component
                 ->limit(5000)
                 ->get();
 
+            $this->syncSettledCreditSales($sales->all());
             $rows = $sales->map(fn (Sale $sale) => $this->mapSaleRow($sale))->all();
             $totalAmount = collect($rows)->sum('total');
 
@@ -232,6 +235,8 @@ class SalesIndex extends Component
             ->orderBy('sale_date', 'desc')
             ->orderBy('id', 'desc')
             ->paginate($this->perPage);
+
+        $this->syncSettledCreditSales($sales->getCollection()->all());
 
         return view('inovcom-sales::livewire.sales.index')
             ->layout('layouts.app', [
@@ -317,6 +322,42 @@ class SalesIndex extends Component
             'status_label' => $statusLabel,
             'seller_name' => (string) ($sale->creator?->name ?? '—'),
         ];
+    }
+
+    /**
+     * @param  array<int, Sale>  $sales
+     */
+    private function syncSettledCreditSales(array $sales): void
+    {
+        if ($sales === [] || ! app()->bound(DebtsApi::class)) {
+            return;
+        }
+
+        $api = app(DebtsApi::class);
+        if (! $api->isAvailable()) {
+            return;
+        }
+
+        $saleIds = [];
+        foreach ($sales as $sale) {
+            $hasCredit = $sale->payments->contains(
+                fn ($payment) => $payment->method === 'credit' && (float) $payment->amount > 0.01
+            );
+            if ($hasCredit) {
+                $saleIds[] = (int) $sale->id;
+            }
+        }
+
+        if ($saleIds === []) {
+            return;
+        }
+
+        $api->syncLinkedSales($saleIds);
+
+        foreach ($sales as $sale) {
+            $sale->unsetRelation('payments');
+            $sale->load('payments');
+        }
     }
 
     private function filterLabel(): string

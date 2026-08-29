@@ -59,6 +59,18 @@ class Debt extends TenantModel
         return $this->belongsTo(User::class, 'validated_by');
     }
 
+    /**
+     * Optional relation — only used when the Sales package is installed.
+     */
+    public function sale()
+    {
+        if (! class_exists(\InovCom\Sales\Models\Sale::class)) {
+            return $this->belongsTo(static::class, 'sale_id')->whereRaw('0 = 1');
+        }
+
+        return $this->belongsTo(\InovCom\Sales\Models\Sale::class);
+    }
+
     public function isValidated(): bool
     {
         return (bool) $this->is_validated;
