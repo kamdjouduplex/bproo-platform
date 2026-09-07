@@ -19,6 +19,33 @@ class WithholdingCalculator
     }
 
     /**
+     * TVA withheld at collection is the invoice VAT (or the remaining unwithheld
+     * share), never a fresh % applied on TTC.
+     */
+    public static function suggestInvoiceVatAmount(
+        float $invoiceVat,
+        float $alreadyWithheld,
+        float $settlementBase,
+        float $remainingBalance
+    ): float {
+        $remainingVat = self::roundMoney(max(0, $invoiceVat - $alreadyWithheld));
+        $settlementBase = self::roundMoney(max(0, $settlementBase));
+        $remainingBalance = self::roundMoney(max(0, $remainingBalance));
+
+        if ($remainingVat <= 0 || $settlementBase <= 0 || $remainingBalance <= 0) {
+            return 0.0;
+        }
+
+        if ($settlementBase + 0.5 >= $remainingBalance) {
+            return min($remainingVat, $remainingBalance);
+        }
+
+        $share = $remainingVat * ($settlementBase / $remainingBalance);
+
+        return min($remainingVat, self::roundMoney($share));
+    }
+
+    /**
      * Cash the cashier should receive so that cash + withholdings = balance.
      *
      * @param  list<array{amount?: float|int|string|null}>  $withholdings

@@ -4,10 +4,15 @@ namespace InovCom\InvoicePayments\Services;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use InovCom\InvoicePayments\Models\FiscalWithholdingType;
 use InovCom\InvoicePayments\Models\InvoicePayment;
+use InovCom\InvoicePayments\Models\InvoicePaymentAttachment;
 use InovCom\InvoicePayments\Models\InvoicePaymentWithholding;
+use InovCom\InvoicePayments\Support\InvoiceFiscalBreakdown;
 use InovCom\InvoicePayments\Support\WithholdingCalculator;
+use InovCom\InvoicePayments\Support\WithholdingKind;
 use InovCom\InvoicePayments\Support\WithholdingSchema;
 use InovCom\Invoicing\Models\Invoice;
 
@@ -50,6 +55,10 @@ class InvoicePaymentsService
             $normalizedWithholdings
         ) {
             $invoice = Invoice::lockForUpdate()->findOrFail($invoiceId);
+            $normalizedWithholdings = $this->applyInvoiceFiscalRules($invoice, $normalizedWithholdings);
+            if ($normalizedWithholdings !== []) {
+                $amount = WithholdingCalculator::cashDue((float) $invoice->balance, $normalizedWithholdings);
+            }
 
             $summary = WithholdingCalculator::summarize(
                 (float) $invoice->total,
@@ -108,7 +117,11 @@ class InvoicePaymentsService
                 );
             }
 
-            return $payment->fresh(array_merge(['invoice', 'creator'], InvoicePayment::optionalWithholdingsRelation()));
+            return $payment->fresh(array_merge(
+                ['invoice', 'creator'],
+                InvoicePayment::optionalWithholdingsRelation(),
+                InvoicePayment::optionalAttachmentsRelation()
+            ));
         });
     }
 
@@ -274,6 +287,70 @@ class InvoicePaymentsService
     }
 
     /**
+     * TVA / IS retenues = montants déjà établis sur la facture. Jamais un nouveau calcul.
+     *
+     * @param  list<array<string, mixed>>  $rows
+     * @return list<array<string, mixed>>
+     */
+    private function applyInvoiceFiscalRules(Invoice $invoice, array $rows): array
+    {
+        $fiscal = InvoiceFiscalBreakdown::fromInvoice($invoice);
+        $alreadyVat = InvoiceFiscalBreakdown::alreadyWithheldVat($invoice);
+        $alreadyIs = InvoiceFiscalBreakdown::alreadyWithheldIs($invoice);
+        $corrected = [];
+
+        foreach ($rows as $row) {
+            $kind = WithholdingKind::resolve(
+                $row['kind'] ?? null,
+                $row['type_code'] ?? null,
+                $row['type_name'] ?? null
+            );
+
+            if ($kind === WithholdingKind::VAT) {
+                $error = $fiscal->withholdingError(WithholdingKind::VAT, $alreadyVat);
+                if ($error) {
+                    throw new \RuntimeException($error);
+                }
+                $amount = WithholdingCalculator::suggestInvoiceVatAmount(
+                    $fiscal->vat,
+                    $alreadyVat,
+                    (float) $invoice->balance,
+                    (float) $invoice->balance
+                );
+                if ($amount <= 0) {
+                    throw new \RuntimeException('La TVA de cette facture a déjà été retenue.');
+                }
+                $alreadyVat += $amount;
+                $row['base_amount'] = $fiscal->ht;
+                $row['rate'] = $fiscal->vatRate;
+                $row['amount'] = $amount;
+            } elseif ($kind === WithholdingKind::IS) {
+                $error = $fiscal->withholdingError(WithholdingKind::IS, $alreadyIs);
+                if ($error) {
+                    throw new \RuntimeException($error);
+                }
+                $amount = WithholdingCalculator::suggestInvoiceVatAmount(
+                    $fiscal->is,
+                    $alreadyIs,
+                    (float) $invoice->balance,
+                    (float) $invoice->balance
+                );
+                if ($amount <= 0) {
+                    throw new \RuntimeException('L’IS de cette facture a déjà été retenu.');
+                }
+                $alreadyIs += $amount;
+                $row['base_amount'] = $fiscal->ht;
+                $row['rate'] = $fiscal->isRate;
+                $row['amount'] = $amount;
+            }
+
+            $corrected[] = $row;
+        }
+
+        return $corrected;
+    }
+
+    /**
      * @param  list<array<string, mixed>>  $withholdings
      */
     private function persistWithholdings(InvoicePayment $payment, array $withholdings): void
@@ -339,5 +416,61 @@ class InvoicePaymentsService
         }
 
         return 'REG-RET-' . $year . '-' . str_pad((string) $next, 6, '0', STR_PAD_LEFT);
+    }
+
+    public function storeAttachment(
+        InvoicePayment $payment,
+        string $path,
+        string $originalName,
+        ?string $mimeType = null,
+        ?int $sizeBytes = null,
+        ?int $userId = null,
+        ?string $label = null
+    ): InvoicePaymentAttachment {
+        WithholdingSchema::ensure();
+
+        if (! Schema::connection('tenant')->hasTable('invoice_payment_attachments')) {
+            throw new \RuntimeException('La table des justificatifs de retenue n\'est pas disponible.');
+        }
+
+        $attachment = InvoicePaymentAttachment::create([
+            'invoice_payment_id' => $payment->id,
+            'label' => $label ?: 'Attestation de retenue',
+            'original_name' => $originalName,
+            'path' => $path,
+            'mime_type' => $mimeType,
+            'size_bytes' => $sizeBytes,
+            'uploaded_by' => $userId ?? auth('tenant')->id(),
+        ]);
+
+        InvoicePayment::rememberAttachmentsTable(true);
+
+        return $attachment;
+    }
+
+    public function storeUploadedCertificate(InvoicePayment $payment, $file, ?int $userId = null): InvoicePaymentAttachment
+    {
+        $directory = 'invoice-payments/'.$payment->id;
+        Storage::disk('public')->makeDirectory($directory);
+        $extension = $file->getClientOriginalExtension() ?: 'pdf';
+        $filename = Str::random(24).'.'.$extension;
+        $path = $file->storeAs($directory, $filename, 'public');
+
+        return $this->storeAttachment(
+            $payment,
+            $path,
+            $file->getClientOriginalName(),
+            $file->getMimeType(),
+            $file->getSize(),
+            $userId
+        );
+    }
+
+    public function deleteAttachment(InvoicePaymentAttachment $attachment): void
+    {
+        if ($attachment->path && Storage::disk('public')->exists($attachment->path)) {
+            Storage::disk('public')->delete($attachment->path);
+        }
+        $attachment->delete();
     }
 }

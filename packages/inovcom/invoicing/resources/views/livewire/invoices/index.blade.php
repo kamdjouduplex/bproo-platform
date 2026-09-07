@@ -1,6 +1,6 @@
 @php
     $tenantCode = request()->query('tenant') ?? session('tenant_code') ?? optional(request()->attributes->get('tenant'))->code;
-    $hasFilters = $search !== '' || $statusFilter !== 'all' || $activeFiltersCount > 0;
+    $hasFilters = $search !== '' || $statusFilter !== 'all' || $activeFiltersCount > 0 || $dateFrom !== '' || $dateTo !== '';
     $clientName = $clients->firstWhere('id', (int) $clientFilter)?->name;
 @endphp
 <div class="page-body">
@@ -82,6 +82,20 @@
             </div>
         </div>
 
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+            <span style="font-size:12px;color:#64748b;font-weight:600;">Période</span>
+            <input class="input input-sm" type="date" wire:model.live="dateFrom" aria-label="Du" title="Du" style="width:150px;">
+            <span style="color:#94a3b8;" aria-hidden="true">→</span>
+            <input class="input input-sm" type="date" wire:model.live="dateTo" aria-label="Au" title="Au" style="width:150px;">
+            <button type="button" class="btn btn-secondary btn-sm" wire:click="setPeriod('day')">Aujourd'hui</button>
+            <button type="button" class="btn btn-secondary btn-sm" wire:click="setPeriod('week')">Semaine</button>
+            <button type="button" class="btn btn-secondary btn-sm" wire:click="setPeriod('month')">Mois</button>
+            <button type="button" class="btn btn-secondary btn-sm" wire:click="setPeriod('year')">Année</button>
+            @if ($dateFrom !== '' || $dateTo !== '')
+                <button type="button" class="btn btn-secondary btn-sm" wire:click="clearPeriod">Tout</button>
+            @endif
+        </div>
+
         <div class="client-status-pills" role="group" aria-label="Filtrer par statut">
             @foreach ([
                 'all' => 'Toutes',
@@ -118,14 +132,6 @@
                                 <option value="{{ $c->id }}">{{ $c->name }}</option>
                             @endforeach
                         </select>
-                    </label>
-                    <label class="client-filter-field">
-                        <span class="client-filter-field__label">Du</span>
-                        <input class="input input-sm" type="date" wire:model.live="dateFrom">
-                    </label>
-                    <label class="client-filter-field">
-                        <span class="client-filter-field__label">Au</span>
-                        <input class="input input-sm" type="date" wire:model.live="dateTo">
                     </label>
                 </div>
             </div>

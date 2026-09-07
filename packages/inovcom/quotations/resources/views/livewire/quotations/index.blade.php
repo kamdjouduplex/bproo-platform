@@ -7,7 +7,7 @@
             <div class="table-title">Devis</div>
             <div style="display:flex; gap:8px; align-items:center; flex-wrap: wrap;">
                 <input class="input input-sm" type="text" wire:model.live.debounce.300ms="search" placeholder="N° devis, demande ou client" style="min-width: 220px;">
-                <select class="input input-sm" wire:model="statusFilter">
+                <select class="input input-sm" wire:model.live="statusFilter">
                     <option value="all">Tous statuts</option>
                     <option value="draft">Brouillon</option>
                     <option value="sent">Envoyé</option>
@@ -15,7 +15,7 @@
                     <option value="suspended">Suspendu</option>
                     <option value="rejected">Rejeté</option>
                 </select>
-                <select class="input input-sm" wire:model="clientFilter">
+                <select class="input input-sm" wire:model.live="clientFilter">
                     <option value="">Tous clients</option>
                     @foreach ($clients as $c)<option value="{{ $c->id }}">{{ $c->name }}</option>@endforeach
                 </select>
@@ -24,6 +24,19 @@
                     <a class="btn btn-primary" href="{{ route('tenant.quotations.create', ['tenant' => $tenantCode]) }}">Nouveau devis</a>
                 @endif
             </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:0 16px 12px;">
+            <span style="font-size:12px;color:#64748b;font-weight:600;">Période</span>
+            <input class="input input-sm" type="date" wire:model.live="dateFrom" aria-label="Du" title="Du" style="width:150px;">
+            <span style="color:#94a3b8;" aria-hidden="true">→</span>
+            <input class="input input-sm" type="date" wire:model.live="dateTo" aria-label="Au" title="Au" style="width:150px;">
+            <button type="button" class="btn btn-secondary btn-sm" wire:click="setPeriod('day')">Aujourd'hui</button>
+            <button type="button" class="btn btn-secondary btn-sm" wire:click="setPeriod('week')">Semaine</button>
+            <button type="button" class="btn btn-secondary btn-sm" wire:click="setPeriod('month')">Mois</button>
+            <button type="button" class="btn btn-secondary btn-sm" wire:click="setPeriod('year')">Année</button>
+            @if ($dateFrom !== '' || $dateTo !== '')
+                <button type="button" class="btn btn-secondary btn-sm" wire:click="clearPeriod">Tout</button>
+            @endif
         </div>
         <div class="table-scroll">
             <table>
@@ -80,7 +93,9 @@
                         </td>
                     </tr>
                     @endforeach
-                    @if ($quotations->count() === 0)<tr><td colspan="9">Aucun devis.</td></tr>@endif
+                    @if ($quotations->count() === 0)
+                        <tr><td colspan="9">{{ ($dateFrom !== '' || $dateTo !== '' || $search !== '') ? 'Aucun devis pour ces critères.' : 'Aucun devis.' }}</td></tr>
+                    @endif
                 </tbody>
             </table>
         </div>

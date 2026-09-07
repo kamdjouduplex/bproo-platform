@@ -61,6 +61,30 @@ class InvoicesIndex extends Component
         $this->resetPage();
     }
 
+    public function setPeriod(string $period): void
+    {
+        $now = now();
+        switch ($period) {
+            case 'day':
+                $this->dateFrom = $now->format('Y-m-d');
+                $this->dateTo = $now->format('Y-m-d');
+                break;
+            case 'week':
+                $this->dateFrom = $now->copy()->startOfWeek()->format('Y-m-d');
+                $this->dateTo = $now->copy()->endOfWeek()->format('Y-m-d');
+                break;
+            case 'month':
+                $this->dateFrom = $now->copy()->startOfMonth()->format('Y-m-d');
+                $this->dateTo = $now->copy()->endOfMonth()->format('Y-m-d');
+                break;
+            case 'year':
+                $this->dateFrom = $now->copy()->startOfYear()->format('Y-m-d');
+                $this->dateTo = $now->copy()->endOfYear()->format('Y-m-d');
+                break;
+        }
+        $this->resetPage();
+    }
+
     public function issue(int $invoiceId): void
     {
         if (!$this->can('invoicing.issue')) {
@@ -237,12 +261,6 @@ class InvoicesIndex extends Component
             $count++;
         }
         if ($this->clientFilter !== '') {
-            $count++;
-        }
-        if ($this->dateFrom !== '') {
-            $count++;
-        }
-        if ($this->dateTo !== '') {
             $count++;
         }
 

@@ -8,6 +8,7 @@ use App\Support\PrintDocument;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use InovCom\InvoicePayments\Models\InvoicePayment;
+use InovCom\InvoicePayments\Support\PaymentSettlementLines;
 
 class InvoicePaymentPrintController
 {
@@ -17,18 +18,25 @@ class InvoicePaymentPrintController
         $settings = app(TenantBrandingService::class)->documentSettings($tenant);
 
         $invoicePayment->loadMissing(array_merge(
-            ['invoice.client', 'creator'],
-            InvoicePayment::optionalWithholdingsRelation()
+            ['invoice.client', 'invoice.taxLines', 'creator', 'canceller'],
+            InvoicePayment::optionalWithholdingsRelation(),
+            InvoicePayment::optionalAttachmentsRelation()
         ));
+
+        $invoice = $invoicePayment->invoice;
+        $settlement = $invoice
+            ? PaymentSettlementLines::fromModels($invoice, $invoicePayment)
+            : null;
 
         return view('inovcom-invoice-payments::print.payment-receipt', array_merge([
             'payment' => $invoicePayment,
-            'invoice' => $invoicePayment->invoice,
+            'invoice' => $invoice,
             'settings' => $settings,
+            'settlement' => $settlement,
         ], PrintDocument::context(
             $request,
             'recu-paiement',
-            $invoicePayment->invoice->invoice_number . '-' . $invoicePayment->id,
+            $invoicePayment->invoice?->invoice_number . '-' . $invoicePayment->id,
             'tenant.invoice_payments.index'
         )));
     }

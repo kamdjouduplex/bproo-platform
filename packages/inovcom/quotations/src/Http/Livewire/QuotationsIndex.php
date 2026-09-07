@@ -18,6 +18,8 @@ class QuotationsIndex extends Component
     public string $search = '';
     public string $statusFilter = 'all';
     public ?int $clientFilter = null;
+    public string $dateFrom = '';
+    public string $dateTo = '';
     public int $perPage = 20;
 
     public function mount(): void
@@ -28,16 +30,56 @@ class QuotationsIndex extends Component
         }
     }
 
+    public function updated(string $name): void
+    {
+        if (in_array($name, ['search', 'statusFilter', 'clientFilter', 'dateFrom', 'dateTo', 'perPage'], true)) {
+            $this->resetPage();
+        }
+    }
+
     public function resetFilters(): void
     {
         $this->search = '';
         $this->statusFilter = 'all';
         $this->clientFilter = null;
+        $this->dateFrom = '';
+        $this->dateTo = '';
         $this->resetPage();
     }
 
     public function applyFilters(): void
     {
+        $this->resetPage();
+    }
+
+    public function setPeriod(string $period): void
+    {
+        $now = now();
+        switch ($period) {
+            case 'day':
+                $this->dateFrom = $now->format('Y-m-d');
+                $this->dateTo = $now->format('Y-m-d');
+                break;
+            case 'week':
+                $this->dateFrom = $now->copy()->startOfWeek()->format('Y-m-d');
+                $this->dateTo = $now->copy()->endOfWeek()->format('Y-m-d');
+                break;
+            case 'month':
+                $this->dateFrom = $now->copy()->startOfMonth()->format('Y-m-d');
+                $this->dateTo = $now->copy()->endOfMonth()->format('Y-m-d');
+                break;
+            case 'year':
+                $this->dateFrom = $now->copy()->startOfYear()->format('Y-m-d');
+                $this->dateTo = $now->copy()->endOfYear()->format('Y-m-d');
+                break;
+        }
+        $this->resetPage();
+    }
+
+    public function clearPeriod(): void
+    {
+        $this->dateFrom = '';
+        $this->dateTo = '';
         $this->resetPage();
     }
 
@@ -83,6 +125,8 @@ class QuotationsIndex extends Component
                 }
             })
             ->when($this->clientFilter, fn ($q) => $q->where('client_id', $this->clientFilter))
+            ->when($this->dateFrom !== '', fn ($q) => $q->whereDate('quote_date', '>=', $this->dateFrom))
+            ->when($this->dateTo !== '', fn ($q) => $q->whereDate('quote_date', '<=', $this->dateTo))
             ->orderByDesc('quote_date')
             ->orderByDesc('created_at')
             ->paginate($this->perPage);

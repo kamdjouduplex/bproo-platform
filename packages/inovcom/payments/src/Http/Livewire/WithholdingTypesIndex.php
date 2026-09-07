@@ -5,6 +5,7 @@ namespace InovCom\InvoicePayments\Http\Livewire;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 use InovCom\InvoicePayments\Models\FiscalWithholdingType;
+use InovCom\InvoicePayments\Support\WithholdingKind;
 use InovCom\InvoicePayments\Support\WithholdingSchema;
 use Livewire\Component;
 
@@ -13,6 +14,7 @@ class WithholdingTypesIndex extends Component
     public ?int $editingId = null;
     public string $code = '';
     public string $name = '';
+    public string $kind = 'other';
     public string $default_rate = '0';
     public string $default_account = '';
     public string $description = '';
@@ -38,6 +40,7 @@ class WithholdingTypesIndex extends Component
         $this->editingId = $type->id;
         $this->code = $type->code;
         $this->name = $type->name;
+        $this->kind = $type->resolvedKind();
         $this->default_rate = (string) $type->default_rate;
         $this->default_account = (string) ($type->default_account ?? '');
         $this->description = (string) ($type->description ?? '');
@@ -54,6 +57,7 @@ class WithholdingTypesIndex extends Component
         $data = $this->validate([
             'name' => 'required|string|max:120',
             'code' => 'nullable|string|max:50',
+            'kind' => 'required|in:vat,is,other',
             'default_rate' => 'nullable|numeric|min:0|max:100',
             'default_account' => 'nullable|string|max:50',
             'description' => 'nullable|string|max:500',
@@ -68,6 +72,7 @@ class WithholdingTypesIndex extends Component
         $payload = [
             'code' => $code,
             'name' => $data['name'],
+            'kind' => $data['kind'],
             'default_rate' => (float) ($data['default_rate'] ?? 0),
             'default_account' => $data['default_account'] ?: null,
             'description' => $data['description'] ?: null,
@@ -120,6 +125,7 @@ class WithholdingTypesIndex extends Component
             ])
             ->with([
                 'types' => FiscalWithholdingType::query()->orderBy('sort_order')->orderBy('name')->get(),
+                'kindLabels' => WithholdingKind::labels(),
                 'canManage' => $this->can('invoice_payments.manage_withholdings'),
             ]);
     }
@@ -129,6 +135,7 @@ class WithholdingTypesIndex extends Component
         $this->editingId = null;
         $this->code = '';
         $this->name = '';
+        $this->kind = WithholdingKind::OTHER;
         $this->default_rate = '0';
         $this->default_account = '';
         $this->description = '';

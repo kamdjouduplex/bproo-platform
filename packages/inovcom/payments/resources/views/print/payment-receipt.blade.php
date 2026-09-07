@@ -86,24 +86,26 @@
         table.info { width: 100%; border-collapse: collapse; font-size: 11px; }
         table.info td { padding: 4px 0; vertical-align: top; }
         table.info td:first-child { width: 44%; color: #6b7280; }
-        .amount-box {
+        .amount-box.cancelled {
             margin: 16px 0;
-            padding: 16px;
-            border: 2px solid #166534;
-            background: #f0fdf4;
+            padding: 12px;
+            border: 2px solid #b91c1c;
+            background: #fef2f2;
             text-align: center;
+            color: #b91c1c;
+            font-weight: 800;
         }
-        .amount-box .label { font-size: 10px; text-transform: uppercase; color: #166534; font-weight: 700; }
-        .amount-box .value { font-size: 22px; font-weight: 800; color: #166534; margin-top: 6px; }
-        .amount-box.cancelled { border-color: #b91c1c; background: #fef2f2; }
-        .amount-box.cancelled .label, .amount-box.cancelled .value { color: #b91c1c; }
-        .totals-wrap { display: flex; justify-content: flex-end; margin-top: 8px; }
-        .totals-table { border-collapse: collapse; min-width: 300px; font-size: 11px; }
-        .totals-table td { border: 1px solid #111; padding: 6px 12px; }
-        .totals-table .label { font-weight: 700; text-align: left; }
-        .totals-table .value { text-align: right; font-weight: 700; min-width: 120px; }
-        .totals-table tr.highlight td { background: #f0fdf4; }
-        .totals-table tr.total td { background: #111; color: #fff; font-weight: 800; font-size: 12px; }
+        .breakdown { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 11px; }
+        .breakdown th { text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; padding: 0 0 8px; border-bottom: 2px solid #111; }
+        .breakdown td { padding: 7px 8px; border-bottom: 1px solid #e5e7eb; vertical-align: top; }
+        .breakdown td.label { color: #111; }
+        .breakdown td.hint { padding-top: 0; padding-bottom: 8px; font-size: 9px; color: #6b7280; border-bottom: none; }
+        .breakdown td.amount { text-align: right; font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; width: 140px; }
+        .breakdown tr.cash td { color: #166534; }
+        .breakdown tr.withheld td.label, .breakdown tr.withheld td.amount { color: #1d4ed8; }
+        .breakdown tr.total td { border-top: 2px solid #111; border-bottom: 2px solid #111; font-weight: 800; font-size: 12px; padding-top: 10px; padding-bottom: 10px; }
+        .breakdown tr.balance td { background: #111; color: #fff; font-weight: 800; border-bottom: none; }
+        .breakdown tr.status td { border-bottom: none; padding-top: 10px; }
         .signature {
             margin-top: 28px;
             text-align: right;
@@ -176,30 +178,45 @@
             </div>
         </div>
 
-        <div class="receipt-title">
-            <h1>REÇU D'ENCAISSEMENT</h1>
-            <p>Document de confirmation de paiement — {{ $payment->reference }}</p>
-        </div>
+        @php
+            $settlement = $settlement ?? null;
+            $withholdingHints = [];
+            foreach ($payment->withholdings as $wh) {
+                $parts = [];
+                if ((float) $wh->base_amount > 0) {
+                    $parts[] = 'Base '.fmt_money($wh->base_amount).' FCFA'
+                        .((float) $wh->rate > 0 ? ' × '.fmt_num((float) $wh->rate, 2).' %' : '');
+                }
+                if ($wh->account_code) {
+                    $parts[] = 'Compte '.$wh->account_code;
+                }
+                if ($wh->comment) {
+                    $parts[] = $wh->comment;
+                }
+                $withholdingHints[] = implode(' · ', $parts);
+            }
+            $withholdingHintIndex = 0;
+            $methodLabel = \InovCom\InvoicePayments\Models\InvoicePayment::methodLabel($payment->payment_method);
+            $statusLabel = $payment->isCancelled() ? 'Annulé' : ($settlement['status_label'] ?? '—');
+        @endphp
 
         <div class="two-cols">
             <div class="panel">
-                <div class="panel-title">Facture concernée</div>
+                <div class="panel-title">Facture</div>
                 <table class="info">
-                    <tr><td>N° facture</td><td><strong>{{ $invoice->invoice_number }}</strong></td></tr>
+                    <tr><td>N°</td><td><strong>{{ $invoice->invoice_number }}</strong></td></tr>
                     <tr><td>Client</td><td><strong>{{ $invoice->client?->name ?? '—' }}</strong></td></tr>
-                    <tr><td>Date facture</td><td>{{ $invoice->invoice_date->format('d/m/Y') }}</td></tr>
+                    <tr><td>Date</td><td>{{ $invoice->invoice_date->format('d/m/Y') }}</td></tr>
                     @if ($invoice->due_date)
                         <tr><td>Échéance</td><td>{{ $invoice->due_date->format('d/m/Y') }}</td></tr>
                     @endif
-                    <tr><td>Montant facture</td><td><strong>{{ fmt_money($invoice->total) }} FCFA</strong></td></tr>
+                    <tr><td>Total facture TTC</td><td><strong>{{ fmt_money($invoice->total) }} FCFA</strong></td></tr>
                 </table>
             </div>
             <div class="panel">
-                <div class="panel-title">Détail de l'encaissement</div>
+                <div class="panel-title">Règlement</div>
                 <table class="info">
-                    <tr><td>Date</td><td>{{ $payment->payment_date->format('d/m/Y') }}</td></tr>
-                    <tr><td>Heure</td><td>{{ $payment->created_at?->format('H:i') ?? '—' }}</td></tr>
-                    <tr><td>Mode</td><td>{{ \InovCom\InvoicePayments\Models\InvoicePayment::methodLabel($payment->payment_method) }}</td></tr>
+                    <tr><td>Mode</td><td>{{ $methodLabel }}</td></tr>
                     @if ($payment->external_reference)
                         <tr><td>Réf. transaction</td><td>{{ $payment->external_reference }}</td></tr>
                     @endif
@@ -211,72 +228,73 @@
             </div>
         </div>
 
-        @if ($payment->isActive())
-            <div class="amount-box">
-                <div class="label">Montant effectivement encaissé</div>
-                <div class="value">+ {{ fmt_money($payment->amount) }} FCFA</div>
-            </div>
-        @elseif ($payment->isCancelled())
-            <div class="amount-box cancelled">
-                <div class="label">Encaissement annulé</div>
-                <div class="value">{{ fmt_money($payment->amount) }} FCFA</div>
-            </div>
+        @if ($payment->isCancelled())
+            <div class="amount-box cancelled">Encaissement annulé — ce reçu n’a plus d’effet sur la facture</div>
         @endif
 
-        <div class="totals-wrap">
-            <table class="totals-table">
-                <tr>
-                    <td class="label">Montant total facture</td>
-                    <td class="value">{{ fmt_money($invoice->total) }} FCFA</td>
-                </tr>
-                <tr>
-                    <td class="label">Total encaissé avant ce paiement</td>
-                    <td class="value">{{ fmt_money($paidBefore) }} FCFA</td>
-                </tr>
-                <tr class="highlight">
-                    <td class="label">Montant effectivement encaissé</td>
-                    <td class="value" style="color:#166534;">+ {{ fmt_money($payment->amount) }} FCFA</td>
-                </tr>
-                @if ($payment->withholdingTotal() > 0)
+        <div class="panel" style="margin-top:16px;">
+            <table class="breakdown">
+                <thead>
                     <tr>
-                        <td class="label">Total des retenues fiscales</td>
-                        <td class="value">{{ fmt_money($payment->withholdingTotal()) }} FCFA</td>
+                        <th colspan="2">Décomposition de cet encaissement</th>
                     </tr>
-                    <tr>
-                        <td class="label">Total réglé (encaissé + retenues)</td>
-                        <td class="value">{{ fmt_money($payment->settledAmount()) }} FCFA</td>
+                </thead>
+                <tbody>
+                    @if ($settlement)
+                        @foreach ($settlement['lines'] as $line)
+                            @php
+                                $isWithheld = in_array($line['nature'], ['vat_withheld', 'withheld'], true);
+                                $isCash = $line['nature'] === 'cash';
+                                $isTtc = $line['nature'] === 'ttc';
+                                $label = $line['label'];
+                                if ($isCash) {
+                                    $label = 'Montant perçu en caisse ('.$methodLabel.')';
+                                }
+                                $hint = '';
+                                if ($isWithheld && isset($withholdingHints[$withholdingHintIndex])) {
+                                    $hint = $withholdingHints[$withholdingHintIndex];
+                                    $withholdingHintIndex++;
+                                }
+                                $rowClass = $isTtc ? 'total' : ($isCash ? 'cash' : ($isWithheld ? 'withheld' : ''));
+                                $prefix = $line['display'] === 'minus' ? '− ' : ($line['display'] === 'plus' ? '+ ' : '');
+                            @endphp
+                            <tr class="{{ $rowClass }}">
+                                <td class="label">{{ $label }}</td>
+                                <td class="amount">{{ $prefix }}{{ fmt_money($line['amount']) }} FCFA</td>
+                            </tr>
+                            @if ($hint !== '')
+                                <tr class="withheld">
+                                    <td class="hint" colspan="2">{{ $hint }}</td>
+                                </tr>
+                            @endif
+                        @endforeach
+                    @endif
+                    @if ($paidBefore > 0.5)
+                        <tr>
+                            <td class="label">Déjà réglé avant ce reçu</td>
+                            <td class="amount">{{ fmt_money($paidBefore) }} FCFA</td>
+                        </tr>
+                    @endif
+                    <tr class="balance">
+                        <td class="label">Solde restant sur la facture</td>
+                        <td class="amount">{{ fmt_money(max(0, $balanceAfter)) }} FCFA</td>
                     </tr>
-                @endif
-                <tr>
-                    <td class="label">Total encaissé après ce paiement</td>
-                    <td class="value">{{ fmt_money($paidAfter) }} FCFA</td>
-                </tr>
-                <tr class="total">
-                    <td class="label">Solde restant à payer</td>
-                    <td class="value">{{ fmt_money(max(0, $balanceAfter)) }} FCFA</td>
-                </tr>
+                    <tr class="status">
+                        <td class="label">Statut de la facture après ce reçu</td>
+                        <td class="amount">{{ $statusLabel }}</td>
+                    </tr>
+                </tbody>
             </table>
         </div>
 
-        @if (optional($payment->withholdings)->isNotEmpty())
+        @if (optional($payment->attachments)->isNotEmpty())
             <div class="panel" style="margin-top:16px;">
-                <div class="panel-title">Retenues fiscales</div>
-                <table class="info">
-                    @foreach ($payment->withholdings as $wh)
-                        <tr>
-                            <td>{{ $wh->type_name }}@if($wh->rate > 0) ({{ fmt_num((float) $wh->rate, 2) }} %)@endif</td>
-                            <td>
-                                <strong>{{ fmt_money($wh->amount) }} FCFA</strong>
-                                @if ($wh->account_code)
-                                    <div style="font-size:9px;color:#6b7280;">Compte {{ $wh->account_code }}</div>
-                                @endif
-                                @if ($wh->comment)
-                                    <div style="font-size:9px;color:#6b7280;">{{ $wh->comment }}</div>
-                                @endif
-                            </td>
-                        </tr>
+                <div class="panel-title">Justificatifs de retenue</div>
+                <ul style="margin:0;padding-left:16px;font-size:11px;">
+                    @foreach ($payment->attachments as $att)
+                        <li>{{ $att->original_name ?: $att->label }}</li>
                     @endforeach
-                </table>
+                </ul>
             </div>
         @endif
 

@@ -64,7 +64,13 @@ class InvoicePayment extends TenantModel
         return $this->hasMany(InvoicePaymentWithholding::class);
     }
 
+    public function attachments()
+    {
+        return $this->hasMany(InvoicePaymentAttachment::class);
+    }
+
     private static ?bool $withholdingsTableExists = null;
+    private static ?bool $attachmentsTableExists = null;
 
     public static function hasWithholdingsTable(): bool
     {
@@ -80,12 +86,36 @@ class InvoicePayment extends TenantModel
         self::$withholdingsTableExists = $exists;
     }
 
+    public static function hasAttachmentsTable(): bool
+    {
+        if (self::$attachmentsTableExists === true) {
+            return true;
+        }
+
+        self::$attachmentsTableExists = Schema::connection('tenant')->hasTable('invoice_payment_attachments');
+
+        return self::$attachmentsTableExists;
+    }
+
+    public static function rememberAttachmentsTable(?bool $exists): void
+    {
+        self::$attachmentsTableExists = $exists;
+    }
+
     /**
      * @return list<string>
      */
     public static function optionalWithholdingsRelation(): array
     {
-        return self::hasWithholdingsTable() ? ['withholdings'] : [];
+        return self::hasWithholdingsTable() ? ['withholdings.type'] : [];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function optionalAttachmentsRelation(): array
+    {
+        return self::hasAttachmentsTable() ? ['attachments'] : [];
     }
 
     public function getWithholdingsAttribute()
@@ -99,6 +129,19 @@ class InvoicePayment extends TenantModel
         }
 
         return $this->getRelationshipFromMethod('withholdings');
+    }
+
+    public function getAttachmentsAttribute()
+    {
+        if (!self::hasAttachmentsTable()) {
+            return $this->relations['attachments'] = $this->newCollection();
+        }
+
+        if ($this->relationLoaded('attachments')) {
+            return $this->relations['attachments'];
+        }
+
+        return $this->getRelationshipFromMethod('attachments');
     }
 
     public function scopeActive(Builder $query): Builder

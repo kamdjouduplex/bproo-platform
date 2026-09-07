@@ -8,8 +8,7 @@
     </div>
 
     <p style="margin-bottom:16px;color:#6b7280;font-size:13px;">
-        Ces types sont proposés au moment de l’encaissement. Ils ne créent pas un second type de facture :
-        la retenue reste une opération de règlement, identifiable et traçable.
+        Types proposés à l’encaissement. TVA et IS ne peuvent être retenues que si elles figurent déjà sur la facture.
     </p>
 
     @if ($canManage)
@@ -24,6 +23,17 @@
                 <div class="form-group">
                     <label class="field-label">Code</label>
                     <input class="input" wire:model="code" placeholder="tva_retenue">
+                </div>
+                <div class="form-group">
+                    <label class="field-label">Règle de calcul *</label>
+                    <select class="input" wire:model="kind">
+                        @foreach ($kindLabels as $value => $label)
+                            <option value="{{ $value }}">{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    <p style="margin:6px 0 0;font-size:12px;color:#6b7280;">
+                        TVA = montant de la facture. IS = montant de la facture. Autre = base × taux.
+                    </p>
                 </div>
                 <div class="form-group">
                     <label class="field-label">Taux par défaut (%)</label>
@@ -58,6 +68,7 @@
                     <tr>
                         <th>Libellé</th>
                         <th>Code</th>
+                        <th>Règle</th>
                         <th>Taux</th>
                         <th>Compte</th>
                         <th>Statut</th>
@@ -69,6 +80,7 @@
                         <tr>
                             <td><strong>{{ $type->name }}</strong></td>
                             <td><code>{{ $type->code }}</code></td>
+                            <td>{{ $kindLabels[$type->resolvedKind()] ?? $type->resolvedKind() }}</td>
                             <td>{{ fmt_num((float) $type->default_rate, 2) }} %</td>
                             <td>{{ $type->default_account ?: '—' }}</td>
                             <td>

@@ -48,20 +48,42 @@ class WithholdingCalculatorTest extends TestCase
         $this->assertSame(0.0, WithholdingCalculator::amountFromBaseAndRate(1_000_000, 0));
     }
 
-    public function test_cameroon_vat_withholding_rounds_to_whole_francs_and_balances(): void
+    public function test_vat_withholding_uses_invoice_vat_not_percent_of_ttc(): void
     {
-        $withholding = WithholdingCalculator::amountFromBaseAndRate(88_500, 19.25);
-        $this->assertSame(17_036.0, $withholding);
+        $ht = 770_000.0;
+        $vat = 148_225.0;
+        $ttc = 918_225.0;
 
-        $cash = WithholdingCalculator::cashDue(88_500, [['amount' => $withholding]]);
-        $this->assertSame(71_464.0, $cash);
+        $wrongPercentOnTtc = WithholdingCalculator::amountFromBaseAndRate($ttc, 19.25);
+        $this->assertSame(176_758.0, $wrongPercentOnTtc);
+        $this->assertNotEquals($vat, $wrongPercentOnTtc);
 
-        $summary = WithholdingCalculator::summarize(88_500, 0, $cash, [
-            ['amount' => $withholding],
-        ]);
+        $amount = WithholdingCalculator::suggestInvoiceVatAmount($vat, 0, $ttc, $ttc);
+        $this->assertSame($vat, $amount);
 
-        $this->assertSame(88_500.0, $summary['settled']);
+        $cash = WithholdingCalculator::cashDue($ttc, [['amount' => $amount]]);
+        $this->assertSame($ht, $cash);
+
+        $summary = WithholdingCalculator::summarize($ttc, 0, $cash, [['amount' => $amount]]);
+        $this->assertSame($ttc, $summary['settled']);
         $this->assertSame(0.0, $summary['remaining']);
         $this->assertFalse($summary['exceeds']);
+    }
+
+    public function test_is_is_calculated_from_profit_and_rate(): void
+    {
+        $this->assertSame(150_000.0, WithholdingCalculator::amountFromBaseAndRate(500_000, 30));
+        $this->assertSame(16_940.0, WithholdingCalculator::amountFromBaseAndRate(770_000, 2.2));
+    }
+
+    public function test_partial_vat_withholding_is_prorated_then_capped(): void
+    {
+        $vat = 148_225.0;
+        $half = WithholdingCalculator::suggestInvoiceVatAmount($vat, 0, 459_112, 918_225);
+        $this->assertSame(74_112.0, $half);
+
+        $rest = WithholdingCalculator::suggestInvoiceVatAmount($vat, $half, 459_113, 459_113);
+        $this->assertSame(74_113.0, $rest);
+        $this->assertSame($vat, $half + $rest);
     }
 }

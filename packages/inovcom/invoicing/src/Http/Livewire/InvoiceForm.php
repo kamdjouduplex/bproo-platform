@@ -994,7 +994,7 @@ class InvoiceForm extends Component
     public function render()
     {
         $invoice = $this->invoiceId
-            ? Invoice::with(['client', 'quotation', 'lines', 'schedules'])->find($this->invoiceId)
+            ? Invoice::with(['client', 'quotation', 'lines', 'schedules', 'taxLines'])->find($this->invoiceId)
             : null;
 
         $invoicePayments = collect();
@@ -1002,11 +1002,17 @@ class InvoiceForm extends Component
             && class_exists(\InovCom\InvoicePayments\Models\InvoicePayment::class)) {
             $invoicePayments = \InovCom\InvoicePayments\Models\InvoicePayment::query()
                 ->where('invoice_id', $invoice->id)
-                ->with('creator')
+                ->with(array_filter([
+                    'creator',
+                    ...\InovCom\InvoicePayments\Models\InvoicePayment::optionalWithholdingsRelation(),
+                    ...\InovCom\InvoicePayments\Models\InvoicePayment::optionalAttachmentsRelation(),
+                ]))
                 ->orderByDesc('payment_date')
                 ->orderByDesc('id')
                 ->get();
         }
+        $invoicePaymentsCash = $invoicePayments->filter->isActive()->sum(fn ($p) => (float) $p->amount);
+        $invoicePaymentsWithheld = $invoicePayments->filter->isActive()->sum(fn ($p) => $p->withholdingTotal());
 
         if ($invoice && $invoice->schedules->isNotEmpty() && class_exists(InvoiceScheduleService::class)) {
             app(InvoiceScheduleService::class)->refreshOverdueStatuses($invoice);
@@ -1110,6 +1116,8 @@ class InvoiceForm extends Component
                 'canCancel' => $this->can('invoicing.cancel'),
                 'canPay' => $invoice && $invoice->canReceivePayment() && $this->can('invoice_payments.receive'),
                 'invoicePayments' => $invoicePayments,
+                'invoicePaymentsCash' => $invoicePaymentsCash ?? 0,
+                'invoicePaymentsWithheld' => $invoicePaymentsWithheld ?? 0,
                 'hasPaymentHistory' => $invoicePayments->contains(
                     fn ($p) => $p->isActive() && $p->settledAmount() > 0
                 ),

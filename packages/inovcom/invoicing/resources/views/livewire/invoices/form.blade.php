@@ -133,9 +133,10 @@
                         <a class="btn btn-primary btn-sm" href="{{ route('tenant.invoice_payments.pay', [$invoice->id, 'tenant' => $tenantCode]) }}">Encaisser facture</a>
                     @endif
                 </div>
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px;font-size:13px;">
+                <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:12px;font-size:13px;">
                     <div><span style="color:#6b7280;">Total facture</span><br><strong>{{ fmt_money($invoice->total) }}</strong></div>
-                    <div><span style="color:#6b7280;">Encaissé</span><br><strong style="color:#166534;">{{ fmt_money($invoice->amount_paid) }}</strong></div>
+                    <div><span style="color:#6b7280;">Perçu</span><br><strong style="color:#166534;">{{ fmt_money($invoicePaymentsCash ?? 0) }}</strong></div>
+                    <div><span style="color:#6b7280;">Retenues</span><br><strong style="color:#1d4ed8;">{{ fmt_money($invoicePaymentsWithheld ?? 0) }}</strong></div>
                     <div><span style="color:#6b7280;">Solde restant</span><br><strong style="color:{{ $invoice->balance > 0.01 ? '#b45309' : '#166534' }};">{{ fmt_money(max(0, $invoice->balance)) }}</strong></div>
                 </div>
                 @if ($invoice->hasClientCredit())
@@ -145,39 +146,55 @@
                     <div style="background:#16a34a; height:8px; border-radius:4px; width:{{ $invoice->paymentProgressPercent() }}%;"></div>
                 </div>
                 @if (($invoicePayments ?? collect())->count() > 0)
-                    <div class="table-scroll" style="margin-top:12px;">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>N° reçu</th>
-                                    <th>Date</th>
-                                    <th>Montant</th>
-                                    <th>Mode</th>
-                                    <th>Par</th>
-                                    <th>Solde après</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach ($invoicePayments as $pay)
-                                    <tr style="{{ $pay->isCancelled() ? 'opacity:0.6;' : '' }}">
-                                        <td>{{ $pay->reference }}</td>
-                                        <td>{{ $pay->payment_date->format('d/m/Y') }} {{ $pay->created_at?->format('H:i') }}</td>
-                                        <td style="{{ (float) $pay->amount < 0 ? 'color:#b91c1c;font-weight:600;' : ($pay->isActive() ? 'color:#166534;font-weight:600;' : '') }}">
-                                            {{ (float) $pay->amount < 0 ? '−' : '+' }}{{ fmt_money(abs((float) $pay->amount)) }}
-                                        </td>
-                                        <td>{{ \InovCom\InvoicePayments\Models\InvoicePayment::methodLabel($pay->payment_method) }}</td>
-                                        <td style="font-size:12px;">{{ $pay->creator?->name ?? '—' }}</td>
-                                        <td>{{ $pay->balance_after !== null ? fmt_money(max(0, (float) $pay->balance_after)) : '—' }}</td>
-                                        <td>
-                                            @if (\Illuminate\Support\Facades\Route::has('tenant.invoice_payments.receipt.print'))
-                                                <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoice_payments.receipt.print', ['invoicePayment' => $pay->id, 'tenant' => $tenantCode]) }}">Reçu</a>
-                                            @endif
-                                        </td>
-                                    </tr>
-                                @endforeach
-                            </tbody>
-                        </table>
+                    <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px;">
+                        @foreach ($invoicePayments as $pay)
+                            @php
+                                $paySettlement = class_exists(\InovCom\InvoicePayments\Support\PaymentSettlementLines::class)
+                                    ? \InovCom\InvoicePayments\Support\PaymentSettlementLines::fromModels($invoice, $pay)
+                                    : null;
+                            @endphp
+                            <div style="border:1px solid #e5e7eb;border-radius:8px;padding:12px;{{ $pay->isCancelled() ? 'opacity:0.65;' : '' }}">
+                                <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                                    <div>
+                                        <strong>{{ $pay->reference }}</strong>
+                                        <div style="font-size:12px;color:#6b7280;">
+                                            {{ $pay->payment_date->format('d/m/Y') }} {{ $pay->created_at?->format('H:i') }}
+                                            · {{ \InovCom\InvoicePayments\Models\InvoicePayment::methodLabel($pay->payment_method) }}
+                                            · {{ $pay->creator?->name ?? '—' }}
+                                        </div>
+                                    </div>
+                                    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                                        @if ($pay->isCancelled())
+                                            <span class="badge badge-error">Annulé</span>
+                                        @elseif ($paySettlement)
+                                            <span class="badge {{ ($paySettlement['status'] ?? '') === 'paid' ? 'badge-success' : 'badge-warning' }}">
+                                                {{ $paySettlement['status_label'] }}
+                                            </span>
+                                        @endif
+                                        @if (\Illuminate\Support\Facades\Route::has('tenant.invoice_payments.show'))
+                                            <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoice_payments.show', ['invoicePayment' => $pay->id, 'tenant' => $tenantCode]) }}">Voir</a>
+                                        @endif
+                                        @if (\Illuminate\Support\Facades\Route::has('tenant.invoice_payments.receipt.print'))
+                                            <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoice_payments.receipt.print', ['invoicePayment' => $pay->id, 'tenant' => $tenantCode]) }}">Reçu</a>
+                                        @endif
+                                    </div>
+                                </div>
+                                @if ($paySettlement)
+                                    @include('inovcom-invoice-payments::partials.settlement-lines', ['settlement' => $paySettlement, 'compact' => true])
+                                @endif
+                                @if (optional($pay->attachments)->isNotEmpty() && \Illuminate\Support\Facades\Route::has('tenant.invoice_payments.attachment.download'))
+                                    <div style="margin-top:8px;font-size:13px;">
+                                        @foreach ($pay->attachments as $att)
+                                            <div>
+                                                <a href="{{ route('tenant.invoice_payments.attachment.download', ['invoicePayment' => $pay->id, 'invoicePaymentAttachment' => $att->id, 'tenant' => $tenantCode]) }}" target="_blank" rel="noopener">
+                                                    {{ $att->original_name ?: $att->label }}
+                                                </a>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            </div>
+                        @endforeach
                     </div>
                 @elseif (!$canPay && $invoice->status === 'paid')
                     <p style="font-size:13px;color:#166534;margin-top:10px;">Facture totalement soldée.</p>
@@ -650,8 +667,7 @@
                 <div class="document-tax-block">
                     <label class="field-label">Taxes</label>
                     <p class="document-tax-block__hint">
-                        TVA <strong>+ Addition</strong> : s'ajoute au HT pour le TTC.
-                        IS / IR <strong>− Soustraction</strong> : retenue sur le HT (net à payer = HT − IS).
+                        TVA : addition (TTC). IS : soustraction (déjà déduite du net).
                     </p>
 
                     <div class="document-tax-lines">

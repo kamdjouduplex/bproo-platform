@@ -4,11 +4,14 @@ namespace InovCom\InvoicePayments;
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use InovCom\InvoicePayments\Http\Controllers\InvoicePaymentAttachmentController;
 use InovCom\InvoicePayments\Http\Controllers\InvoicePaymentPrintController;
 use InovCom\InvoicePayments\Http\Livewire\InvoicePaymentForm;
 use InovCom\InvoicePayments\Http\Livewire\InvoicePaymentsIndex;
+use InovCom\InvoicePayments\Http\Livewire\InvoicePaymentShow;
 use InovCom\InvoicePayments\Http\Livewire\WithholdingTypesIndex;
 use InovCom\InvoicePayments\Models\InvoicePayment;
+use InovCom\InvoicePayments\Models\InvoicePaymentAttachment;
 use InovCom\Invoicing\Models\Invoice;
 use InovCom\Kernel\Traits\LazyModuleBoot;
 use Livewire\Livewire;
@@ -37,11 +40,13 @@ class InvoicePaymentsServiceProvider extends ServiceProvider
         ], 'inovcom-invoice-payments-migrations');
 
         Livewire::component('inovcom-invoice-payments.index', InvoicePaymentsIndex::class);
+        Livewire::component('inovcom-invoice-payments.show', InvoicePaymentShow::class);
         Livewire::component('inovcom-invoice-payments.payment-form', InvoicePaymentForm::class);
         Livewire::component('inovcom-invoice-payments.withholding-types', WithholdingTypesIndex::class);
 
         Route::bind('invoice', fn ($value) => Invoice::on('tenant')->findOrFail($value));
         Route::bind('invoicePayment', fn ($value) => InvoicePayment::on('tenant')->findOrFail($value));
+        Route::bind('invoicePaymentAttachment', fn ($value) => InvoicePaymentAttachment::on('tenant')->findOrFail($value));
 
         $this->registerTenantRoutes();
     }
@@ -63,6 +68,12 @@ class InvoicePaymentsServiceProvider extends ServiceProvider
                 Route::get('/invoice-payments/receipts/{invoicePayment}/print', InvoicePaymentPrintController::class)
                     ->middleware(['module:invoice_payments'])
                     ->name('tenant.invoice_payments.receipt.print');
+                Route::get('/invoice-payments/receipts/{invoicePayment}/attachments/{invoicePaymentAttachment}', InvoicePaymentAttachmentController::class)
+                    ->middleware(['module:invoice_payments'])
+                    ->name('tenant.invoice_payments.attachment.download');
+                Route::get('/invoice-payments/receipts/{invoicePayment}', InvoicePaymentShow::class)
+                    ->middleware(['module:invoice_payments'])
+                    ->name('tenant.invoice_payments.show');
             });
     }
 }

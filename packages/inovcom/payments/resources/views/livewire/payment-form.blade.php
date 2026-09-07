@@ -1,5 +1,5 @@
-@php $tenantCode = request()->query('tenant') ?? session('tenant_code') ?? optional(request()->attributes->get('tenant'))->code; @endphp
 <div class="page-body">
+    @php $tenantCode = request()->query('tenant') ?? session('tenant_code') ?? optional(request()->attributes->get('tenant'))->code; @endphp
     @if (session()->has('success'))<div class="alert alert-success" style="margin-bottom: 16px;">{{ session('success') }}</div>@endif
     @if (session()->has('error'))<div class="alert alert-error" style="margin-bottom: 16px;">{{ session('error') }}</div>@endif
 
@@ -12,13 +12,32 @@
             <span class="badge badge-info">{{ \InovCom\Invoicing\Models\Invoice::statusLabel($invoice->status) }}</span>
         </div>
 
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px;">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-top:16px;">
             <div style="padding:12px;background:#f9fafb;border-radius:6px;">
-                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;">Montant total</div>
+                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;">Montant HT</div>
+                <div style="font-size:18px;font-weight:700;">{{ fmt_money($fiscal->ht) }}</div>
+            </div>
+            @if ($fiscal->vat > 0)
+                <div style="padding:12px;background:#eff6ff;border-radius:6px;">
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;">TVA</div>
+                    <div style="font-size:18px;font-weight:700;color:#1d4ed8;">{{ fmt_money($fiscal->vat) }}</div>
+                </div>
+            @endif
+            @if ($fiscal->is > 0)
+                <div style="padding:12px;background:#eff6ff;border-radius:6px;">
+                    <div style="font-size:11px;color:#6b7280;text-transform:uppercase;">IS</div>
+                    <div style="font-size:18px;font-weight:700;color:#1d4ed8;">{{ fmt_money($fiscal->is) }}</div>
+                    @if ($fiscal->isSubtractive)
+                        <div style="font-size:11px;color:#6b7280;">Déduit à l’émission</div>
+                    @endif
+                </div>
+            @endif
+            <div style="padding:12px;background:#f9fafb;border-radius:6px;">
+                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;">TTC / net à payer</div>
                 <div style="font-size:18px;font-weight:700;">{{ fmt_money($invoice->total) }}</div>
             </div>
             <div style="padding:12px;background:#f0fdf4;border-radius:6px;">
-                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;">Déjà encaissé</div>
+                <div style="font-size:11px;color:#6b7280;text-transform:uppercase;">Déjà soldé</div>
                 <div style="font-size:18px;font-weight:700;color:#166534;">{{ fmt_money($invoice->amount_paid) }}</div>
             </div>
             <div style="padding:12px;background:{{ $invoice->balance > 0.01 ? '#fffbeb' : '#f0fdf4' }};border-radius:6px;">
@@ -38,9 +57,8 @@
         <div class="card" style="margin-bottom:16px; padding:16px;">
             <h3 style="margin:0 0 8px;">Échéancier</h3>
             <p style="margin:0 0 12px; font-size:12px; color:#6b7280;">
-                Les encaissements s’imputent automatiquement sur les tranches les plus anciennes.
                 @if (($scheduleAmountDueNow ?? 0) > 0.01)
-                    <strong>Dû maintenant : {{ fmt_money($scheduleAmountDueNow) }} FCFA</strong>
+                    Dû maintenant : <strong>{{ fmt_money($scheduleAmountDueNow) }} FCFA</strong>
                 @endif
             </p>
             <div class="table-scroll">
@@ -91,17 +109,13 @@
             @endif
             <div class="form-grid">
                 <div class="form-group">
-                    <label class="field-label">Montant (FCFA) *</label>
+                    <label class="field-label">Montant à percevoir (FCFA) *</label>
                     <input class="input" type="number" step="1" min="0" max="{{ (int) round((float) $invoice->balance) }}"
                            wire:model.live="amount">
                     @error('amount') <span class="text-error">{{ $message }}</span> @enderror
                     <button type="button" class="btn btn-secondary btn-sm" style="margin-top:6px;" wire:click="payFullBalance">
                         Recalculer le montant à percevoir
                     </button>
-                    <p style="margin:8px 0 0;font-size:12px;color:#6b7280;">
-                        Saisissez le taux de retenue : le montant retenu est arrondi au franc (pas de centimes en FCFA),
-                        et l’argent à percevoir se calcule tout seul (solde − retenues).
-                    </p>
                 </div>
                 <div class="form-group">
                     <label class="field-label">Date d'encaissement *</label>
@@ -128,16 +142,18 @@
                 <textarea class="input" wire:model="notes" rows="2"></textarea>
             </div>
 
-            <div style="margin-top:16px;padding:14px;border:1px solid #93c5fd;border-radius:8px;background:#eff6ff;">
+            <div style="margin-top:16px;padding:14px;border:1px solid #e5e7eb;border-radius:8px;background:#f8fafc;">
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px;">
-                    <div>
-                        <strong>Retenues fiscales à la source</strong>
-                        <p style="margin:4px 0 0;font-size:12px;color:#1e40af;">
-                            Cliquez sur un type (TVA retenue, IS retenu, etc.) pour l’ajouter au règlement. Encaissé + retenues = montant soldé sur la facture.
-                        </p>
-                    </div>
+                    <strong>Retenues</strong>
                     <div style="display:flex;gap:6px;flex-wrap:wrap;">
                         @foreach ($withholdingTypes as $type)
+                            @php $kind = $type->resolvedKind(); @endphp
+                            @if ($kind === 'vat' && ($remainingVat ?? 0) <= 0)
+                                @continue
+                            @endif
+                            @if ($kind === 'is' && ($fiscal->is <= 0 || $fiscal->isSubtractive || ($remainingIs ?? 0) <= 0))
+                                @continue
+                            @endif
                             <button type="button" class="btn btn-secondary btn-sm" wire:click="addWithholding({{ $type->id }})">
                                 + {{ $type->name }}
                             </button>
@@ -160,26 +176,56 @@
                                     <th>Taux %</th>
                                     <th>Montant retenu</th>
                                     <th>Compte</th>
-                                    <th>Justificatif</th>
+                                    <th>N° / note</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach ($withholdings as $index => $row)
+                                    @php $kind = $row['kind'] ?? 'other'; @endphp
                                     <tr wire:key="wh-{{ $index }}">
                                         <td>
                                             <select class="input input-sm" wire:model.live="withholdings.{{ $index }}.type_id">
                                                 <option value="">Choisir…</option>
                                                 @foreach ($withholdingTypes as $type)
+                                                    @php $optionKind = $type->resolvedKind(); @endphp
+                                                    @if ($optionKind === 'vat' && ($remainingVat ?? 0) <= 0 && $kind !== 'vat')
+                                                        @continue
+                                                    @endif
+                                                    @if ($optionKind === 'is' && ($fiscal->is <= 0 || $fiscal->isSubtractive || ($remainingIs ?? 0) <= 0) && $kind !== 'is')
+                                                        @continue
+                                                    @endif
                                                     <option value="{{ $type->id }}">{{ $type->name }}</option>
                                                 @endforeach
                                             </select>
+                                            <div style="font-size:11px;color:#6b7280;margin-top:4px;">
+                                                @if ($kind === 'vat') TVA de la facture
+                                                @elseif ($kind === 'is') IS de la facture
+                                                @else Base × taux
+                                                @endif
+                                            </div>
                                         </td>
-                                        <td><input class="input input-sm" type="number" step="1" min="0" wire:model.live="withholdings.{{ $index }}.base_amount" style="width:110px;"></td>
-                                        <td><input class="input input-sm" type="number" step="0.01" min="0" wire:model.live="withholdings.{{ $index }}.rate" style="width:80px;"></td>
-                                        <td><input class="input input-sm" type="number" step="1" min="0" wire:model.live="withholdings.{{ $index }}.amount" style="width:110px;"></td>
+                                        <td>
+                                            <input class="input input-sm" type="number" step="1" min="0"
+                                                   wire:model.live="withholdings.{{ $index }}.base_amount"
+                                                   @if (in_array($kind, ['vat', 'is'], true)) readonly @endif
+                                                   placeholder="{{ $kind === 'is' ? 'HT' : 'Base' }}"
+                                                   style="width:120px;">
+                                        </td>
+                                        <td>
+                                            <input class="input input-sm" type="number" step="0.01" min="0"
+                                                   wire:model.live="withholdings.{{ $index }}.rate"
+                                                   @if (in_array($kind, ['vat', 'is'], true)) readonly @endif
+                                                   style="width:80px;">
+                                        </td>
+                                        <td>
+                                            <input class="input input-sm" type="number" step="1" min="0"
+                                                   wire:model.live="withholdings.{{ $index }}.amount"
+                                                   @if (in_array($kind, ['vat', 'is'], true)) readonly @endif
+                                                   style="width:110px;">
+                                        </td>
                                         <td><input class="input input-sm" wire:model="withholdings.{{ $index }}.account_code" placeholder="Compte" style="width:90px;"></td>
-                                        <td><input class="input input-sm" wire:model="withholdings.{{ $index }}.comment" placeholder="Commentaire"></td>
+                                        <td><input class="input input-sm" wire:model="withholdings.{{ $index }}.comment" placeholder="N° attestation…"></td>
                                         <td><button type="button" class="btn btn-secondary btn-sm" wire:click="removeWithholding({{ $index }})">×</button></td>
                                     </tr>
                                 @endforeach
@@ -187,7 +233,7 @@
                         </table>
                     </div>
                 @else
-                    <p style="font-size:12px;color:#6b7280;margin:0;">Aucune retenue. Le client règle le montant encaissé ci-dessus.</p>
+                    <p style="font-size:12px;color:#6b7280;margin:0;">Aucune retenue.</p>
                 @endif
             </div>
 
@@ -199,7 +245,7 @@
                         <strong>{{ fmt_money($s['invoice_total']) }}</strong>
                     </div>
                     <div style="padding:10px;background:#f0fdf4;border-radius:6px;">
-                        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;">Montant encaissé</div>
+                        <div style="font-size:11px;color:#6b7280;text-transform:uppercase;">Net à percevoir</div>
                         <strong style="color:#166534;">{{ fmt_money($s['cash_received']) }}</strong>
                     </div>
                     <div style="padding:10px;background:#eff6ff;border-radius:6px;">
@@ -221,6 +267,11 @@
                     </p>
                 @endif
             @endif
+            <div class="form-group" style="margin-top:14px;">
+                <label class="field-label">Attestation / justificatif de retenue</label>
+                <input class="input" type="file" wire:model="newCertificate" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                @error('newCertificate') <span class="text-error">{{ $message }}</span> @enderror
+            </div>
             <div class="page-actions" style="margin-top:16px;">
                 <button type="submit" class="btn btn-primary">Enregistrer et imprimer le reçu</button>
                 <a class="btn btn-secondary" href="{{ route('tenant.invoicing.edit', ['invoice' => $invoice->id, 'tenant' => $tenantCode]) }}">Retour facture</a>
@@ -247,31 +298,48 @@
                         <tr>
                             <th>N° reçu</th>
                             <th>Date / heure</th>
-                            <th>Montant</th>
+                            <th>Perçu</th>
+                            <th>Retenues</th>
                             <th>Mode</th>
-                            <th>Réf.</th>
                             <th>Par</th>
                             <th>Solde après</th>
-                            <th>Statut</th>
+                            <th>Justificatif</th>
                             <th></th>
                         </tr>
                     </thead>
                     <tbody>
                         @foreach ($payments as $p)
                             <tr wire:key="pay-{{ $p->id }}" style="{{ $p->isCancelled() ? 'opacity:0.65;' : '' }}">
-                                <td><strong>{{ $p->reference }}</strong></td>
+                                <td>
+                                    <strong>{{ $p->reference }}</strong>
+                                    <div style="font-size:11px;color:#9ca3af;">{{ \InovCom\InvoicePayments\Models\InvoicePayment::statusLabel($p->status) }}</div>
+                                </td>
                                 <td>
                                     {{ $p->payment_date->format('d/m/Y') }}
                                     <div style="font-size:11px;color:#9ca3af;">{{ $p->created_at?->format('H:i') }}</div>
                                 </td>
                                 <td style="{{ (float) $p->amount < 0 ? 'color:#b91c1c;' : ($p->isActive() ? 'color:#166534;font-weight:600;' : '') }}">
                                     {{ (float) $p->amount < 0 ? '−' : '+' }}{{ fmt_money(abs((float) $p->amount)) }}
+                                    @if ($p->external_reference)
+                                        <div style="font-size:11px;color:#6b7280;">{{ $p->external_reference }}</div>
+                                    @endif
+                                </td>
+                                <td>
                                     @if ($p->withholdingTotal() > 0)
-                                        <div style="font-size:11px;color:#1d4ed8;">+ {{ fmt_money($p->withholdingTotal()) }} retenues</div>
+                                        <strong style="color:#1d4ed8;">{{ fmt_money($p->withholdingTotal()) }}</strong>
+                                        @foreach ($p->withholdings as $wh)
+                                            <div style="font-size:11px;color:#1e40af;">
+                                                {{ $wh->type_name }} : {{ fmt_money($wh->amount) }}
+                                                @if ((float) $wh->base_amount > 0)
+                                                    <span style="color:#6b7280;">(base {{ fmt_money($wh->base_amount) }}@if((float)$wh->rate > 0) × {{ fmt_num((float)$wh->rate, 2) }} %@endif)</span>
+                                                @endif
+                                            </div>
+                                        @endforeach
+                                    @else
+                                        <span style="color:#9ca3af;">—</span>
                                     @endif
                                 </td>
                                 <td>{{ \InovCom\InvoicePayments\Models\InvoicePayment::methodLabel($p->payment_method) }}</td>
-                                <td style="font-size:12px;">{{ $p->external_reference ?? '—' }}</td>
                                 <td>{{ $p->creator?->name ?? '—' }}</td>
                                 <td>
                                     @if ($p->balance_after !== null)
@@ -280,12 +348,27 @@
                                         —
                                     @endif
                                 </td>
-                                <td>
-                                    <span class="badge {{ $p->isCancelled() ? 'badge-secondary' : 'badge-success' }}">
-                                        {{ \InovCom\InvoicePayments\Models\InvoicePayment::statusLabel($p->status) }}
-                                    </span>
+                                <td style="min-width:180px;">
+                                    @foreach ($p->attachments as $att)
+                                        <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
+                                            <a href="{{ route('tenant.invoice_payments.attachment.download', ['invoicePayment' => $p->id, 'invoicePaymentAttachment' => $att->id, 'tenant' => $tenantCode]) }}" target="_blank" rel="noopener">
+                                                {{ $att->original_name ?: $att->label }}
+                                            </a>
+                                            <button type="button" class="btn btn-secondary btn-sm" wire:click="deleteAttachment({{ $att->id }})"
+                                                    wire:confirm="Retirer ce justificatif ?">×</button>
+                                        </div>
+                                    @endforeach
+                                    @if ($p->isActive())
+                                        <input type="file" class="input input-sm" wire:model="historyCertificates.{{ $p->id }}" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                                        <button type="button" class="btn btn-secondary btn-sm" style="margin-top:4px;"
+                                                wire:click="attachHistoryCertificate({{ $p->id }})">Joindre</button>
+                                        @error('historyCertificates.'.$p->id) <div class="text-error">{{ $message }}</div> @enderror
+                                    @endif
                                 </td>
                                 <td style="white-space:nowrap;">
+                                    @if (\Illuminate\Support\Facades\Route::has('tenant.invoice_payments.show'))
+                                        <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoice_payments.show', ['invoicePayment' => $p->id, 'tenant' => $tenantCode]) }}">Voir</a>
+                                    @endif
                                     @if ($p->isReceipt() || $p->isActive())
                                         <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoice_payments.receipt.print', ['invoicePayment' => $p->id, 'tenant' => $tenantCode]) }}">Reçu</a>
                                     @endif
