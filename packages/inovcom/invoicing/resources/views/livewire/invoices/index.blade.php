@@ -4,6 +4,22 @@
     $clientName = $clients->firstWhere('id', (int) $clientFilter)?->name;
 @endphp
 <div class="page-body">
+    <style>
+        .invoice-index-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .invoice-index-table { width: 100%; min-width: 1120px; border-collapse: separate; border-spacing: 0; }
+        .invoice-index-table th,
+        .invoice-index-table td { padding: 10px 12px; vertical-align: middle; }
+        .invoice-index-table th { white-space: nowrap; font-size: 11px; letter-spacing: 0.03em; text-transform: uppercase; }
+        .invoice-index-table td { white-space: nowrap; }
+        .invoice-index-table .col-client { max-width: 180px; }
+        .invoice-index-table .col-client span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .invoice-index-table .col-ref { max-width: 140px; }
+        .invoice-index-table .col-ref code { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+        .invoice-index-table .col-num { text-align: right; font-variant-numeric: tabular-nums; }
+        .invoice-index-table .col-status { white-space: normal; min-width: 96px; }
+        .invoice-index-table .col-actions { white-space: nowrap; }
+        .invoice-index-table .invoice-row-actions { flex-wrap: nowrap; }
+    </style>
     @if (session()->has('success'))<div class="alert alert-success" style="margin-bottom: 16px;">{{ session('success') }}</div>@endif
     @if (session()->has('error'))<div class="alert alert-error" style="margin-bottom: 16px;">{{ session('error') }}</div>@endif
 
@@ -182,21 +198,21 @@
             </div>
         @endif
 
-        <div class="table-scroll">
-            <table>
+        <div class="table-scroll invoice-index-scroll">
+            <table class="invoice-index-table">
                 <thead>
                     <tr>
-                        <th>N° facture</th>
+                        <th>N°</th>
                         <th>Type</th>
                         <th>Client</th>
-                        <th>N° de demande</th>
+                        <th>Demande</th>
                         <th>Date</th>
                         <th>Échéance</th>
-                        <th>Total</th>
-                        <th>Payé</th>
-                        <th>Solde</th>
+                        <th class="col-num">Total</th>
+                        <th class="col-num">Payé</th>
+                        <th class="col-num">Solde</th>
                         <th>Statut</th>
-                        <th>Actions</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -213,14 +229,20 @@
                                 @endif
                             </div>
                         </td>
-                        <td><span class="badge {{ $inv->declaration_type === 'declared' ? 'badge-info' : 'badge-secondary' }}">{{ \InovCom\Invoicing\Models\Invoice::declarationLabel($inv->declaration_type) }}</span></td>
                         <td>
-                            @php $name = $inv->client->name ?? '—'; @endphp
-                            <span title="{{ $name }}">{{ \Illuminate\Support\Str::limit($name, 30) }}</span>
+                            @php
+                                $declLabel = \InovCom\Invoicing\Models\Invoice::declarationLabel($inv->declaration_type);
+                                $declShort = $inv->declaration_type === 'declared' ? 'Décl.' : 'Std';
+                            @endphp
+                            <span class="badge {{ $inv->declaration_type === 'declared' ? 'badge-info' : 'badge-secondary' }}" title="{{ $declLabel }}">{{ $declShort }}</span>
                         </td>
-                        <td>
+                        <td class="col-client">
+                            @php $name = $inv->client->name ?? '—'; @endphp
+                            <span title="{{ $name }}">{{ $name }}</span>
+                        </td>
+                        <td class="col-ref">
                             @if (filled($inv->customer_reference))
-                                <code style="font-size:12px;">{{ $inv->customer_reference }}</code>
+                                <code title="{{ $inv->customer_reference }}">{{ $inv->customer_reference }}</code>
                             @else
                                 <span style="color:#9ca3af;">—</span>
                             @endif
@@ -233,10 +255,10 @@
                                 <span style="color:#9ca3af;">—</span>
                             @endif
                         </td>
-                        <td>{{ fmt_money($inv->total) }}</td>
-                        <td>{{ fmt_money($inv->amount_paid) }}</td>
-                        <td><strong>{{ fmt_money($inv->balance) }}</strong></td>
-                        <td>
+                        <td class="col-num">{{ fmt_money($inv->total) }}</td>
+                        <td class="col-num">{{ fmt_money($inv->amount_paid) }}</td>
+                        <td class="col-num"><strong>{{ fmt_money($inv->balance) }}</strong></td>
+                        <td class="col-status">
                             @php $badge = match($inv->status) {
                                 'paid' => 'badge-success',
                                 'partial' => 'badge-info',
@@ -250,7 +272,7 @@
                                     ?? ($inv->quotation->fulfillment_status ?? '');
                             @endphp
                             @if ($deliveryStatus === 'partial')
-                                <div style="margin-top:4px;"><span class="badge badge-warning">Livraison partielle</span></div>
+                                <div style="margin-top:4px;"><span class="badge badge-warning" title="Livraison partielle">Partiel</span></div>
                             @elseif ($deliveryStatus === 'delivered')
                                 <div style="margin-top:4px;"><span class="badge badge-success">Livré</span></div>
                             @endif
@@ -260,7 +282,7 @@
                                 <div style="font-size:11px; color:#666;">{{ number_format($inv->paymentProgressPercent(), 0) }}% payé</div>
                             @endif
                         </td>
-                        <td>
+                        <td class="col-actions">
                             <div class="invoice-row-actions">
                                 <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoicing.edit', [$inv->id, 'tenant' => $tenantCode]) }}">Voir</a>
                                 @if ($canPay && $inv->canReceivePayment())

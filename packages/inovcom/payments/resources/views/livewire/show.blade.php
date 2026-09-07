@@ -91,44 +91,30 @@
                 @endif
             </section>
 
+            @if ($payment->hasSourceWithholding())
             <section class="card" style="padding:16px;margin-bottom:16px;">
                 <div class="table-title" style="margin-bottom:12px;">Justificatif / attestation</div>
-                @forelse ($payment->attachments as $att)
-                    @php
-                        $viewUrl = route('tenant.invoice_payments.attachment.download', ['invoicePayment' => $payment->id, 'invoicePaymentAttachment' => $att->id, 'tenant' => $tenantCode]);
-                        $downloadUrl = route('tenant.invoice_payments.attachment.download', ['invoicePayment' => $payment->id, 'invoicePaymentAttachment' => $att->id, 'tenant' => $tenantCode, 'download' => 1]);
-                    @endphp
-                    <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #f1f5f9;">
-                        <div style="font-size:13px;margin-bottom:8px;">
-                            <strong>{{ $att->original_name ?: $att->label }}</strong>
-                        </div>
-                        @if ($att->isImage())
-                            <a href="{{ $viewUrl }}" target="_blank" rel="noopener">
-                                <img src="{{ $viewUrl }}" alt="{{ $att->original_name }}" style="max-width:100%;max-height:240px;border:1px solid #e5e7eb;border-radius:6px;">
-                            </a>
-                        @elseif ($att->isPdf())
-                            <iframe src="{{ $viewUrl }}" title="{{ $att->original_name }}" style="width:100%;height:360px;border:1px solid #e5e7eb;border-radius:6px;background:#fff;"></iframe>
-                        @endif
-                        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;">
-                            <a class="btn btn-secondary btn-sm" href="{{ $viewUrl }}" target="_blank" rel="noopener">Ouvrir</a>
-                            <a class="btn btn-secondary btn-sm" href="{{ $downloadUrl }}">Télécharger</a>
-                            @if ($canAttach ?? false)
-                                <button type="button" class="btn btn-secondary btn-sm" wire:click="deleteAttachment({{ $att->id }})"
-                                        wire:confirm="Retirer ce justificatif ?">Retirer</button>
-                            @endif
-                        </div>
-                    </div>
+                @forelse (($attachments ?? collect()) as $att)
+                    @include('inovcom-invoice-payments::partials.attachment-row', [
+                        'att' => $att,
+                        'paymentId' => $payment->id,
+                        'tenantCode' => $tenantCode,
+                        'canReplace' => $canAttach ?? false,
+                    ])
                 @empty
                     <p style="margin:0 0 12px;font-size:13px;color:#6b7280;">Aucun justificatif pour le moment.</p>
                 @endforelse
 
                 @if ($canAttach ?? false)
-                    <input class="input input-sm" type="file" wire:key="new-cert-{{ $payment->attachments->count() }}" wire:model="newCertificate" accept=".pdf,.jpg,.jpeg,.png,.webp">
-                    <div wire:loading wire:target="newCertificate" style="font-size:12px;color:#6b7280;margin-top:4px;">Chargement…</div>
-                    @error('newCertificate') <div class="text-error">{{ $message }}</div> @enderror
-                    <button type="button" class="btn btn-primary btn-sm" style="margin-top:8px;" wire:click="attachCertificate">Joindre</button>
+                    <div style="margin-top:{{ ($attachments ?? collect())->isNotEmpty() ? '12px' : '0' }};">
+                        <input class="input input-sm" type="file" wire:key="new-cert-{{ $attachments->count() }}" wire:model="newCertificate" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                        <div wire:loading wire:target="newCertificate" style="font-size:12px;color:#6b7280;margin-top:4px;">Chargement…</div>
+                        @error('newCertificate') <div class="text-error">{{ $message }}</div> @enderror
+                        <button type="button" class="btn btn-primary btn-sm" style="margin-top:8px;" wire:click="attachCertificate">Joindre</button>
+                    </div>
                 @endif
             </section>
+            @endif
 
             @if ($payment->isCancelled())
                 <section class="card" style="padding:16px;border-color:#fecaca;">

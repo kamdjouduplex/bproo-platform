@@ -182,14 +182,15 @@
                                 @if ($paySettlement)
                                     @include('inovcom-invoice-payments::partials.settlement-lines', ['settlement' => $paySettlement, 'compact' => true])
                                 @endif
-                                @if (optional($pay->attachments)->isNotEmpty() && \Illuminate\Support\Facades\Route::has('tenant.invoice_payments.attachment.download'))
-                                    <div style="margin-top:8px;font-size:13px;">
+                                @if ($pay->hasSourceWithholding() && optional($pay->attachments)->isNotEmpty() && \Illuminate\Support\Facades\Route::has('tenant.invoice_payments.attachment.download'))
+                                    <div style="margin-top:8px;">
                                         @foreach ($pay->attachments as $att)
-                                            <div>
-                                                <a href="{{ route('tenant.invoice_payments.attachment.download', ['invoicePayment' => $pay->id, 'invoicePaymentAttachment' => $att->id, 'tenant' => $tenantCode]) }}" target="_blank" rel="noopener">
-                                                    {{ $att->original_name ?: $att->label }}
-                                                </a>
-                                            </div>
+                                            @include('inovcom-invoice-payments::partials.attachment-row', [
+                                                'att' => $att,
+                                                'paymentId' => $pay->id,
+                                                'tenantCode' => $tenantCode,
+                                                'canReplace' => false,
+                                            ])
                                         @endforeach
                                     </div>
                                 @endif

@@ -59,7 +59,7 @@ class FiscalWithholdingType extends TenantModel
                 'default_rate' => 0,
                 'default_account' => '4441',
                 'sort_order' => 20,
-                'description' => 'Retient l’IS déjà établi sur la facture (même montant).',
+                'description' => 'Si l’IS est sur la facture, le même montant est retenu. Sinon, base × taux.',
             ],
             [
                 'code' => 'autre_taxe',

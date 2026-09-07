@@ -8,7 +8,7 @@
     </div>
 
     <p style="margin-bottom:16px;color:#6b7280;font-size:13px;">
-        Types proposés à l’encaissement. TVA et IS ne peuvent être retenues que si elles figurent déjà sur la facture.
+        Types proposés à l’encaissement. TVA uniquement si elle est sur la facture. IS : montant de la facture s’il y est, sinon vous saisissez la base et le taux.
     </p>
 
     @if ($canManage)
@@ -26,13 +26,13 @@
                 </div>
                 <div class="form-group">
                     <label class="field-label">Règle de calcul *</label>
-                    <select class="input" wire:model="kind">
+                    <select class="input" wire:model.live="kind">
                         @foreach ($kindLabels as $value => $label)
                             <option value="{{ $value }}">{{ $label }}</option>
                         @endforeach
                     </select>
                     <p style="margin:6px 0 0;font-size:12px;color:#6b7280;">
-                        TVA = montant de la facture. IS = montant de la facture. Autre = base × taux.
+                        TVA = montant déjà sur la facture. IS = montant de la facture s’il y est, sinon base × taux. Autre = base × taux.
                     </p>
                 </div>
                 <div class="form-group">

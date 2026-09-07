@@ -2925,7 +2925,73 @@ tbody td {
 .invoice-row-actions {
     display: flex;
     gap: 4px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+}
+
+.invoice-index-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.invoice-index-table {
+    width: 100%;
+    min-width: 1120px;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.invoice-index-table th,
+.invoice-index-table td {
+    padding: 10px 12px;
+    vertical-align: middle;
+}
+
+.invoice-index-table th {
+    white-space: nowrap;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.invoice-index-table td {
+    white-space: nowrap;
+}
+
+.invoice-index-table .col-client {
+    max-width: 180px;
+}
+
+.invoice-index-table .col-client span {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.invoice-index-table .col-ref {
+    max-width: 140px;
+}
+
+.invoice-index-table .col-ref code {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+}
+
+.invoice-index-table .col-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.invoice-index-table .col-status {
+    white-space: normal;
+    min-width: 96px;
+}
+
+.invoice-index-table .col-actions {
+    white-space: nowrap;
 }
 
 .invoice-empty {

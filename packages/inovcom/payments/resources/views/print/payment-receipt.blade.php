@@ -287,7 +287,7 @@
             </table>
         </div>
 
-        @if (optional($payment->attachments)->isNotEmpty())
+        @if ($payment->hasSourceWithholding() && optional($payment->attachments)->isNotEmpty())
             <div class="panel" style="margin-top:16px;">
                 <div class="panel-title">Justificatifs de retenue</div>
                 <ul style="margin:0;padding-left:16px;font-size:11px;">

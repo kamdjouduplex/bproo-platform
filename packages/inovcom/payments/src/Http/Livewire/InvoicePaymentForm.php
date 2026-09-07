@@ -36,6 +36,9 @@ class InvoicePaymentForm extends Component
     /** @var array<int|string, mixed> */
     public array $historyCertificates = [];
 
+    /** @var array<int|string, mixed> */
+    public array $replaceCertificates = [];
+
     public ?int $cancellingPaymentId = null;
     public string $cancellation_reason = '';
 
@@ -171,7 +174,7 @@ class InvoicePaymentForm extends Component
                 $this->normalizedWithholdings()
             );
 
-            if ($this->newCertificate) {
+            if ($this->newCertificate && $this->normalizedWithholdings() !== []) {
                 $this->storeCertificateFile($payment, $this->newCertificate);
             }
 
@@ -204,9 +207,64 @@ class InvoicePaymentForm extends Component
         ]);
 
         $payment = InvoicePayment::query()->where('invoice_id', $this->invoice->id)->findOrFail($paymentId);
+        if (! $payment->hasSourceWithholding()) {
+            session()->flash('error', 'Un justificatif n’est demandé que s’il y a une retenue à la source.');
+            return;
+        }
+
         $this->storeCertificateFile($payment, $file);
         unset($this->historyCertificates[$paymentId]);
         session()->flash('success', 'Justificatif de retenue ajouté.');
+    }
+
+    public function updatedReplaceCertificates($value, $key = null): void
+    {
+        $id = (int) $key;
+        if ($id > 0 && $value) {
+            $this->replaceCertificate($id);
+            return;
+        }
+
+        foreach ($this->replaceCertificates as $attachmentId => $file) {
+            if ($file) {
+                $this->replaceCertificate((int) $attachmentId);
+            }
+        }
+    }
+
+    public function replaceCertificate(int $attachmentId): void
+    {
+        if (! $this->can('invoice_payments.receive')) {
+            session()->flash('error', 'Permission refusée.');
+            return;
+        }
+
+        $this->validate([
+            'replaceCertificates.'.$attachmentId => 'required|file|max:10240|mimes:pdf,jpg,jpeg,png,webp',
+        ]);
+
+        $attachment = InvoicePaymentAttachment::query()->findOrFail($attachmentId);
+        $payment = InvoicePayment::query()
+            ->where('invoice_id', $this->invoice->id)
+            ->findOrFail($attachment->invoice_payment_id);
+
+        if (! $payment->hasSourceWithholding() || ! $payment->isActive()) {
+            session()->flash('error', 'Ce justificatif ne peut pas être mis à jour.');
+            return;
+        }
+
+        try {
+            app(InvoicePaymentsService::class)->replaceUploadedCertificate(
+                $attachment,
+                $this->replaceCertificates[$attachmentId]
+            );
+        } catch (\Throwable $e) {
+            session()->flash('error', $e->getMessage());
+            return;
+        }
+
+        unset($this->replaceCertificates[$attachmentId]);
+        session()->flash('success', 'Justificatif mis à jour.');
     }
 
     public function deleteAttachment(int $attachmentId): void
@@ -283,11 +341,12 @@ class InvoicePaymentForm extends Component
                 'creator',
                 'canceller',
                 ...InvoicePayment::optionalWithholdingsRelation(),
-                ...InvoicePayment::optionalAttachmentsRelation(),
             ]))
             ->orderByDesc('payment_date')
             ->orderByDesc('id')
             ->get();
+
+        $this->hydratePaymentAttachments($payments);
 
         $canReceive = $this->invoice->canReceivePayment() && $this->can('invoice_payments.receive');
         $scheduleAmountDueNow = $this->invoice->schedules->isNotEmpty()
@@ -351,7 +410,13 @@ class InvoicePaymentForm extends Component
         }
 
         $row = $this->suggestedRow($type);
-        if (in_array($kind, [WithholdingKind::VAT, WithholdingKind::IS], true) && (float) $row['amount'] <= 0) {
+        if ($kind === WithholdingKind::VAT && (float) $row['amount'] <= 0) {
+            session()->flash('error', $this->withholdingGuard($kind) ?: 'Cette retenue n’est pas applicable à la facture.');
+            return;
+        }
+        if ($kind === WithholdingKind::IS
+            && InvoiceFiscalBreakdown::fromInvoice($this->invoice)->locksIsAmount()
+            && (float) $row['amount'] <= 0) {
             session()->flash('error', $this->withholdingGuard($kind) ?: 'Cette retenue n’est pas applicable à la facture.');
             return;
         }
@@ -399,7 +464,9 @@ class InvoicePaymentForm extends Component
         }
 
         $kind = $this->withholdings[$index]['kind'] ?? WithholdingKind::OTHER;
-        if (in_array($kind, [WithholdingKind::VAT, WithholdingKind::IS], true)) {
+        $locksIs = $kind === WithholdingKind::IS
+            && InvoiceFiscalBreakdown::fromInvoice($this->invoice)->locksIsAmount();
+        if ($kind === WithholdingKind::VAT || $locksIs) {
             $type = $this->activeWithholdingTypes()->firstWhere('id', (int) ($this->withholdings[$index]['type_id'] ?? 0));
             $this->withholdings[$index] = array_merge(
                 $this->suggestedRow($type, $index),
@@ -452,7 +519,7 @@ class InvoicePaymentForm extends Component
                 $settlementBase > 0 ? $settlementBase : $remainingBalance,
                 $remainingBalance
             );
-        } elseif ($kind === WithholdingKind::IS) {
+        } elseif ($kind === WithholdingKind::IS && $fiscal->locksIsAmount()) {
             $pending = [];
             foreach ($this->withholdings as $i => $row) {
                 if ($exceptIndex !== null && $i === $exceptIndex) {
@@ -498,6 +565,31 @@ class InvoicePaymentForm extends Component
             ->orderBy('sort_order')
             ->orderBy('name')
             ->get();
+    }
+
+    private function hydratePaymentAttachments($payments): void
+    {
+        WithholdingSchema::ensure();
+        if ($payments->isEmpty() || ! InvoicePayment::hasAttachmentsTable()) {
+            foreach ($payments as $payment) {
+                $payment->setRelation('attachments', $payment->newCollection());
+            }
+
+            return;
+        }
+
+        $grouped = InvoicePaymentAttachment::query()
+            ->whereIn('invoice_payment_id', $payments->modelKeys())
+            ->orderByDesc('id')
+            ->get()
+            ->groupBy('invoice_payment_id');
+
+        foreach ($payments as $payment) {
+            $payment->setRelation(
+                'attachments',
+                $grouped->get($payment->id, $payment->newCollection())
+            );
+        }
     }
 
     private function settlementSummary(): array

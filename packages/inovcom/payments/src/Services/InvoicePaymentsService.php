@@ -329,19 +329,21 @@ class InvoicePaymentsService
                 if ($error) {
                     throw new \RuntimeException($error);
                 }
-                $amount = WithholdingCalculator::suggestInvoiceVatAmount(
-                    $fiscal->is,
-                    $alreadyIs,
-                    (float) $invoice->balance,
-                    (float) $invoice->balance
-                );
-                if ($amount <= 0) {
-                    throw new \RuntimeException('L’IS de cette facture a déjà été retenu.');
+                if ($fiscal->locksIsAmount()) {
+                    $amount = WithholdingCalculator::suggestInvoiceVatAmount(
+                        $fiscal->is,
+                        $alreadyIs,
+                        (float) $invoice->balance,
+                        (float) $invoice->balance
+                    );
+                    if ($amount <= 0) {
+                        throw new \RuntimeException('L’IS de cette facture a déjà été retenu.');
+                    }
+                    $alreadyIs += $amount;
+                    $row['base_amount'] = $fiscal->ht;
+                    $row['rate'] = $fiscal->isRate;
+                    $row['amount'] = $amount;
                 }
-                $alreadyIs += $amount;
-                $row['base_amount'] = $fiscal->ht;
-                $row['rate'] = $fiscal->isRate;
-                $row['amount'] = $amount;
             }
 
             $corrected[] = $row;
@@ -464,6 +466,35 @@ class InvoicePaymentsService
             $file->getSize(),
             $userId
         );
+    }
+
+    public function replaceUploadedCertificate(InvoicePaymentAttachment $attachment, $file, ?int $userId = null): InvoicePaymentAttachment
+    {
+        $payment = $attachment->payment;
+        if (! $payment) {
+            throw new \RuntimeException('Encaissement introuvable pour ce justificatif.');
+        }
+
+        $directory = 'invoice-payments/'.$payment->id;
+        Storage::disk('public')->makeDirectory($directory);
+        $extension = $file->getClientOriginalExtension() ?: 'pdf';
+        $filename = Str::random(24).'.'.$extension;
+        $path = $file->storeAs($directory, $filename, 'public');
+        $oldPath = $attachment->path;
+
+        $attachment->update([
+            'original_name' => $file->getClientOriginalName(),
+            'path' => $path,
+            'mime_type' => $file->getMimeType(),
+            'size_bytes' => $file->getSize(),
+            'uploaded_by' => $userId ?? auth('tenant')->id(),
+        ]);
+
+        if ($oldPath && $oldPath !== $path && Storage::disk('public')->exists($oldPath)) {
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        return $attachment->fresh();
     }
 
     public function deleteAttachment(InvoicePaymentAttachment $attachment): void

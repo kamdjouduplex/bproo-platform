@@ -11,9 +11,9 @@ class WithholdingKind
     public static function labels(): array
     {
         return [
-            self::VAT => 'TVA de la facture',
-            self::IS => 'IS de la facture',
-            self::OTHER => 'Autre (base × taux)',
+            self::VAT => 'TVA',
+            self::IS => 'IS',
+            self::OTHER => 'Autre',
         ];
     }
 

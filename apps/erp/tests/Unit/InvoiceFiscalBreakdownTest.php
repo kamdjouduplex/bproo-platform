@@ -18,14 +18,12 @@ class InvoiceFiscalBreakdownTest extends TestCase
         );
     }
 
-    public function test_cannot_withhold_is_when_invoice_has_none(): void
+    public function test_is_without_invoice_line_can_be_entered_manually(): void
     {
         $fiscal = new InvoiceFiscalBreakdown(770_000, 148_225, 19.25, 918_225, 918_225);
 
-        $this->assertSame(
-            'Cette facture n’a pas d’IS. Impossible de le retenir à l’encaissement.',
-            $fiscal->withholdingError(WithholdingKind::IS)
-        );
+        $this->assertFalse($fiscal->locksIsAmount());
+        $this->assertNull($fiscal->withholdingError(WithholdingKind::IS));
         $this->assertNull($fiscal->withholdingError(WithholdingKind::VAT));
     }
 
@@ -62,6 +60,7 @@ class InvoiceFiscalBreakdownTest extends TestCase
         );
 
         $this->assertNull($fiscal->withholdingError(WithholdingKind::IS));
+        $this->assertTrue($fiscal->locksIsAmount());
         $this->assertSame('L’IS de cette facture a déjà été retenu.', $fiscal->withholdingError(WithholdingKind::IS, 16_940));
     }
 }

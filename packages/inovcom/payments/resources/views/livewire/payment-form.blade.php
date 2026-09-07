@@ -151,14 +151,13 @@
                             @if ($kind === 'vat' && ($remainingVat ?? 0) <= 0)
                                 @continue
                             @endif
-                            @if ($kind === 'is' && ($fiscal->is <= 0 || $fiscal->isSubtractive || ($remainingIs ?? 0) <= 0))
+                            @if ($kind === 'is' && ($fiscal->isSubtractive || (($fiscal->locksIsAmount() ?? false) && ($remainingIs ?? 0) <= 0)))
                                 @continue
                             @endif
                             <button type="button" class="btn btn-secondary btn-sm" wire:click="addWithholding({{ $type->id }})">
                                 + {{ $type->name }}
                             </button>
                         @endforeach
-                        <button type="button" class="btn btn-secondary btn-sm" wire:click="addWithholding">+ Autre</button>
                     </div>
                 </div>
                 @if ($canManageWithholdings ?? false)
@@ -192,7 +191,7 @@
                                                     @if ($optionKind === 'vat' && ($remainingVat ?? 0) <= 0 && $kind !== 'vat')
                                                         @continue
                                                     @endif
-                                                    @if ($optionKind === 'is' && ($fiscal->is <= 0 || $fiscal->isSubtractive || ($remainingIs ?? 0) <= 0) && $kind !== 'is')
+                                                    @if ($optionKind === 'is' && ($fiscal->isSubtractive || (($fiscal->locksIsAmount() ?? false) && ($remainingIs ?? 0) <= 0)) && $kind !== 'is')
                                                         @continue
                                                     @endif
                                                     <option value="{{ $type->id }}">{{ $type->name }}</option>
@@ -200,7 +199,8 @@
                                             </select>
                                             <div style="font-size:11px;color:#6b7280;margin-top:4px;">
                                                 @if ($kind === 'vat') TVA de la facture
-                                                @elseif ($kind === 'is') IS de la facture
+                                                @elseif ($kind === 'is' && ($fiscal->locksIsAmount() ?? false)) IS de la facture
+                                                @elseif ($kind === 'is') IS — base × taux
                                                 @else Base × taux
                                                 @endif
                                             </div>
@@ -208,20 +208,20 @@
                                         <td>
                                             <input class="input input-sm" type="number" step="1" min="0"
                                                    wire:model.live="withholdings.{{ $index }}.base_amount"
-                                                   @if (in_array($kind, ['vat', 'is'], true)) readonly @endif
-                                                   placeholder="{{ $kind === 'is' ? 'HT' : 'Base' }}"
+                                                   @if ($kind === 'vat' || ($kind === 'is' && ($fiscal->locksIsAmount() ?? false))) readonly @endif
+                                                   placeholder="{{ $kind === 'is' ? 'Base / bénéfice' : 'Base' }}"
                                                    style="width:120px;">
                                         </td>
                                         <td>
                                             <input class="input input-sm" type="number" step="0.01" min="0"
                                                    wire:model.live="withholdings.{{ $index }}.rate"
-                                                   @if (in_array($kind, ['vat', 'is'], true)) readonly @endif
+                                                   @if ($kind === 'vat' || ($kind === 'is' && ($fiscal->locksIsAmount() ?? false))) readonly @endif
                                                    style="width:80px;">
                                         </td>
                                         <td>
                                             <input class="input input-sm" type="number" step="1" min="0"
                                                    wire:model.live="withholdings.{{ $index }}.amount"
-                                                   @if (in_array($kind, ['vat', 'is'], true)) readonly @endif
+                                                   @if ($kind === 'vat' || ($kind === 'is' && ($fiscal->locksIsAmount() ?? false))) readonly @endif
                                                    style="width:110px;">
                                         </td>
                                         <td><input class="input input-sm" wire:model="withholdings.{{ $index }}.account_code" placeholder="Compte" style="width:90px;"></td>
@@ -267,11 +267,13 @@
                     </p>
                 @endif
             @endif
+            @if (count($withholdings) > 0)
             <div class="form-group" style="margin-top:14px;">
                 <label class="field-label">Attestation / justificatif de retenue</label>
                 <input class="input" type="file" wire:model="newCertificate" accept=".pdf,.jpg,.jpeg,.png,.webp">
                 @error('newCertificate') <span class="text-error">{{ $message }}</span> @enderror
             </div>
+            @endif
             <div class="page-actions" style="margin-top:16px;">
                 <button type="submit" class="btn btn-primary">Enregistrer et imprimer le reçu</button>
                 <a class="btn btn-secondary" href="{{ route('tenant.invoicing.edit', ['invoice' => $invoice->id, 'tenant' => $tenantCode]) }}">Retour facture</a>
@@ -292,6 +294,7 @@
             <span style="font-weight:normal;color:#6b7280;margin-left:8px;">{{ $payments->count() }} opération(s)</span>
         </div>
         @if ($payments->count() > 0)
+            @php $historyNeedsCertificate = $payments->contains(fn ($p) => $p->hasSourceWithholding()); @endphp
             <div class="table-scroll">
                 <table>
                     <thead>
@@ -303,7 +306,9 @@
                             <th>Mode</th>
                             <th>Par</th>
                             <th>Solde après</th>
-                            <th>Justificatif</th>
+                            @if ($historyNeedsCertificate)
+                                <th>Justificatif</th>
+                            @endif
                             <th></th>
                         </tr>
                     </thead>
@@ -348,23 +353,28 @@
                                         —
                                     @endif
                                 </td>
+                                @if ($historyNeedsCertificate)
                                 <td style="min-width:180px;">
-                                    @foreach ($p->attachments as $att)
-                                        <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px;">
-                                            <a href="{{ route('tenant.invoice_payments.attachment.download', ['invoicePayment' => $p->id, 'invoicePaymentAttachment' => $att->id, 'tenant' => $tenantCode]) }}" target="_blank" rel="noopener">
-                                                {{ $att->original_name ?: $att->label }}
-                                            </a>
-                                            <button type="button" class="btn btn-secondary btn-sm" wire:click="deleteAttachment({{ $att->id }})"
-                                                    wire:confirm="Retirer ce justificatif ?">×</button>
-                                        </div>
-                                    @endforeach
-                                    @if ($p->isActive())
-                                        <input type="file" class="input input-sm" wire:model="historyCertificates.{{ $p->id }}" accept=".pdf,.jpg,.jpeg,.png,.webp">
-                                        <button type="button" class="btn btn-secondary btn-sm" style="margin-top:4px;"
-                                                wire:click="attachHistoryCertificate({{ $p->id }})">Joindre</button>
-                                        @error('historyCertificates.'.$p->id) <div class="text-error">{{ $message }}</div> @enderror
+                                    @if ($p->hasSourceWithholding())
+                                        @foreach ($p->attachments as $att)
+                                            @include('inovcom-invoice-payments::partials.attachment-row', [
+                                                'att' => $att,
+                                                'paymentId' => $p->id,
+                                                'tenantCode' => $tenantCode,
+                                                'canReplace' => $p->isActive(),
+                                            ])
+                                        @endforeach
+                                        @if ($p->isActive())
+                                            <input type="file" class="input input-sm" wire:model="historyCertificates.{{ $p->id }}" accept=".pdf,.jpg,.jpeg,.png,.webp">
+                                            <button type="button" class="btn btn-secondary btn-sm" style="margin-top:4px;"
+                                                    wire:click="attachHistoryCertificate({{ $p->id }})">Joindre</button>
+                                            @error('historyCertificates.'.$p->id) <div class="text-error">{{ $message }}</div> @enderror
+                                        @endif
+                                    @else
+                                        <span style="color:#9ca3af;">—</span>
                                     @endif
                                 </td>
+                                @endif
                                 <td style="white-space:nowrap;">
                                     @if (\Illuminate\Support\Facades\Route::has('tenant.invoice_payments.show'))
                                         <a class="btn btn-secondary btn-sm" href="{{ route('tenant.invoice_payments.show', ['invoicePayment' => $p->id, 'tenant' => $tenantCode]) }}">Voir</a>
@@ -379,7 +389,7 @@
                             </tr>
                             @if ($cancellingPaymentId === $p->id)
                                 <tr>
-                                    <td colspan="9" style="background:#fffbeb;padding:12px;">
+                                    <td colspan="{{ $historyNeedsCertificate ? 9 : 8 }}" style="background:#fffbeb;padding:12px;">
                                         <label class="field-label">Motif d'annulation *</label>
                                         <textarea class="input" wire:model="cancellation_reason" rows="2" style="margin-bottom:8px;"></textarea>
                                         @error('cancellation_reason') <span class="text-error">{{ $message }}</span> @enderror

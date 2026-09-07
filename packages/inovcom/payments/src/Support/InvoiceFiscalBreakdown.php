@@ -136,6 +136,11 @@ class InvoiceFiscalBreakdown
         return WithholdingCalculator::roundMoney(max(0, $this->is - $alreadyWithheld));
     }
 
+    public function locksIsAmount(): bool
+    {
+        return $this->is > 0 && ! $this->isSubtractive;
+    }
+
     /**
      * @param  list<array<string, mixed>>  $pendingRows
      */
@@ -154,13 +159,10 @@ class InvoiceFiscalBreakdown
 
         if ($kind === WithholdingKind::IS) {
             $formatted = number_format($this->is, 0, ',', ' ');
-            if ($this->is <= 0) {
-                return 'Cette facture n’a pas d’IS. Impossible de le retenir à l’encaissement.';
-            }
             if ($this->isSubtractive) {
                 return 'L’IS a déjà été déduit à l’émission ('.$formatted.' F). Impossible de le retenir à l’encaissement.';
             }
-            if ($this->remainingIs($alreadyWithheld) <= 0) {
+            if ($this->locksIsAmount() && $this->remainingIs($alreadyWithheld) <= 0) {
                 return 'L’IS de cette facture a déjà été retenu.';
             }
 

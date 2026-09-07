@@ -181,6 +181,11 @@ class InvoicePayment extends TenantModel
         return round((float) ($this->withholding_total ?? 0), 2);
     }
 
+    public function hasSourceWithholding(): bool
+    {
+        return $this->withholdingTotal() > 0.01;
+    }
+
     public function amountPaidAfter(): float
     {
         return round((float) ($this->amount_paid_before ?? 0) + $this->settledAmount(), 2);
