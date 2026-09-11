@@ -298,8 +298,20 @@ class DebtsService
     private function generatePaymentReference(): string
     {
         $year = now()->year;
-        $last = DebtPayment::whereYear('created_at', $year)->orderBy('id', 'desc')->first();
-        $next = $last ? ((int) preg_replace('/[^0-9]/', '', $last->reference)) + 1 : 1;
-        return 'PAY-' . $year . '-' . str_pad((string) $next, 6, '0', STR_PAD_LEFT);
+        $prefix = 'PAY-'.$year.'-';
+        $refs = DebtPayment::query()
+            ->where('reference', 'like', $prefix.'%')
+            ->orderByDesc('id')
+            ->limit(200)
+            ->pluck('reference');
+
+        $next = 1;
+        foreach ($refs as $reference) {
+            if (preg_match('/^PAY-\d{4}-(\d{1,8})$/', (string) $reference, $matches)) {
+                $next = max($next, ((int) $matches[1]) + 1);
+            }
+        }
+
+        return $prefix.str_pad((string) $next, 6, '0', STR_PAD_LEFT);
     }
 }
