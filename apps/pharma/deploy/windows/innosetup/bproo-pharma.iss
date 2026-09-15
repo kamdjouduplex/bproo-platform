@@ -43,6 +43,18 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
+[Dirs]
+; Laravel must write logs/cache/sessions/sqlite under Program Files
+Name: "{app}\storage"; Permissions: users-modify
+Name: "{app}\storage\logs"; Permissions: users-modify
+Name: "{app}\storage\framework"; Permissions: users-modify
+Name: "{app}\storage\framework\cache"; Permissions: users-modify
+Name: "{app}\storage\framework\sessions"; Permissions: users-modify
+Name: "{app}\storage\framework\views"; Permissions: users-modify
+Name: "{app}\storage\app"; Permissions: users-modify
+Name: "{app}\bootstrap\cache"; Permissions: users-modify
+Name: "{app}\database"; Permissions: users-modify
+
 [Files]
 ; Full payload produced by build-release.ps1
 Source: "..\dist\payload\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

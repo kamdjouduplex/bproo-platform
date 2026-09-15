@@ -12,6 +12,18 @@ $env:DESKTOP_RUNTIME = "1"
 $phpDir = Join-Path $Root "runtime\php"
 $env:Path = "$phpDir;$env:Path"
 
+# Program Files is read-only for normal users — Laravel needs write on these trees
+$writable = @(
+    (Join-Path $Root "storage"),
+    (Join-Path $Root "bootstrap\cache"),
+    (Join-Path $Root "database")
+)
+foreach ($dir in $writable) {
+    if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
+    # Users (S-1-5-32-545) modify, inherit to children — ignore failures if already correct
+    & icacls $dir /grant "*S-1-5-32-545:(OI)(CI)M" /T 2>$null | Out-Null
+}
+
 $envExample = Join-Path $Root ".env.desktop.example"
 $envFile = Join-Path $Root ".env"
 if (-not (Test-Path $envFile)) {
