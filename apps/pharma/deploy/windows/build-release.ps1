@@ -146,7 +146,7 @@ if (-not $SkipPhpDownload) {
     Set-Content -Path $phpIni -Value $ini -Encoding UTF8
     Write-Host "PHP ready: $(Join-Path $PhpHome 'php.exe')"
 } else {
-    Write-Host "==> SkipPhpDownload — expecting runtime\php already present"
+    Write-Host "==> SkipPhpDownload - expecting runtime\php already present"
 }
 
 # --- Composer phar (for rare on-box repairs; vendor already baked) ---
@@ -158,107 +158,25 @@ if (-not (Test-Path $composerCache)) {
 }
 Copy-Item $composerCache $composerPhar -Force
 
-# --- Launchers (use bundled PHP) ---
-$launchPs1 = @'
-#Requires -Version 5.1
-param(
-    [string]$HostName = "127.0.0.1",
-    [int]$Port = 8003
-)
-$ErrorActionPreference = "Stop"
-$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location $Root
-$Php = Join-Path $Root "runtime\php\php.exe"
-if (-not (Test-Path $Php)) { throw "PHP portable introuvable: $Php" }
-$env:DESKTOP_RUNTIME = "1"
-$env:Path = "$(Join-Path $Root 'runtime\php');$env:Path"
-Write-Host "Bproo Pharma Desktop — http://${HostName}:${Port}" -ForegroundColor Cyan
-Write-Host "Ctrl+C pour arreter."
-& $Php artisan serve --host=$HostName --port=$Port
-'@
-Set-Content -Path (Join-Path $Payload "Start-BprooPharma.ps1") -Value $launchPs1 -Encoding UTF8
+# --- Launchers from templates (no nested here-strings) ---
+Write-Host "==> Installing launchers"
+$Templates = Join-Path $ScriptDir "templates"
+Copy-Item (Join-Path $Templates "Start-BprooPharma.ps1") (Join-Path $Payload "Start-BprooPharma.ps1") -Force
+Copy-Item (Join-Path $Templates "Start-BprooPharma.cmd") (Join-Path $Payload "Start-BprooPharma.cmd") -Force
+Copy-Item (Join-Path $Templates "Activate-Licence.ps1") (Join-Path $Payload "Activate-Licence.ps1") -Force
 
-$launchCmd = @"
-@echo off
-cd /d "%~dp0"
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Start-BprooPharma.ps1"
-"@
-Set-Content -Path (Join-Path $Payload "Start-BprooPharma.cmd") -Value $launchCmd -Encoding ASCII
-
-$activatePs1 = @'
-#Requires -Version 5.1
-param([string]$Code)
-$ErrorActionPreference = "Stop"
-$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
-Set-Location $Root
-$Php = Join-Path $Root "runtime\php\php.exe"
-if (-not (Test-Path $Php)) { throw "PHP portable introuvable: $Php" }
-$env:DESKTOP_RUNTIME = "1"
-$env:Path = "$(Join-Path $Root 'runtime\php');$env:Path"
-if (-not $Code) { $Code = Read-Host "Code d'activation Control Center" }
-& $Php artisan desktop:activate $Code
-& $Php artisan desktop:heartbeat
-'@
-Set-Content -Path (Join-Path $Payload "Activate-Licence.ps1") -Value $activatePs1 -Encoding UTF8
-
-# First-run setup that uses bundled PHP (no system PHP required)
-$setupPs1 = @"
-#Requires -Version 5.1
-param(
-    [string]`$ControlCenterUrl = "$ControlCenterUrl"
-)
-`$ErrorActionPreference = "Stop"
-`$Root = Split-Path -Parent `$MyInvocation.MyCommand.Path
-Set-Location `$Root
-`$Php = Join-Path `$Root "runtime\php\php.exe"
-if (-not (Test-Path `$Php)) { throw "PHP portable introuvable: `$Php" }
-`$env:DESKTOP_RUNTIME = "1"
-`$env:Path = "`$(Join-Path `$Root 'runtime\php');`$env:Path"
-
-`$envExample = Join-Path `$Root ".env.desktop.example"
-`$envFile = Join-Path `$Root ".env"
-if (-not (Test-Path `$envFile)) {
-    Copy-Item `$envExample `$envFile
-}
-(Get-Content `$envFile) | ForEach-Object {
-    if (`$_ -match '^CONTROL_CENTER_URL=') { "CONTROL_CENTER_URL=`$ControlCenterUrl" }
-    elseif (`$_ -match '^DESKTOP_RUNTIME=') { "DESKTOP_RUNTIME=1" }
-    elseif (`$_ -match '^DESKTOP_APP_VERSION=') { "DESKTOP_APP_VERSION=$Version" }
-    elseif (`$_ -match '^APP_VERSION=') { "APP_VERSION=$Version" }
-    else { `$_ }
-} | Set-Content `$envFile
-if ((Get-Content `$envFile -Raw) -notmatch 'DESKTOP_RUNTIME=') { Add-Content `$envFile "`nDESKTOP_RUNTIME=1" }
-if ((Get-Content `$envFile -Raw) -notmatch 'CONTROL_CENTER_URL=') { Add-Content `$envFile "`nCONTROL_CENTER_URL=`$ControlCenterUrl" }
-
-`$dbFile = Join-Path `$Root "database\desktop.sqlite"
-if (-not (Test-Path `$dbFile)) { New-Item -ItemType File -Path `$dbFile | Out-Null }
-`$dbPosix = (`$dbFile -replace '\\','/')
-`$lines = Get-Content `$envFile
-`$out = @(); `$seenDb=`$false; `$seenConn=`$false
-foreach (`$line in `$lines) {
-    if (`$line -match '^DB_CONNECTION=') { `$out += "DB_CONNECTION=sqlite"; `$seenConn=`$true; continue }
-    if (`$line -match '^DB_DATABASE=') { `$out += "DB_DATABASE=`$dbPosix"; `$seenDb=`$true; continue }
-    `$out += `$line
-}
-if (-not `$seenConn) { `$out += "DB_CONNECTION=sqlite" }
-if (-not `$seenDb) { `$out += "DB_DATABASE=`$dbPosix" }
-`$out | Set-Content `$envFile
-
-if (-not (Select-String -Path `$envFile -Pattern '^APP_KEY=base64:' -Quiet)) {
-    & `$Php artisan key:generate --force
-}
-& `$Php artisan migrate --force
-Write-Host "Setup OK. Lancez Activate-Licence.ps1 puis Start-BprooPharma.cmd" -ForegroundColor Green
-"@
-Set-Content -Path (Join-Path $Payload "First-Run-Setup.ps1") -Value $setupPs1 -Encoding UTF8
+$setupTemplate = Get-Content (Join-Path $Templates "First-Run-Setup.ps1") -Raw
+$setupTemplate = $setupTemplate.Replace("__CONTROL_CENTER_URL__", $ControlCenterUrl)
+$setupTemplate = $setupTemplate.Replace("__APP_VERSION__", $Version)
+Set-Content -Path (Join-Path $Payload "First-Run-Setup.ps1") -Value $setupTemplate -Encoding UTF8
 
 # Manifest for ops / CC updates
-$manifest = @{
+$manifest = [ordered]@{
     product_key = "pharma"
     version = $Version
     built_at = (Get-Date).ToString("o")
     control_center_url_default = $ControlCenterUrl
-    entrypoints = @{
+    entrypoints = [ordered]@{
         setup = "First-Run-Setup.ps1"
         activate = "Activate-Licence.ps1"
         start = "Start-BprooPharma.cmd"
