@@ -16,6 +16,56 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::get('/', function () {
+    // Desktop / offline Officine: compact welcome — keep SaaS marketing landing elsewhere
+    if (filter_var(env('DESKTOP_RUNTIME', false), FILTER_VALIDATE_BOOLEAN)) {
+        $messages = [
+            'Votre officine, prête pour la journée.',
+            'Chaque ordonnance compte — on s’occupe du reste.',
+            'Stock maîtrisé, clients bien servis.',
+            'La pharmacie du quartier, pilotée simplement.',
+            'Encaissement fluide, esprit libre pour vos patients.',
+            'Un poste local fiable, même sans Internet.',
+            'Bienvenue — votre équipe peut commencer.',
+            'Moins de paperasse, plus de soin.',
+        ];
+
+        $tenantCode = null;
+        $statePath = storage_path('app/desktop/state.json');
+        if (is_file($statePath)) {
+            $state = json_decode((string) file_get_contents($statePath), true);
+            $tenantCode = is_array($state)
+                ? ($state['licence']['tenant_code'] ?? null)
+                : null;
+        }
+        if (! is_string($tenantCode) || $tenantCode === '') {
+            try {
+                $tenantCode = \App\Models\Tenant::query()->orderBy('id')->value('code');
+            } catch (\Throwable) {
+                $tenantCode = null;
+            }
+        }
+        $tenantCode = is_string($tenantCode) && $tenantCode !== '' ? $tenantCode : 'pharma';
+
+        $shopLabel = 'Bproo Pharma Desktop';
+        try {
+            $tenant = \App\Models\Tenant::query()->where('code', $tenantCode)->first();
+            if ($tenant) {
+                $shopLabel = $tenant->getSetting('shop_name', $tenant->name) ?: $shopLabel;
+            }
+        } catch (\Throwable) {
+            // SQLite not ready yet — keep default label
+        }
+
+        return view('desktop.home', [
+            'appName' => config('app.name', 'Bproo Pharma'),
+            'message' => $messages[array_rand($messages)],
+            'loginUrl' => url('/app/login?tenant='.urlencode($tenantCode)),
+            'heroImage' => '/images/login-pharmacy-hero.png?v=20260815',
+            'shopLabel' => $shopLabel,
+            'appVersion' => env('DESKTOP_APP_VERSION', env('APP_VERSION')),
+        ]);
+    }
+
     return view('landing');
 })->name('landing');
 
