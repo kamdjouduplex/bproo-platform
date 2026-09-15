@@ -9,8 +9,10 @@ param(
 )
 $ErrorActionPreference = "Stop"
 if (-not $RepoRoot) {
-    $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..\..") -ErrorAction SilentlyContinue
-    if (-not $RepoRoot) {
+    $resolved = Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..\..") -ErrorAction SilentlyContinue
+    if ($resolved) {
+        $RepoRoot = $resolved.Path
+    } else {
         $RepoRoot = "D:\Projects\bproo-platform"
     }
 }
@@ -30,12 +32,12 @@ Copy-Item (Join-Path $RepoRoot "packages\platform\tenancy\src\Models\Tenant.php"
 Copy-Item (Join-Path $Pharma "config\inovcom.php") (Join-Path $AppRoot "config\inovcom.php") -Force
 
 # SQLite-safe migration patches used by bootstrap
-$migPairs = @(
-    @("database\migrations\tenant_modules\2026_01_29_000002_make_provider_id_nullable_on_purchase_orders.php"),
-    @("database\migrations\tenant_modules\2026_05_30_000200_add_quotation_to_delivery_notes.php"),
-    @("database\migrations\tenant_modules\2026_05_30_000301_add_superseded_status_to_invoices.php")
+$migRels = @(
+    "database\migrations\tenant_modules\2026_01_29_000002_make_provider_id_nullable_on_purchase_orders.php",
+    "database\migrations\tenant_modules\2026_05_30_000200_add_quotation_to_delivery_notes.php",
+    "database\migrations\tenant_modules\2026_05_30_000301_add_superseded_status_to_invoices.php"
 )
-foreach ($rel in $migPairs) {
+foreach ($rel in $migRels) {
     $src = Join-Path $Pharma $rel
     $dst = Join-Path $AppRoot $rel
     if (Test-Path $src) {
@@ -51,7 +53,7 @@ foreach ($dir in @("storage", "bootstrap\cache", "database")) {
 }
 
 $envFile = Join-Path $AppRoot ".env"
-if (-not (Test-Path $envFile)) { throw ".env manquant — lancez First-Run-Setup.ps1 d abord" }
+if (-not (Test-Path $envFile)) { throw ".env manquant. Lancez First-Run-Setup.ps1 d abord." }
 
 $raw = Get-Content $envFile -Raw
 if ($raw -notmatch '(?m)^INOVCOM_TENANT_DATABASE_DRIVER=') {
@@ -64,7 +66,8 @@ if ($raw -notmatch '(?m)^INOVCOM_TENANT_DATABASE_DRIVER=') {
 
 Set-Location $AppRoot
 $env:DESKTOP_RUNTIME = "1"
-$env:Path = "$(Join-Path $AppRoot 'runtime\php');$env:Path"
+$phpDir = Join-Path $AppRoot "runtime\php"
+$env:Path = "$phpDir;$env:Path"
 
 Write-Host "==> desktop:bootstrap" -ForegroundColor Cyan
 & $Php artisan desktop:bootstrap --force
