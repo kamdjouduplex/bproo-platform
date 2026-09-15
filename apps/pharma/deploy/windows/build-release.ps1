@@ -164,6 +164,7 @@ $Templates = Join-Path $ScriptDir "templates"
 Copy-Item (Join-Path $Templates "Start-BprooPharma.ps1") (Join-Path $Payload "Start-BprooPharma.ps1") -Force
 Copy-Item (Join-Path $Templates "Start-BprooPharma.cmd") (Join-Path $Payload "Start-BprooPharma.cmd") -Force
 Copy-Item (Join-Path $Templates "Activate-Licence.ps1") (Join-Path $Payload "Activate-Licence.ps1") -Force
+Copy-Item (Join-Path $Templates "Set-ControlCenterUrl.ps1") (Join-Path $Payload "Set-ControlCenterUrl.ps1") -Force
 
 $setupTemplate = Get-Content (Join-Path $Templates "First-Run-Setup.ps1") -Raw
 $setupTemplate = $setupTemplate.Replace("__CONTROL_CENTER_URL__", $ControlCenterUrl)

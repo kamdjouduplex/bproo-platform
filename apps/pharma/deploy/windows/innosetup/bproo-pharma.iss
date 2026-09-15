@@ -50,13 +50,14 @@ Source: "..\dist\payload\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdi
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\Start-BprooPharma.cmd"; WorkingDir: "{app}"
 Name: "{group}\Activer la licence"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Activate-Licence.ps1"""; WorkingDir: "{app}"
+Name: "{group}\Configurer URL Control Center"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Set-ControlCenterUrl.ps1"""; WorkingDir: "{app}"
 Name: "{group}\Configuration initiale"; Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\First-Run-Setup.ps1"""; WorkingDir: "{app}"
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\Start-BprooPharma.cmd"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\First-Run-Setup.ps1"""; StatusMsg: "Configuration initiale (SQLite, migrations)…"; Flags: waituntilterminated
-Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Activate-Licence.ps1"""; Description: "Activer la licence maintenant"; Flags: postinstall skipifsilent unchecked
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\First-Run-Setup.ps1"""; StatusMsg: "Configuration initiale (SQLite, migrations)..."; Flags: waituntilterminated
+Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\Activate-Licence.ps1"""; Description: "Activer la licence maintenant"; Flags: postinstall skipifsilent unchecked waituntilterminated
 Filename: "{app}\Start-BprooPharma.cmd"; Description: "Lancer Bproo Pharma Desktop"; Flags: nowait postinstall skipifsilent unchecked
 
 [UninstallDelete]
