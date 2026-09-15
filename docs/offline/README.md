@@ -15,10 +15,10 @@ Same monorepo. No second business codebase.
 
 ## Current phase
 
-**Phase 3 — OUT sync / cloud backup** — see [PHASE-3-SYNC-OUT.md](./PHASE-3-SYNC-OUT.md).  
-Earlier: [PHASE-1-LICENCE.md](./PHASE-1-LICENCE.md), [PHASE-2-UPDATES.md](./PHASE-2-UPDATES.md).
+**Phase 4 — Windows desktop runtime** — see [PHASE-4-WINDOWS.md](./PHASE-4-WINDOWS.md).  
+Earlier: [PHASE-1](./PHASE-1-LICENCE.md) · [PHASE-2](./PHASE-2-UPDATES.md) · [PHASE-3](./PHASE-3-SYNC-OUT.md).
 
-Next coding target: **Phase 4 — Windows installer** (local runtime + outbox + apply updates).
+Next coding target: **Phase 5 — IN sync / multi-device** (and CI/Inno packaging hardening).
 
 ## Non-goals (for now)
 

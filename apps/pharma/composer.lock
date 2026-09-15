@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "40b3cb8be9018e3851bfe2cfd9be8f84",
+    "content-hash": "6a853e84a8a45cd01b8407a74771632e",
     "packages": [
         {
             "name": "barryvdh/laravel-dompdf",
@@ -652,7 +652,7 @@
         },
         {
             "name": "bproo/pharma",
-            "version": "dev-main",
+            "version": "dev-feature/offline-runtime",
             "dist": {
                 "type": "path",
                 "url": "../../packages/verticals/pharma",
@@ -686,7 +686,7 @@
         },
         {
             "name": "bproo/platform-auth",
-            "version": "dev-main",
+            "version": "dev-feature/offline-runtime",
             "dist": {
                 "type": "path",
                 "url": "../../packages/platform/auth",
@@ -723,7 +723,7 @@
         },
         {
             "name": "bproo/platform-billing",
-            "version": "dev-main",
+            "version": "dev-feature/offline-runtime",
             "dist": {
                 "type": "path",
                 "url": "../../packages/platform/billing",
@@ -758,8 +758,44 @@
             }
         },
         {
+            "name": "bproo/platform-desktop",
+            "version": "dev-feature/offline-runtime",
+            "dist": {
+                "type": "path",
+                "url": "../../packages/platform/desktop",
+                "reference": "4cc04a4b3061fc82065cd1c886f9b46bd899988d"
+            },
+            "require": {
+                "illuminate/console": "^10.0",
+                "illuminate/database": "^10.0",
+                "illuminate/http": "^10.0",
+                "illuminate/support": "^10.0",
+                "php": "^8.1"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "Bproo\\Platform\\Desktop\\DesktopServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Bproo\\Platform\\Desktop\\": "src/"
+                }
+            },
+            "license": [
+                "MIT"
+            ],
+            "description": "Bproo desktop runtime agent (licence, updates, OUT sync outbox)",
+            "transport-options": {
+                "relative": true
+            }
+        },
+        {
             "name": "bproo/platform-modules",
-            "version": "dev-main",
+            "version": "dev-feature/offline-runtime",
             "dist": {
                 "type": "path",
                 "url": "../../packages/platform/modules",
@@ -798,7 +834,7 @@
         },
         {
             "name": "bproo/platform-printing",
-            "version": "dev-main",
+            "version": "dev-feature/offline-runtime",
             "dist": {
                 "type": "path",
                 "url": "../../packages/platform/printing",
@@ -833,7 +869,7 @@
         },
         {
             "name": "bproo/platform-tenancy",
-            "version": "dev-main",
+            "version": "dev-feature/offline-runtime",
             "dist": {
                 "type": "path",
                 "url": "../../packages/platform/tenancy",
@@ -1278,7 +1314,7 @@
         },
         {
             "name": "bproo/ui-core",
-            "version": "dev-main",
+            "version": "dev-feature/offline-runtime",
             "dist": {
                 "type": "path",
                 "url": "../../packages/ui/core",
@@ -10529,6 +10565,7 @@
         "bproo/pharma": 20,
         "bproo/platform-auth": 20,
         "bproo/platform-billing": 20,
+        "bproo/platform-desktop": 20,
         "bproo/platform-modules": 20,
         "bproo/platform-printing": 20,
         "bproo/platform-tenancy": 20,

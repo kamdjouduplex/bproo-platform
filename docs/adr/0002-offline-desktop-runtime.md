@@ -59,7 +59,7 @@ Rewriting the monorepo as a second desktop codebase would freeze feature velocit
 | 1 | Licence issue / heartbeat / grace in Control Center |
 | 2 | Update channel (manifest + apply + rollback) — **done** (CC channel; runtime apply in Phase 4) |
 | 3 | Local event bus + OUT sync (cloud backup) — **done** (CC receiver; local outbox in Phase 4) |
-| 4 | Windows installer (single shop / school) |
+| 4 | Windows installer (single shop / school) — **scaffolded** (Pharma agent + install.ps1; Inno/CI follow-up) |
 | 5 | Full IN sync / multi-device (premium) |
 
 ## Consequences

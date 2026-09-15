@@ -140,6 +140,10 @@
         },
         {
             "type": "path",
+            "url": "../../packages/platform/desktop"
+        },
+        {
+            "type": "path",
             "url": "../../packages/ui/core"
         },
         {
@@ -154,6 +158,7 @@
         "bproo/platform-billing": "@dev",
         "bproo/platform-auth": "@dev",
         "bproo/platform-printing": "@dev",
+        "bproo/platform-desktop": "@dev",
         "bproo/ui-core": "@dev",
         "bproo/pharma": "@dev",
         "barryvdh/laravel-dompdf": "^3.1",
