@@ -15,9 +15,10 @@ Same monorepo. No second business codebase.
 
 ## Current phase
 
-**Phase 1 — Licence heartbeat + offline grace** in Control Center — see [PHASE-1-LICENCE.md](./PHASE-1-LICENCE.md).
+**Phase 2 — Update channel** (signed manifest + download) — see [PHASE-2-UPDATES.md](./PHASE-2-UPDATES.md).  
+Phase 1 licence remains documented in [PHASE-1-LICENCE.md](./PHASE-1-LICENCE.md).
 
-Next coding target: **Phase 2 — update channel** (signed manifest + apply + rollback).
+Next coding target: **Phase 3 — local event bus + OUT sync** (cloud backup).
 
 ## Non-goals (for now)
 

@@ -14,11 +14,15 @@ class BillingServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // Licence API is Control Center only — product hosts keep SaaS billing untouched.
+        // Licence + update APIs are Control Center only — product hosts keep SaaS untouched.
         if ((string) env('APP_PRODUCT_KEY') === 'control-center') {
             Route::prefix('api')
                 ->middleware('api')
                 ->group(__DIR__.'/../../routes/licence.php');
+
+            Route::prefix('api')
+                ->middleware('api')
+                ->group(__DIR__.'/../../routes/updates.php');
         }
     }
 }

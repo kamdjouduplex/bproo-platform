@@ -57,7 +57,7 @@ Rewriting the monorepo as a second desktop codebase would freeze feature velocit
 |------|-------------|
 | 0 | This ADR + engineering checklist (UUID/events on new work) |
 | 1 | Licence issue / heartbeat / grace in Control Center |
-| 2 | Update channel (manifest + apply + rollback) |
+| 2 | Update channel (manifest + apply + rollback) — **done** (CC channel; runtime apply in Phase 4) |
 | 3 | Local event bus + OUT sync (cloud backup) |
 | 4 | Windows installer (single shop / school) |
 | 5 | Full IN sync / multi-device (premium) |

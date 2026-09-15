@@ -44,6 +44,16 @@ return [
             'throw' => false,
         ],
 
+        /*
+         * Desktop update packages (Phase 2). Private by default — served via
+         * authenticated /api/updates/download/{uuid}, not public/storage.
+         */
+        'desktop_updates' => [
+            'driver' => 'local',
+            'root' => storage_path('app/desktop_updates'),
+            'throw' => false,
+        ],
+
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),

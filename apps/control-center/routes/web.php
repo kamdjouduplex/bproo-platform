@@ -7,6 +7,7 @@ use App\Livewire\Admin\AppsIndex;
 use App\Livewire\Admin\BillingPayments;
 use App\Livewire\Admin\BillingSubscriptions;
 use App\Livewire\Admin\Dashboard as AdminDashboard;
+use App\Livewire\Admin\DesktopReleasesIndex;
 use App\Livewire\Admin\ModuleEvents;
 use App\Livewire\Admin\ModulesIndex;
 use App\Livewire\Admin\ModuleShow;
@@ -87,6 +88,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/plans', Plans::class)->name('system.plans');
         Route::get('/plans/create', PlanForm::class)->name('system.plans.create');
         Route::get('/plans/{plan}/edit', PlanForm::class)->name('system.plans.edit');
+        Route::get('/desktop-releases', DesktopReleasesIndex::class)->name('system.desktop.releases');
         Route::get('/currencies', PlatformCurrencies::class)->name('system.currencies');
         Route::get('/module-events', ModuleEvents::class)->name('system.module.events');
         Route::get('/module-events/export', ModuleEventsExportController::class)->name('system.module.events.export');
