@@ -51,14 +51,40 @@ if (-not $SkipComposer) {
 }
 
 # --- Copy app tree ---
+# IMPORTANT: /XD matches directory NAMES anywhere in the tree.
+# Never exclude bare names like "output" (breaks vendor/symfony/console/Output).
 Write-Host "==> Copying application files"
-& robocopy $AppDir $Payload /E /NFL /NDL /NJH /NJS /nc /ns /np `
-    /XD '.git' '.idea' '.vscode' 'node_modules' 'tests' 'dist' '.cache' 'output' `
+$excludeDirs = @(
+    (Join-Path $AppDir ".git"),
+    (Join-Path $AppDir ".idea"),
+    (Join-Path $AppDir ".vscode"),
+    (Join-Path $AppDir "node_modules"),
+    (Join-Path $AppDir "tests"),
+    (Join-Path $AppDir "deploy\windows\dist"),
+    (Join-Path $AppDir "deploy\windows\.cache"),
+    (Join-Path $AppDir "deploy\windows\output")
+)
+$xd = @('/XD') + $excludeDirs
+& robocopy $AppDir $Payload /E /NFL /NDL /NJH /NJS /nc /ns /np @xd `
     /XF '.env' '.env.backup' '*.log' 'phpunit.xml' 'phpunit.xml.dist' | Out-Null
 # robocopy exit codes 0-7 are success-ish
 if ($LASTEXITCODE -ge 8) {
     throw "robocopy failed with code $LASTEXITCODE"
 }
+
+# Sanity: critical vendor files must exist (guards against exclude collisions)
+$mustExist = @(
+    "vendor\autoload.php",
+    "vendor\symfony\console\Output\ConsoleOutput.php",
+    "artisan"
+)
+foreach ($rel in $mustExist) {
+    $p = Join-Path $Payload $rel
+    if (-not (Test-Path $p)) {
+        throw "Payload incomplete after copy: missing $rel"
+    }
+}
+Write-Host "Payload vendor sanity check OK"
 
 # Ensure clean storage skeleton
 @(
