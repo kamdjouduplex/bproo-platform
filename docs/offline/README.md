@@ -13,6 +13,8 @@ Ship Bproo as:
 
 Same monorepo. No second business codebase.
 
+**Ops (nouveau client) :** [OPS-NEW-CLIENT.md](./OPS-NEW-CLIENT.md) — process A → Z.
+
 ## Current phase
 
 **Phase 4 — Windows desktop runtime** — see [PHASE-4-WINDOWS.md](./PHASE-4-WINDOWS.md).  
