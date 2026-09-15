@@ -40,8 +40,8 @@ php artisan desktop:activate "XXXX-XXXX-XXXX-XXXX"
 php artisan desktop:heartbeat
 php artisan desktop:enqueue sale.created
 php artisan desktop:sync-out
-php artisan desktop:updates-check --version=0.0.1
-php artisan desktop:updates-apply --version=0.0.1
+php artisan desktop:updates-check --current=0.0.1
+php artisan desktop:updates-apply --current=0.0.1
 ```
 
 ## Commands
@@ -52,8 +52,8 @@ php artisan desktop:updates-apply --version=0.0.1
 | `desktop:heartbeat` | Refresh offline grace |
 | `desktop:enqueue {type}` | Push event into local outbox |
 | `desktop:sync-out` | Drain outbox → CC |
-| `desktop:updates-check` | Ask CC for newer package |
-| `desktop:updates-apply` | Download, SHA-256, stage, healthcheck, rollback marker |
+| `desktop:updates-check --current=` | Ask CC for newer package |
+| `desktop:updates-apply --current=` | Download, SHA-256, stage, healthcheck, rollback marker |
 
 State file: `storage/app/desktop/state.json`  
 Packages / staging / rollback: `storage/app/desktop/{packages,staging,rollback}/`

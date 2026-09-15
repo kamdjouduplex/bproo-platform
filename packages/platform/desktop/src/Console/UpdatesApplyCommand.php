@@ -8,14 +8,14 @@ use Illuminate\Console\Command;
 
 class UpdatesApplyCommand extends Command
 {
-    protected $signature = 'desktop:updates-apply {--version= : Override current version for check}';
+    protected $signature = 'desktop:updates-apply {--current= : Override current app version for check}';
 
     protected $description = 'Télécharge, vérifie SHA-256, stage + healthcheck + rollback marker';
 
     public function handle(UpdateClient $updates, UpdateApplier $applier): int
     {
         try {
-            $check = $updates->check($this->option('version') ?: null);
+            $check = $updates->check($this->option('current') ?: null);
             if (! ($check['update_available'] ?? false)) {
                 $this->info('Rien à appliquer.');
 

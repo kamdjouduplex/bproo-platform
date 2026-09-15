@@ -7,14 +7,14 @@ use Illuminate\Console\Command;
 
 class UpdatesCheckCommand extends Command
 {
-    protected $signature = 'desktop:updates-check {--version= : Override current version}';
+    protected $signature = 'desktop:updates-check {--current= : Override current app version (e.g. 0.0.1)}';
 
     protected $description = 'Interroge Control Center pour une mise à jour desktop';
 
     public function handle(UpdateClient $updates): int
     {
         try {
-            $result = $updates->check($this->option('version') ?: null);
+            $result = $updates->check($this->option('current') ?: null);
         } catch (\Throwable $e) {
             $this->error($e->getMessage());
 

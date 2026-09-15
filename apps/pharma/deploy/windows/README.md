@@ -26,8 +26,8 @@ php artisan desktop:activate "XXXX-XXXX-XXXX-XXXX"
 php artisan desktop:heartbeat
 php artisan desktop:enqueue sale.created
 php artisan desktop:sync-out
-php artisan desktop:updates-check --version=0.0.1
-php artisan desktop:updates-apply --version=0.0.1
+php artisan desktop:updates-check --current=0.0.1
+php artisan desktop:updates-apply --current=0.0.1
 ```
 
 ## Files
