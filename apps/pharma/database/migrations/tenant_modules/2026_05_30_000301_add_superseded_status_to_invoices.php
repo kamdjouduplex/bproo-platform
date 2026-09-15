@@ -8,11 +8,14 @@ return new class extends Migration
 {
     public function up(): void
     {
-        if (!Schema::connection('tenant')->hasTable('invoices')) {
+        if (! Schema::connection('tenant')->hasTable('invoices')) {
             return;
         }
 
         $conn = DB::connection('tenant');
+        if ($conn->getDriverName() !== 'pgsql') {
+            return;
+        }
 
         // PostgreSQL : contrainte CHECK créée par enum() Laravel
         $conn->statement('ALTER TABLE invoices DROP CONSTRAINT IF EXISTS invoices_status_check');
@@ -24,11 +27,14 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (!Schema::connection('tenant')->hasTable('invoices')) {
+        if (! Schema::connection('tenant')->hasTable('invoices')) {
             return;
         }
 
         $conn = DB::connection('tenant');
+        if ($conn->getDriverName() !== 'pgsql') {
+            return;
+        }
 
         $conn->statement("UPDATE invoices SET status = 'cancelled' WHERE status = 'superseded'");
 

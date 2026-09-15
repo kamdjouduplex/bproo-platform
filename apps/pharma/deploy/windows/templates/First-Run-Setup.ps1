@@ -61,6 +61,7 @@ $seenCc = $false
 $seenDesktop = $false
 $seenAppVer = $false
 $seenDesktopVer = $false
+$seenTenantDriver = $false
 foreach ($line in $lines) {
     if ($line -match '^CONTROL_CENTER_URL=') {
         $out += "CONTROL_CENTER_URL=$ControlCenterUrl"
@@ -82,12 +83,18 @@ foreach ($line in $lines) {
         $seenAppVer = $true
         continue
     }
+    if ($line -match '^INOVCOM_TENANT_DATABASE_DRIVER=') {
+        $out += "INOVCOM_TENANT_DATABASE_DRIVER=sqlite"
+        $seenTenantDriver = $true
+        continue
+    }
     $out += $line
 }
 if (-not $seenCc) { $out += "CONTROL_CENTER_URL=$ControlCenterUrl" }
 if (-not $seenDesktop) { $out += "DESKTOP_RUNTIME=1" }
 if (-not $seenDesktopVer) { $out += "DESKTOP_APP_VERSION=$AppVersion" }
 if (-not $seenAppVer) { $out += "APP_VERSION=$AppVersion" }
+if (-not $seenTenantDriver) { $out += "INOVCOM_TENANT_DATABASE_DRIVER=sqlite" }
 
 $dbFile = Join-Path $Root "database\desktop.sqlite"
 if (-not (Test-Path $dbFile)) { New-Item -ItemType File -Path $dbFile | Out-Null }
@@ -110,5 +117,16 @@ $final | Set-Content $envFile
 Ensure-AppKey $envFile
 Grant-UsersModify $envFile -FileOnly
 
-& $Php artisan migrate --force
+function Invoke-ArtisanOrFail([string]$Label, [string[]]$ArtisanArgs) {
+    Write-Host "==> $Label" -ForegroundColor Cyan
+    & $Php @ArtisanArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "$Label a echoue (exit $LASTEXITCODE)"
+    }
+}
+
+Invoke-ArtisanOrFail "migrate" @("artisan", "migrate", "--force")
+Invoke-ArtisanOrFail "desktop:bootstrap" @("artisan", "desktop:bootstrap", "--force")
 Write-Host "Setup OK. Lancez Activate-Licence.ps1 puis Start-BprooPharma.cmd" -ForegroundColor Green
+Write-Host "Connexion: http://127.0.0.1:8003/app/login?tenant=pharma" -ForegroundColor Green
+Write-Host "Compte: admin@officine.local / password" -ForegroundColor Yellow

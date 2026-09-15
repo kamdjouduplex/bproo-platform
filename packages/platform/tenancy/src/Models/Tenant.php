@@ -251,13 +251,34 @@ class Tenant extends Model
 
     public function databaseConfig(): array
     {
+        $driver = (string) config('inovcom.tenant.database_driver', 'pgsql');
+        $database = (string) ($this->db_name ?? '');
+
+        // Desktop / SQLite: db_name is an absolute path (or filename under database/).
+        $looksLikeSqlite = $driver === 'sqlite'
+            || str_ends_with(strtolower($database), '.sqlite')
+            || str_ends_with(strtolower($database), '.sqlite3');
+
+        if ($looksLikeSqlite) {
+            if ($database !== '' && ! preg_match('/^[A-Za-z]:[\\\\\\/]/', $database) && ! str_starts_with($database, '/')) {
+                $database = database_path($database);
+            }
+
+            return [
+                'driver' => 'sqlite',
+                'database' => $database,
+                'prefix' => '',
+                'foreign_key_constraints' => true,
+            ];
+        }
+
         $username = $this->db_username ?: env('DB_USERNAME');
         $password = $this->db_password ?: env('DB_PASSWORD');
         $host = $this->db_host ?: env('DB_HOST', '127.0.0.1');
         $port = $this->db_port ?: env('DB_PORT', '5432');
 
         return [
-            'driver' => config('inovcom.tenant.database_driver', 'pgsql'),
+            'driver' => $driver,
             'host' => $host,
             'port' => $port,
             'database' => $this->db_name,

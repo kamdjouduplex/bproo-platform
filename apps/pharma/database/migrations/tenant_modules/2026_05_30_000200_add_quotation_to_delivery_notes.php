@@ -19,10 +19,12 @@ return new class extends Migration
         });
 
         // Le BL peut désormais naître d'un devis (sans facture) : invoice_id devient nullable.
-        try {
-            DB::connection('tenant')->statement('ALTER TABLE delivery_notes ALTER COLUMN invoice_id DROP NOT NULL');
-        } catch (\Throwable $e) {
-            // Déjà nullable ou SGBD ne supportant pas cette syntaxe : on ignore.
+        if (DB::connection('tenant')->getDriverName() === 'pgsql') {
+            try {
+                DB::connection('tenant')->statement('ALTER TABLE delivery_notes ALTER COLUMN invoice_id DROP NOT NULL');
+            } catch (\Throwable $e) {
+                // Déjà nullable
+            }
         }
 
         Schema::connection('tenant')->table('delivery_note_lines', function (Blueprint $table) {
@@ -32,10 +34,12 @@ return new class extends Migration
             }
         });
 
-        try {
-            DB::connection('tenant')->statement('ALTER TABLE delivery_note_lines ALTER COLUMN invoice_line_id DROP NOT NULL');
-        } catch (\Throwable $e) {
-            // Idem.
+        if (DB::connection('tenant')->getDriverName() === 'pgsql') {
+            try {
+                DB::connection('tenant')->statement('ALTER TABLE delivery_note_lines ALTER COLUMN invoice_line_id DROP NOT NULL');
+            } catch (\Throwable $e) {
+                // Idem.
+            }
         }
     }
 

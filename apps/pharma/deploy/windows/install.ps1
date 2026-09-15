@@ -102,9 +102,16 @@ if (-not (Test-Path (Join-Path $AppDir "vendor\autoload.php"))) {
     composer install --no-interaction
 }
 
-Write-Host "==> APP_KEY / migrate"
+Write-Host "==> APP_KEY / migrate / desktop:bootstrap"
 $env:DESKTOP_RUNTIME = "1"
 $envRaw = Get-Content $envFile -Raw
+if ($envRaw -notmatch '(?m)^INOVCOM_TENANT_DATABASE_DRIVER=') {
+    Add-Content $envFile "`nINOVCOM_TENANT_DATABASE_DRIVER=sqlite"
+} elseif ($envRaw -notmatch '(?m)^INOVCOM_TENANT_DATABASE_DRIVER=sqlite') {
+    $envRaw = [regex]::Replace($envRaw, '(?m)^INOVCOM_TENANT_DATABASE_DRIVER=.*$', 'INOVCOM_TENANT_DATABASE_DRIVER=sqlite')
+    Set-Content -Path $envFile -Value $envRaw -Encoding UTF8
+    $envRaw = Get-Content $envFile -Raw
+}
 if ($envRaw -notmatch '(?m)^APP_KEY=base64:[A-Za-z0-9+/=]+') {
     $bytes = New-Object byte[] 32
     [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
@@ -118,6 +125,9 @@ if ($envRaw -notmatch '(?m)^APP_KEY=base64:[A-Za-z0-9+/=]+') {
 }
 & icacls $envFile /grant "*S-1-5-32-545:M" 2>$null | Out-Null
 & $Php artisan migrate --force
+if ($LASTEXITCODE -ne 0) { throw "migrate failed ($LASTEXITCODE)" }
+& $Php artisan desktop:bootstrap --force
+if ($LASTEXITCODE -ne 0) { throw "desktop:bootstrap failed ($LASTEXITCODE)" }
 
 Write-Host ""
 Write-Host "Install OK." -ForegroundColor Green

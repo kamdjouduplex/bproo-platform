@@ -7,7 +7,7 @@ return [
     'default_timezone' => env('INOVCOM_DEFAULT_TIMEZONE', 'Africa/Douala'),
     'tenant' => [
         'database_prefix' => 'inovcom_tenant_',
-        'database_driver' => 'pgsql',
+        'database_driver' => env('INOVCOM_TENANT_DATABASE_DRIVER', 'pgsql'),
     ],
     'ui' => [
         'primary_color' => '#3fa796',
