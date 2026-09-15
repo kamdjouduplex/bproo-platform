@@ -122,6 +122,12 @@ try {
         throw "Licence non activee. Lancez Activer la licence (menu Demarrer)."
     }
 
+    Write-HostLog "Verifying signed licence..."
+    & $phpCli artisan desktop:licence-status 2>&1 | ForEach-Object { Write-HostLog "$_" }
+    if ($LASTEXITCODE -ne 0) {
+        throw "Licence invalide ou cle DESKTOP_LICENCE_SIGNING_KEY incorrecte. Relancez Activer la licence."
+    }
+
     $envFile = Join-Path $Root ".env"
     if (-not (Select-String -Path $envFile -Pattern '^APP_KEY=base64:' -Quiet)) {
         $bytes = New-Object byte[] 32

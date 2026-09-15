@@ -32,7 +32,10 @@ class EnsureTenantActive
             return redirect()->route('tenant.subscription', ['tenant' => $tenant->code]);
         }
 
-        if (!$tenant->hasActiveSubscription()) {
+        // Desktop: commercial gate is EnsureDesktopLicence (signed CC token), not local SQLite sub.
+        $desktop = (bool) config('desktop.enabled', false)
+            || filter_var(env('DESKTOP_RUNTIME', false), FILTER_VALIDATE_BOOLEAN);
+        if (! $desktop && ! $tenant->hasActiveSubscription()) {
             return redirect()->route('tenant.subscription', ['tenant' => $tenant->code]);
         }
 

@@ -33,4 +33,10 @@ return [
 
     'sync_batch_size' => (int) env('DESKTOP_SYNC_BATCH_SIZE', 50),
 
+    /**
+     * Must match Control Center DESKTOP_LICENCE_SIGNING_KEY (HMAC shared secret).
+     * Required for offline token verification — do not fall back to APP_KEY.
+     */
+    'licence_signing_key' => (string) env('DESKTOP_LICENCE_SIGNING_KEY', ''),
+
 ];

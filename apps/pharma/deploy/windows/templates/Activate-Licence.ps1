@@ -28,6 +28,24 @@ try {
     Write-Host "Le Control Center DOIT tourner et etre joignable a cette URL." -ForegroundColor Yellow
     Write-Host ""
 
+    $hasSignKey = $false
+    if (Test-Path $envFile) {
+        $hasSignKey = [bool](Select-String -Path $envFile -Pattern '^DESKTOP_LICENCE_SIGNING_KEY=.+' -Quiet)
+    }
+    if (-not $hasSignKey) {
+        Write-Host "DESKTOP_LICENCE_SIGNING_KEY manquante dans .env" -ForegroundColor Yellow
+        Write-Host "Collez la meme valeur que sur le Control Center (ou APP_KEY du CC si la cle licence y est vide)." -ForegroundColor Yellow
+        $signKey = Read-Host "DESKTOP_LICENCE_SIGNING_KEY"
+        if (-not $signKey) { throw "Cle de signature requise pour verifier le jeton hors-ligne." }
+        if (Select-String -Path $envFile -Pattern '^DESKTOP_LICENCE_SIGNING_KEY=' -Quiet) {
+            (Get-Content $envFile) | ForEach-Object {
+                if ($_ -match '^DESKTOP_LICENCE_SIGNING_KEY=') { "DESKTOP_LICENCE_SIGNING_KEY=$signKey" } else { $_ }
+            } | Set-Content $envFile
+        } else {
+            Add-Content $envFile "`nDESKTOP_LICENCE_SIGNING_KEY=$signKey"
+        }
+    }
+
     if (-not $Code) {
         $Code = Read-Host "Code d activation Control Center"
     }
@@ -41,9 +59,13 @@ try {
     & $Php artisan desktop:heartbeat
     if ($LASTEXITCODE -ne 0) { throw "Heartbeat echoue (exit $LASTEXITCODE)." }
 
+    Write-Host "==> Verification locale HMAC..."
+    & $Php artisan desktop:licence-status
+    if ($LASTEXITCODE -ne 0) { throw "Verification licence locale echouee." }
+
     Write-Host ""
     Write-Host "OK - licence activee. Dans le CC le statut doit passer a active." -ForegroundColor Green
-    Write-Host "Ensuite lancez Start-BprooPharma.cmd (ou le raccourci bureau)."
+    Write-Host "Ensuite lancez BprooPharma.vbs (ou le raccourci bureau)."
 } catch {
     Write-Host ""
     Write-Host "ERREUR: $($_.Exception.Message)" -ForegroundColor Red

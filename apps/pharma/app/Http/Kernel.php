@@ -70,5 +70,6 @@ class Kernel extends HttpKernel
         'tenant.active' => \App\Http\Middleware\EnsureTenantActive::class,
         'tenant.store' => \App\Http\Middleware\SetCurrentStore::class,
         'module' => \App\Http\Middleware\EnsureModuleEnabled::class,
+        'desktop.licence' => \Bproo\Platform\Desktop\Http\Middleware\EnsureDesktopLicence::class,
     ];
 }

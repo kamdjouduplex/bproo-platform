@@ -73,12 +73,20 @@ Route::get('/reservez-demo', function () {
     return view('demo');
 })->name('demo');
 
-Route::prefix('app')->middleware(['tenant', 'tenant.active', 'tenant.store'])->group(function () {
+Route::prefix('app')->middleware(['tenant', 'tenant.active', 'desktop.licence', 'tenant.store'])->group(function () {
     Route::get('/login', [TenantAuthController::class, 'showLogin'])->name('tenant.login');
     Route::post('/login', [TenantAuthController::class, 'login'])->name('tenant.login.submit');
     Route::post('/logout', [TenantAuthController::class, 'logout'])->name('tenant.logout');
 
     Route::get('/subscription', TenantSubscriptionStatus::class)->name('tenant.subscription');
+    Route::get('/licence', function () {
+        $guard = app(\Bproo\Platform\Desktop\Services\LicenceGuard::class);
+        $result = $guard->evaluate();
+
+        return view('desktop::licence-status', [
+            'result' => $result,
+        ]);
+    })->name('desktop.licence');
 
     Route::middleware('auth:tenant')->group(function () {
         Route::get('/', TenantDashboard::class)->name('tenant.dashboard');
