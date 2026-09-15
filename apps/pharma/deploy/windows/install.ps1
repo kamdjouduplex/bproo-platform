@@ -1,10 +1,9 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Bootstrap a local Bproo Pharma desktop runtime (Phase 4).
+  Bootstrap a local Bproo Pharma desktop runtime (Phase 4 / packaging).
 .DESCRIPTION
-  Prepares .env from .env.desktop.example, SQLite DB, composer install,
-  app key, and migrations (including desktop_outbox_events).
+  Prefers bundled runtime\php from build-release.ps1; falls back to system PHP.
   Does not modify SaaS docker deploy.
 #>
 param(
@@ -15,18 +14,32 @@ param(
 
 $ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$AppDir = Resolve-Path (Join-Path $ScriptDir "..\..")
+# When run from payload root via First-Run-Setup, AppDir is payload; from deploy/windows AppDir is apps/pharma
+if (Test-Path (Join-Path $ScriptDir "..\..\artisan")) {
+    $AppDir = (Resolve-Path (Join-Path $ScriptDir "..\..")).Path
+} elseif (Test-Path (Join-Path $ScriptDir "artisan")) {
+    $AppDir = $ScriptDir
+} else {
+    $AppDir = (Resolve-Path (Join-Path $ScriptDir "..\..")).Path
+}
 Set-Location $AppDir
+
+function Resolve-Php {
+    $bundled = Join-Path $AppDir "runtime\php\php.exe"
+    if (Test-Path $bundled) {
+        $env:Path = "$(Split-Path $bundled -Parent);$env:Path"
+        return $bundled
+    }
+    $sys = Get-Command php -ErrorAction SilentlyContinue
+    if ($sys) { return $sys.Source }
+    throw "PHP introuvable (ni runtime\php\php.exe ni PATH)."
+}
 
 Write-Host "==> Bproo Pharma desktop install" -ForegroundColor Cyan
 Write-Host "App: $AppDir"
 
-if (-not (Get-Command php -ErrorAction SilentlyContinue)) {
-    throw "PHP introuvable dans le PATH."
-}
-if (-not (Get-Command composer -ErrorAction SilentlyContinue)) {
-    throw "Composer introuvable dans le PATH."
-}
+$Php = Resolve-Php
+Write-Host "PHP: $Php"
 
 $envExample = Join-Path $AppDir ".env.desktop.example"
 $envFile = Join-Path $AppDir ".env"
@@ -41,13 +54,11 @@ if (-not (Test-Path $envFile)) {
     Write-Host ".env already exists — leaving it (set DESKTOP_RUNTIME=1 manually if needed)"
 }
 
-# Ensure desktop flags
 $envContent = Get-Content $envFile -Raw
 if ($envContent -notmatch "DESKTOP_RUNTIME=") {
     Add-Content $envFile "`nDESKTOP_RUNTIME=1"
 }
-$envContent = Get-Content $envFile -Raw
-if ($envContent -notmatch "CONTROL_CENTER_URL=") {
+if ((Get-Content $envFile -Raw) -notmatch "CONTROL_CENTER_URL=") {
     Add-Content $envFile "`nCONTROL_CENTER_URL=$ControlCenterUrl"
 } else {
     (Get-Content $envFile) | ForEach-Object {
@@ -62,7 +73,6 @@ if (-not (Test-Path $dbFile)) {
     New-Item -ItemType File -Path $dbFile | Out-Null
 }
 
-# Force sqlite path in .env (absolute, forward slashes for PHP)
 $dbPosix = ($dbFile -replace '\\', '/')
 $lines = Get-Content $envFile
 $out = @()
@@ -81,22 +91,24 @@ New-Item -ItemType Directory -Force -Path (Join-Path $AppDir "storage\app\deskto
 New-Item -ItemType Directory -Force -Path (Join-Path $AppDir "storage\app\desktop\rollback") | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $AppDir "storage\app\desktop\packages") | Out-Null
 
-Write-Host "==> composer install"
-composer install --no-interaction
-
-if (-not (Select-String -Path $envFile -Pattern '^APP_KEY=base64:' -Quiet)) {
-    Write-Host "==> php artisan key:generate"
-    php artisan key:generate --force
+# Vendor expected from build-release; only run composer if missing and available
+if (-not (Test-Path (Join-Path $AppDir "vendor\autoload.php"))) {
+    if (-not (Get-Command composer -ErrorAction SilentlyContinue)) {
+        throw "vendor/ manquant et Composer introuvable. Rebuild avec build-release.ps1."
+    }
+    Write-Host "==> composer install"
+    $env:COMPOSER_MIRROR_PATH_REPOS = "1"
+    composer install --no-interaction
 }
 
-Write-Host "==> php artisan migrate"
+Write-Host "==> key:generate / migrate"
 $env:DESKTOP_RUNTIME = "1"
-php artisan migrate --force
+if (-not (Select-String -Path $envFile -Pattern '^APP_KEY=base64:' -Quiet)) {
+    & $Php artisan key:generate --force
+}
+& $Php artisan migrate --force
 
 Write-Host ""
 Write-Host "Install OK." -ForegroundColor Green
-Write-Host "Next:"
-Write-Host "  1. .\start.ps1"
-Write-Host "  2. php artisan desktop:activate `"YOUR-CODE`""
-Write-Host "  3. php artisan desktop:heartbeat"
+Write-Host "Next: Activate-Licence.ps1 (payload) or: php artisan desktop:activate `"CODE`""
 Write-Host "Control Center: $ControlCenterUrl"

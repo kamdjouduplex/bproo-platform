@@ -61,10 +61,11 @@ Packages / staging / rollback: `storage/app/desktop/{packages,staging,rollback}/
 ## Honest limits (Phase 4 v1)
 
 - Same Livewire Pharma app served locally (`artisan serve`) — not a rewritten native UI
-- `updates:apply` stages + verifies; full atomic binary replace lands with CI-built zip + Inno packaging
-- PHP must be installed on the PC (bundled PHP runtime = follow-up)
+- Packaging: `deploy/windows/build-release.ps1` + Inno — see [PHASE-4-PACKAGING.md](./PHASE-4-PACKAGING.md)
+- `updates:apply` stages + verifies; full in-place replace of installed dir is follow-up
+- Bundled PHP removes system-PHP requirement for packaged clients
 
 ## Next
 
 **Phase 5** — IN sync / multi-device.  
-Also: CI artefact that feeds Inno Setup + bundled PHP.
+Also: wire `updates:apply` to replace the installed tree from CC zip.

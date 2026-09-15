@@ -3,40 +3,39 @@
 Stand-alone single-shop packaging of the **same** Pharma Laravel app.
 Control plane remains Control Center (licence / updates / OUT sync).
 
-## Prerequisites
+## Packaging (recommandé)
 
-- PHP 8.1+ on PATH (`php -v`)
-- Composer on PATH
-- Control Center reachable (`CONTROL_CENTER_URL`)
-- Activation code from CC → Entreprise → Installations desktop
-
-## Quick start (dev machine)
+Voir **[PACKAGING.md](./PACKAGING.md)** :
 
 ```powershell
-cd apps\pharma\deploy\windows
-.\install.ps1
+.\build-release.ps1 -Version 0.1.0 -ZipPayload
+.\compile-installer.ps1 -Version 0.1.0
+```
+
+## Dev rapide (PHP système déjà installé)
+
+```powershell
+.\install.ps1 -ControlCenterUrl "http://127.0.0.1:8000"
 .\start.ps1
 ```
 
-Then in another shell (from `apps\pharma`):
+Puis :
 
 ```powershell
+cd ..\..\
 $env:DESKTOP_RUNTIME=1
+$env:CONTROL_CENTER_URL="http://127.0.0.1:8000"
 php artisan desktop:activate "XXXX-XXXX-XXXX-XXXX"
-php artisan desktop:heartbeat
-php artisan desktop:enqueue sale.created
-php artisan desktop:sync-out
-php artisan desktop:updates-check --current=0.0.1
-php artisan desktop:updates-apply --current=0.0.1
 ```
 
 ## Files
 
 | Script | Role |
 |--------|------|
-| `install.ps1` | Copy env, sqlite, composer, key, migrate |
-| `start.ps1` | `php artisan serve` |
-| `schedule-heartbeat.ps1` | Example Task Scheduler registration |
-| `innosetup/bproo-pharma.iss` | Future GUI installer skeleton |
+| `build-release.ps1` | Payload + PHP portable + zip |
+| `compile-installer.ps1` | Inno Setup → `.exe` |
+| `install.ps1` / `start.ps1` | Bootstrap / serve (dev ou payload) |
+| `schedule-heartbeat.ps1` | Task Scheduler |
+| `innosetup/bproo-pharma.iss` | Définition installateur |
 
 SaaS Docker deploy under `../docker/` is unchanged.

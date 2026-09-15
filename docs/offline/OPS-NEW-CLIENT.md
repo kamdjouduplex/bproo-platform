@@ -155,4 +155,19 @@ Révoquer une machine volée / cassée → **Révoquer** sur l’install → anc
 3. **OUT sync auto** depuis chaque vente Livewire — outbox + API prêts, hooks métier à brancher  
 4. **IN sync / 2e PC** — Phase 5  
 
-Pour un pilote interne / premier client technique, le process ci-dessus est le bon. Pour 50 pharmacies “clé en main”, il faut surtout le packaging Windows + hooks outbox métier.
+Pour un pilote interne / premier client technique, le process ci-dessus est le bon.
+
+### Packaging “clé en main” (recommandé pour le terrain)
+
+Sur ta machine de build :
+
+```powershell
+cd apps\pharma\deploy\windows
+.\build-release.ps1 -Version 0.1.0 -ControlCenterUrl "https://TON-CC" -ZipPayload
+.\compile-installer.ps1 -Version 0.1.0
+```
+
+Tu remets au client le `output\bproo-pharma-desktop-*-setup.exe` + le code d’activation.  
+Détail : [PHASE-4-PACKAGING.md](./PHASE-4-PACKAGING.md) / [PACKAGING.md](../../apps/pharma/deploy/windows/PACKAGING.md).
+
+Pour 50 pharmacies, brancher aussi les hooks outbox métier (ventes → sync auto).

@@ -1,0 +1,7 @@
+# Local build artefacts — do not commit
+.cache/
+dist/
+output/
+*.zip
+*.exe
+*.sha256
