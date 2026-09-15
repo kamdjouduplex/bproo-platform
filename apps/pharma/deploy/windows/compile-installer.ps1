@@ -15,13 +15,13 @@ $Iss = Join-Path $ScriptDir "innosetup\bproo-pharma.iss"
 $OutputDir = Join-Path $ScriptDir "output"
 
 if (-not (Test-Path $Payload)) {
-    throw "Payload manquant: $Payload`nLance d'abord: .\build-release.ps1 -Version $Version"
+    throw "Payload manquant: $Payload. Lance d abord: .\build-release.ps1 -Version $Version"
 }
 if (-not (Test-Path (Join-Path $Payload "artisan"))) {
     throw "Payload incomplet (artisan manquant)."
 }
 if (-not (Test-Path (Join-Path $Payload "runtime\php\php.exe"))) {
-    Write-Warning "PHP portable absent du payload — l'install client exigera PHP systeme."
+    Write-Warning "PHP portable absent du payload - l install client exigera PHP systeme."
 }
 
 if (-not $IsccPath) {
@@ -36,12 +36,13 @@ if (-not $IsccPath) {
 }
 
 if (-not $IsccPath -or -not (Test-Path $IsccPath)) {
-    throw @"
-Inno Setup 6 (ISCC.exe) introuvable.
-1) Installe https://jrsoftware.org/isdl.php
-2) Relance: .\compile-installer.ps1 -Version $Version
-   ou: .\compile-installer.ps1 -IsccPath 'C:\Path\ISCC.exe'
-"@
+    $msg = @(
+        "Inno Setup 6 (ISCC.exe) introuvable.",
+        "1) Installe https://jrsoftware.org/isdl.php",
+        "2) Relance: .\compile-installer.ps1 -Version $Version",
+        "   ou: .\compile-installer.ps1 -IsccPath C:\Path\ISCC.exe"
+    ) -join [Environment]::NewLine
+    throw $msg
 }
 
 New-Item -ItemType Directory -Force -Path $OutputDir | Out-Null
@@ -58,5 +59,5 @@ if ($setup) {
     Write-Host "Installer: $($setup.FullName)" -ForegroundColor Green
     Write-Host "SHA-256:   $hash"
 } else {
-    Write-Host "Compile OK — check $OutputDir" -ForegroundColor Green
+    Write-Host "Compile OK - check $OutputDir" -ForegroundColor Green
 }
