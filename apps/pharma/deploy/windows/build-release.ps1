@@ -195,9 +195,14 @@ Write-Host "==> Installing launchers"
 $Templates = Join-Path $ScriptDir "templates"
 Copy-Item (Join-Path $Templates "Start-BprooPharma.ps1") (Join-Path $Payload "Start-BprooPharma.ps1") -Force
 Copy-Item (Join-Path $Templates "Start-BprooPharma.cmd") (Join-Path $Payload "Start-BprooPharma.cmd") -Force
+Copy-Item (Join-Path $Templates "BprooPharmaHost.ps1") (Join-Path $Payload "BprooPharmaHost.ps1") -Force
+Copy-Item (Join-Path $Templates "BprooPharma.vbs") (Join-Path $Payload "BprooPharma.vbs") -Force
 Copy-Item (Join-Path $Templates "Activate-Licence.ps1") (Join-Path $Payload "Activate-Licence.ps1") -Force
 Copy-Item (Join-Path $Templates "Set-ControlCenterUrl.ps1") (Join-Path $Payload "Set-ControlCenterUrl.ps1") -Force
 Copy-Item (Join-Path $Templates "Repair-ComposerAutoload.ps1") (Join-Path $Payload "Repair-ComposerAutoload.ps1") -Force
+if (Test-Path (Join-Path $Templates "Repair-DesktopBootstrap.ps1")) {
+    Copy-Item (Join-Path $Templates "Repair-DesktopBootstrap.ps1") (Join-Path $Payload "Repair-DesktopBootstrap.ps1") -Force
+}
 
 Write-Host "==> Repairing Composer autoload for stand-alone vendor/"
 & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Payload "Repair-ComposerAutoload.ps1") -AppRoot $Payload

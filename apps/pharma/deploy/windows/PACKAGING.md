@@ -49,7 +49,7 @@ Les installs feront `desktop:updates-check` / `updates-apply`.
 1. Lancer `bproo-pharma-desktop-*-setup.exe`
 2. L’assistant exécute **First-Run-Setup** (SQLite + migrate)
 3. Cocher **Activer la licence** → saisir le code CC
-4. Lancer **Bproo Pharma Desktop** (raccourci) → `http://127.0.0.1:8003`
+4. Lancer **Bproo Pharma Desktop** (raccourci) → fenêtre type application (Edge/Chrome `--app`, sans barre d’adresse) sur `http://127.0.0.1:8003`. Pas de terminal.
 
 **Plus besoin de PHP système** sur le PC client si le payload contient `runtime\php`.
 
