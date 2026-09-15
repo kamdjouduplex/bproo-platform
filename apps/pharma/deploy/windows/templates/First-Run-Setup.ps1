@@ -12,6 +12,32 @@ $env:DESKTOP_RUNTIME = "1"
 $phpDir = Join-Path $Root "runtime\php"
 $env:Path = "$phpDir;$env:Path"
 
+function Grant-UsersModify([string]$Path, [switch]$FileOnly) {
+    if (-not (Test-Path $Path)) { return }
+    if ($FileOnly) {
+        & icacls $Path /grant "*S-1-5-32-545:M" 2>$null | Out-Null
+    } else {
+        & icacls $Path /grant "*S-1-5-32-545:(OI)(CI)M" /T 2>$null | Out-Null
+    }
+}
+
+function Ensure-AppKey([string]$EnvPath) {
+    $raw = Get-Content $EnvPath -Raw -ErrorAction Stop
+    if ($raw -match '(?m)^APP_KEY=base64:[A-Za-z0-9+/=]+') { return }
+    $bytes = New-Object byte[] 32
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    $key = 'base64:' + [Convert]::ToBase64String($bytes)
+    if ($raw -match '(?m)^APP_KEY=') {
+        $raw = [regex]::Replace($raw, '(?m)^APP_KEY=.*$', "APP_KEY=$key")
+    } else {
+        $raw = "APP_KEY=$key`r`n" + $raw
+    }
+    Set-Content -Path $EnvPath -Value $raw -Encoding UTF8
+    if (-not (Select-String -Path $EnvPath -Pattern '^APP_KEY=base64:' -Quiet)) {
+        throw "APP_KEY n'a pas pu etre ecrite dans $EnvPath"
+    }
+}
+
 # Program Files is read-only for normal users — Laravel needs write on these trees
 $writable = @(
     (Join-Path $Root "storage"),
@@ -20,8 +46,7 @@ $writable = @(
 )
 foreach ($dir in $writable) {
     if (-not (Test-Path $dir)) { New-Item -ItemType Directory -Force -Path $dir | Out-Null }
-    # Users (S-1-5-32-545) modify, inherit to children — ignore failures if already correct
-    & icacls $dir /grant "*S-1-5-32-545:(OI)(CI)M" /T 2>$null | Out-Null
+    Grant-UsersModify $dir
 }
 
 $envExample = Join-Path $Root ".env.desktop.example"
@@ -81,8 +106,9 @@ if (-not $seenConn) { $final += "DB_CONNECTION=sqlite" }
 if (-not $seenDb) { $final += "DB_DATABASE=$dbEnvValue" }
 $final | Set-Content $envFile
 
-if (-not (Select-String -Path $envFile -Pattern '^APP_KEY=base64:' -Quiet)) {
-    & $Php artisan key:generate --force
-}
+# Write APP_KEY in PowerShell (does not need a booted Laravel — safer than artisan key:generate)
+Ensure-AppKey $envFile
+Grant-UsersModify $envFile -FileOnly
+
 & $Php artisan migrate --force
 Write-Host "Setup OK. Lancez Activate-Licence.ps1 puis Start-BprooPharma.cmd" -ForegroundColor Green

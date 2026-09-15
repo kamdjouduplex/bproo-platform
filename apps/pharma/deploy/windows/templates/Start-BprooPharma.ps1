@@ -14,8 +14,30 @@ try {
     $phpDir = Join-Path $Root "runtime\php"
     $env:Path = "$phpDir;$env:Path"
 
-    if (-not (Test-Path (Join-Path $Root ".env"))) {
+    $envFile = Join-Path $Root ".env"
+    if (-not (Test-Path $envFile)) {
         throw "Fichier .env manquant. Lancez d abord First-Run-Setup.ps1"
+    }
+
+    # Safety net: empty APP_KEY from a partial first-run
+    if (-not (Select-String -Path $envFile -Pattern '^APP_KEY=base64:' -Quiet)) {
+        $bytes = New-Object byte[] 32
+        [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+        $key = 'base64:' + [Convert]::ToBase64String($bytes)
+        $raw = Get-Content $envFile -Raw
+        if ($raw -match '(?m)^APP_KEY=') {
+            $raw = [regex]::Replace($raw, '(?m)^APP_KEY=.*$', "APP_KEY=$key")
+        } else {
+            $raw = "APP_KEY=$key`r`n" + $raw
+        }
+        try {
+            Set-Content -Path $envFile -Value $raw -Encoding UTF8
+        } catch {
+            throw "APP_KEY manquante et .env non modifiable. Relancez First-Run-Setup.ps1 en Administrateur."
+        }
+        if (-not (Select-String -Path $envFile -Pattern '^APP_KEY=base64:' -Quiet)) {
+            throw "APP_KEY manquante. Relancez First-Run-Setup.ps1 en Administrateur."
+        }
     }
 
     $state = Join-Path $Root "storage\app\desktop\state.json"

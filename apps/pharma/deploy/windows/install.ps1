@@ -102,11 +102,21 @@ if (-not (Test-Path (Join-Path $AppDir "vendor\autoload.php"))) {
     composer install --no-interaction
 }
 
-Write-Host "==> key:generate / migrate"
+Write-Host "==> APP_KEY / migrate"
 $env:DESKTOP_RUNTIME = "1"
-if (-not (Select-String -Path $envFile -Pattern '^APP_KEY=base64:' -Quiet)) {
-    & $Php artisan key:generate --force
+$envRaw = Get-Content $envFile -Raw
+if ($envRaw -notmatch '(?m)^APP_KEY=base64:[A-Za-z0-9+/=]+') {
+    $bytes = New-Object byte[] 32
+    [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
+    $key = 'base64:' + [Convert]::ToBase64String($bytes)
+    if ($envRaw -match '(?m)^APP_KEY=') {
+        $envRaw = [regex]::Replace($envRaw, '(?m)^APP_KEY=.*$', "APP_KEY=$key")
+    } else {
+        $envRaw = "APP_KEY=$key`r`n" + $envRaw
+    }
+    Set-Content -Path $envFile -Value $envRaw -Encoding UTF8
 }
+& icacls $envFile /grant "*S-1-5-32-545:M" 2>$null | Out-Null
 & $Php artisan migrate --force
 
 Write-Host ""
