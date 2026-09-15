@@ -52,6 +52,34 @@ class ControlCenterClient
         return $fp;
     }
 
+    /**
+     * @param  array<string, mixed>  $body
+     * @return array<string, mixed>
+     */
+    public function postJson(string $path, array $body): array
+    {
+        $url = $this->baseUrl().'/'.ltrim($path, '/');
+        $response = Http::acceptJson()
+            ->asJson()
+            ->timeout(60)
+            ->post($url, $body);
+
+        $json = $response->json();
+        if (! is_array($json)) {
+            throw new \RuntimeException("Réponse invalide de {$url} (HTTP {$response->status()})");
+        }
+
+        if ($response->failed() || ($json['ok'] ?? false) !== true) {
+            $errors = $json['errors'] ?? null;
+            $msg = is_array($errors)
+                ? collect($errors)->flatten()->implode(' ')
+                : ("HTTP {$response->status()}");
+            throw new \RuntimeException(trim("Control Center: {$msg}"));
+        }
+
+        return $json;
+    }
+
     public function productKey(): string
     {
         return strtolower((string) config('desktop.product_key', 'pharma'));
