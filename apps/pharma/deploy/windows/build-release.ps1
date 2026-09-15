@@ -51,8 +51,8 @@ if (-not $SkipComposer) {
 }
 
 # --- Copy app tree ---
-# IMPORTANT: /XD matches directory NAMES anywhere in the tree.
-# Never exclude bare names like "output" (breaks vendor/symfony/console/Output).
+# IMPORTANT: /XD matches directory NAMES (leaf) anywhere in the tree.
+# Never exclude bare names like "output" or "dist" (breaks Symfony Console / Livewire assets).
 Write-Host "==> Copying application files"
 $excludeDirs = @(
     (Join-Path $AppDir ".git"),
@@ -60,7 +60,6 @@ $excludeDirs = @(
     (Join-Path $AppDir ".vscode"),
     (Join-Path $AppDir "node_modules"),
     (Join-Path $AppDir "tests"),
-    (Join-Path $AppDir "deploy\windows\dist"),
     (Join-Path $AppDir "deploy\windows\.cache"),
     (Join-Path $AppDir "deploy\windows\output")
 )
@@ -72,10 +71,17 @@ if ($LASTEXITCODE -ge 8) {
     throw "robocopy failed with code $LASTEXITCODE"
 }
 
+# Drop packaging artefacts copied from deploy/windows (do NOT /XD "dist" — it strips vendor/*/dist)
+$payloadWindowsDist = Join-Path $Payload "deploy\windows\dist"
+if (Test-Path $payloadWindowsDist) {
+    Remove-Item -Recurse -Force $payloadWindowsDist
+}
+
 # Sanity: critical vendor files must exist (guards against exclude collisions)
 $mustExist = @(
     "vendor\autoload.php",
     "vendor\symfony\console\Output\ConsoleOutput.php",
+    "vendor\livewire\livewire\dist\manifest.json",
     "artisan"
 )
 foreach ($rel in $mustExist) {
