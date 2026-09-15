@@ -191,6 +191,13 @@ Copy-Item (Join-Path $Templates "Start-BprooPharma.ps1") (Join-Path $Payload "St
 Copy-Item (Join-Path $Templates "Start-BprooPharma.cmd") (Join-Path $Payload "Start-BprooPharma.cmd") -Force
 Copy-Item (Join-Path $Templates "Activate-Licence.ps1") (Join-Path $Payload "Activate-Licence.ps1") -Force
 Copy-Item (Join-Path $Templates "Set-ControlCenterUrl.ps1") (Join-Path $Payload "Set-ControlCenterUrl.ps1") -Force
+Copy-Item (Join-Path $Templates "Repair-ComposerAutoload.ps1") (Join-Path $Payload "Repair-ComposerAutoload.ps1") -Force
+
+Write-Host "==> Repairing Composer autoload for stand-alone vendor/"
+& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Payload "Repair-ComposerAutoload.ps1") -AppRoot $Payload
+if ($LASTEXITCODE -ne 0) {
+    throw "Repair-ComposerAutoload failed"
+}
 
 $setupTemplate = Get-Content (Join-Path $Templates "First-Run-Setup.ps1") -Raw
 $setupTemplate = $setupTemplate.Replace("__CONTROL_CENTER_URL__", $ControlCenterUrl)
