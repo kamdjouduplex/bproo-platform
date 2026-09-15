@@ -20,6 +20,7 @@ use App\Livewire\Admin\TenantHealth;
 use App\Livewire\Admin\TenantForm;
 use App\Livewire\Admin\TenantModules;
 use App\Livewire\Admin\TenantSettings;
+use App\Livewire\Admin\TenantDesktopInstalls;
 use App\Livewire\Admin\TenantShow;
 use App\Livewire\Admin\TenantSubscription;
 use App\Livewire\Admin\TenantUsers;
@@ -64,6 +65,7 @@ Route::prefix('admin')->group(function () {
         Route::get('/tenants/{tenant}/edit', TenantForm::class)->name('system.tenants.edit');
         Route::get('/tenants/{tenant}/settings', TenantSettings::class)->name('system.tenants.settings');
         Route::get('/tenants/{tenant}/subscription', TenantSubscription::class)->name('system.tenants.subscription');
+        Route::get('/tenants/{tenant}/desktop-installs', TenantDesktopInstalls::class)->name('system.tenants.desktop-installs');
         // Clients = Companies (same tenants list)
         Route::redirect('/clients', '/admin/tenants')->name('system.clients');
         Route::get('/prospects', ProspectsIndex::class)->name('system.prospects');

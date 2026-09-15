@@ -91,7 +91,7 @@ Rewriting the monorepo as a second desktop codebase would freeze feature velocit
 - [x] Aligns with `BPROO_PLATFORM_ARCHITECTURE_v1.md` (shared packages, Control Center as brain, DB-per-company)
 - [x] Does not replace tenancy model; desktop = one local company DB
 - [x] Public SaaS contracts unchanged on `main` until desktop packages are explicitly released
-- [ ] Phase notes to be mirrored in `MIGRATION_ROADMAP.md` when Phase 1 coding starts
+- [x] Phase notes mirrored in `docs/offline/PHASE-1-LICENCE.md` (Phase 1 coding)
 
 ## Engineering checklist (from Phase 0)
 

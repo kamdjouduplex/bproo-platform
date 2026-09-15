@@ -15,9 +15,9 @@ Same monorepo. No second business codebase.
 
 ## Current phase
 
-**Phase 0 — Accepted ADR + conventions** (this folder / ADR 0002).
+**Phase 1 — Licence heartbeat + offline grace** in Control Center — see [PHASE-1-LICENCE.md](./PHASE-1-LICENCE.md).
 
-Next coding target on this branch: **Phase 1 — licence heartbeat + offline grace** in Control Center.
+Next coding target: **Phase 2 — update channel** (signed manifest + apply + rollback).
 
 ## Non-goals (for now)
 

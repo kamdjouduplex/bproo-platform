@@ -98,6 +98,14 @@ class Tenant extends Model
     }
 
     /**
+     * Desktop / offline installations (Phase 1 licence plane — additive to SaaS).
+     */
+    public function desktopInstalls()
+    {
+        return $this->hasMany(DesktopInstall::class)->orderByDesc('id');
+    }
+
+    /**
      * Current or most recent subscription (for display and checks).
      */
     public function currentSubscription(): ?Subscription

@@ -2,6 +2,7 @@
 
 namespace Bproo\Platform\Billing;
 
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 
 class BillingServiceProvider extends ServiceProvider
@@ -13,6 +14,11 @@ class BillingServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        //
+        // Licence API is Control Center only — product hosts keep SaaS billing untouched.
+        if ((string) env('APP_PRODUCT_KEY') === 'control-center') {
+            Route::prefix('api')
+                ->middleware('api')
+                ->group(__DIR__.'/../../routes/licence.php');
+        }
     }
 }

@@ -75,6 +75,7 @@
                 <button type="button" class="btn btn-secondary btn-sm" wire:click="refreshMetrics">Actualiser indicateurs</button>
                 <a class="btn btn-secondary btn-sm" href="{{ route('system.tenants.users', $tenant) }}">Utilisateurs</a>
                 <a class="btn btn-secondary btn-sm" href="{{ route('system.tenants.subscription', $tenant) }}">Facturation</a>
+                <a class="btn btn-secondary btn-sm" href="{{ route('system.tenants.desktop-installs', $tenant) }}">Installations desktop</a>
                 <a class="btn btn-secondary btn-sm" href="{{ route('system.tenant.modules', ['tenant' => $tenant->id]) }}">Modules</a>
                 <a class="btn btn-secondary btn-sm" href="{{ route('system.tenants.settings', $tenant) }}">Paramètres</a>
                 <a class="btn btn-secondary btn-sm" href="{{ route('system.tenants.edit', $tenant) }}">Modifier</a>
