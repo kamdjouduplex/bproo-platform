@@ -177,13 +177,18 @@ class DesktopBootstrapCommand extends Command
             throw new \RuntimeException('Aucun plan trouvé après PlansSeeder.');
         }
 
+        // Offline installs: short local trial window (not the CC SaaS period).
+        $days = max(1, (int) env('DESKTOP_LOCAL_SUBSCRIPTION_DAYS', 30));
+        $periodEnd = now()->addDays($days)->toDateString();
+
         $sub = $tenant->subscriptions()->first();
         if ($sub) {
             $sub->fill([
                 'plan_id' => $plan->id,
                 'status' => Subscription::STATUS_ACTIVE,
                 'current_period_start' => now()->toDateString(),
-                'current_period_end' => now()->addYears(10)->toDateString(),
+                'current_period_end' => $periodEnd,
+                'grace_ends_at' => $periodEnd,
                 'activated_at' => $sub->activated_at ?: now(),
                 'suspended_at' => null,
                 'cancelled_at' => null,
@@ -198,7 +203,8 @@ class DesktopBootstrapCommand extends Command
             'plan_id' => $plan->id,
             'status' => Subscription::STATUS_ACTIVE,
             'current_period_start' => now()->toDateString(),
-            'current_period_end' => now()->addYears(10)->toDateString(),
+            'current_period_end' => $periodEnd,
+            'grace_ends_at' => $periodEnd,
             'activated_at' => now(),
         ]);
     }
