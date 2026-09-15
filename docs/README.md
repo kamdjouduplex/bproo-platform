@@ -28,4 +28,5 @@ Official architecture and migration docs for the Bproo ecosystem.
 | [adr/](./adr/) | Architecture Decision Records |
 | [runbooks/](./runbooks/) | Smoke test checklists |
 | [inventory/](./inventory/) | Company / module inventory |
-| [fingerprint/](./fingerprint/) | Package drift CSV reports (generated) |
+
+Generated package-drift reports (if any) can be produced via `tools/fingerprint/compare-inovcom-packages.ps1` — they are not stored in the repo.

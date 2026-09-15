@@ -1,19 +1,22 @@
 # Bproo Platform
 
-Modular multi-tenant Laravel ecosystem (ERP, Pressing, BAT) migrating toward a shared package architecture.
+Modular multi-tenant Laravel ecosystem (ERP, Pharma, School, Pressing, BAT, Control Center) on a shared package architecture.
 
 ## Layout
 
 ```
 bproo-platform/
 ├── apps/
-│   ├── erp/          # ERP (+ POS capability) — was bproo-erp / bproo-erp-pos
-│   ├── pressing/     # Pressing vertical
-│   └── bat/          # Construction (BAT)
-├── packages/         # Shared packages (populated in Phase M2+)
-├── docs/             # Architecture & migration docs
-├── tools/            # Fingerprint & automation
-├── backups/          # Git bundles from pre-monorepo repos
+│   ├── control-center/  # Admin / licences / tenants
+│   ├── pharma/          # Pharmacie (POS, lots, ordonnances)
+│   ├── school/          # École
+│   ├── erp/             # ERP (+ POS)
+│   ├── pressing/        # Pressing
+│   └── bat/             # Construction (BAT)
+├── packages/            # Shared packages (inovcom, platform, ui, verticals)
+├── deployment/          # Shared Docker images
+├── docs/                # Architecture & migration docs
+├── tools/               # Automation (fingerprint, etc.)
 └── .github/
 ```
 
@@ -23,26 +26,21 @@ Start at [`docs/README.md`](docs/README.md).
 
 - Official architecture: `docs/BPROO_PLATFORM_ARCHITECTURE_v1.md`
 - Migration roadmap: `docs/MIGRATION_ROADMAP.md`
-- Current phase: `docs/PHASE_1_STATUS.md`
 
 ## Run an app (local)
 
-Each product remains a normal Laravel app. From that app directory:
+Each product is a normal Laravel app. From that app directory:
 
 ```bash
-cd apps/erp        # or apps/pressing, apps/bat
+cd apps/pharma        # or school, erp, pressing, bat, control-center
 composer install
 cp .env.example .env   # if needed
 php artisan key:generate
 php artisan serve
 ```
 
-Deploy pipelines should set the working directory to the relevant `apps/*` folder. **No package unification yet** (Phase M2).
+Deploy from the relevant `apps/*` folder (see each app’s `deploy/docker/DEPLOY.md`).
 
 ## Freeze
 
 Do not duplicate `packages/inovcom/*` across apps — see `docs/FREEZE_POLICY.md`.
-
-## History
-
-Pre-monorepo git history is preserved in `backups/git-bundles/*.bundle` and recorded in `backups/pre-monorepo-git-remotes.csv`.
