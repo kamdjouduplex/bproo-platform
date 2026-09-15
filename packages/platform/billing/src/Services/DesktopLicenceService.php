@@ -281,6 +281,64 @@ class DesktopLicenceService
     }
 
     /**
+     * Shared auth for Phase 2 updates / Phase 3 sync — does not mutate SaaS billing.
+     *
+     * @param  array{install_uuid?:string,token?:string,fingerprint?:string}  $input
+     */
+    public function assertLicensedInstall(array $input): DesktopInstall
+    {
+        $this->assertTableReady();
+
+        $uuid = trim((string) ($input['install_uuid'] ?? ''));
+        $token = trim((string) ($input['token'] ?? ''));
+        $fingerprint = trim((string) ($input['fingerprint'] ?? ''));
+
+        if ($uuid === '' || $token === '' || $fingerprint === '') {
+            throw ValidationException::withMessages([
+                'token' => 'install_uuid, token et fingerprint sont requis.',
+            ]);
+        }
+
+        /** @var DesktopInstall|null $install */
+        $install = DesktopInstall::query()
+            ->where('uuid', $uuid)
+            ->with('tenant')
+            ->first();
+
+        if (! $install || $install->isRevoked() || ! $install->isActive()) {
+            throw ValidationException::withMessages([
+                'install_uuid' => 'Installation introuvable, inactive ou révoquée.',
+            ]);
+        }
+
+        $claims = $this->verifyToken($token);
+        if (! $claims
+            || ($claims['install_uuid'] ?? null) !== $install->uuid
+            || (int) ($claims['token_version'] ?? 0) !== (int) $install->token_version
+        ) {
+            throw ValidationException::withMessages([
+                'token' => 'Jeton licence invalide. Refaites un heartbeat.',
+            ]);
+        }
+
+        $fpHash = DesktopInstall::hashFingerprint($fingerprint);
+        if ($install->fingerprint_hash && $install->fingerprint_hash !== $fpHash) {
+            throw ValidationException::withMessages([
+                'fingerprint' => 'Empreinte machine non reconnue.',
+            ]);
+        }
+
+        $tenant = $install->tenant;
+        if (! $tenant || ! $tenant->is_active || ! $tenant->hasActiveSubscription()) {
+            throw ValidationException::withMessages([
+                'install_uuid' => 'Entreprise inactive ou abonnement expiré.',
+            ]);
+        }
+
+        return $install;
+    }
+
+    /**
      * Helper for future desktop runtime: given last local token claims + now, is write still allowed offline?
      *
      * @param  array<string, mixed>  $claims

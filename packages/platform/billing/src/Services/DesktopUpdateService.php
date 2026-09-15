@@ -317,53 +317,7 @@ class DesktopUpdateService
      */
     private function assertLicensedInstall(array $input): DesktopInstall
     {
-        $uuid = trim((string) ($input['install_uuid'] ?? ''));
-        $token = trim((string) ($input['token'] ?? ''));
-        $fingerprint = trim((string) ($input['fingerprint'] ?? ''));
-
-        if ($uuid === '' || $token === '' || $fingerprint === '') {
-            throw ValidationException::withMessages([
-                'token' => 'install_uuid, token et fingerprint sont requis.',
-            ]);
-        }
-
-        /** @var DesktopInstall|null $install */
-        $install = DesktopInstall::query()
-            ->where('uuid', $uuid)
-            ->with('tenant')
-            ->first();
-
-        if (! $install || $install->isRevoked() || ! $install->isActive()) {
-            throw ValidationException::withMessages([
-                'install_uuid' => 'Installation introuvable, inactive ou révoquée.',
-            ]);
-        }
-
-        $claims = $this->licences->verifyToken($token);
-        if (! $claims
-            || ($claims['install_uuid'] ?? null) !== $install->uuid
-            || (int) ($claims['token_version'] ?? 0) !== (int) $install->token_version
-        ) {
-            throw ValidationException::withMessages([
-                'token' => 'Jeton licence invalide. Refaites un heartbeat.',
-            ]);
-        }
-
-        $fpHash = DesktopInstall::hashFingerprint($fingerprint);
-        if ($install->fingerprint_hash && $install->fingerprint_hash !== $fpHash) {
-            throw ValidationException::withMessages([
-                'fingerprint' => 'Empreinte machine non reconnue.',
-            ]);
-        }
-
-        $tenant = $install->tenant;
-        if (! $tenant || ! $tenant->is_active || ! $tenant->hasActiveSubscription()) {
-            throw ValidationException::withMessages([
-                'install_uuid' => 'Entreprise inactive ou abonnement expiré.',
-            ]);
-        }
-
-        return $install;
+        return $this->licences->assertLicensedInstall($input);
     }
 
     /**

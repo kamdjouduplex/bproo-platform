@@ -146,6 +146,12 @@
                 </span>
                 <span>Updates desktop</span>
             </a>
+            <a href="{{ route('system.desktop.sync') }}" class="cc-nav__link {{ $navActive('system.desktop.sync') }}" @click="sidebarOpen = false">
+                <span class="cc-nav__icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M4 12h10M4 17h7"/><path stroke-linecap="round" stroke-linejoin="round" d="M17 12l3 3-3 3"/></svg>
+                </span>
+                <span>Sync desktop</span>
+            </a>
             <a href="{{ route('system.currencies') }}" class="cc-nav__link {{ $navActive('system.currencies') }}" @click="sidebarOpen = false">
                 <span class="cc-nav__icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v10M9.5 9.5c.6-.7 1.5-1.1 2.5-1.1 1.5 0 2.5.9 2.5 2.1S13.5 12.5 12 12.5 9.5 13.4 9.5 14.6c0 1.2 1 2.1 2.5 2.1 1 0 1.9-.4 2.5-1.1"/></svg>

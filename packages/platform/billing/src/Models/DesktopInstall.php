@@ -57,6 +57,16 @@ class DesktopInstall extends Model
         return $this->belongsTo(Tenant::class);
     }
 
+    public function syncBatches(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(DesktopSyncBatch::class, 'desktop_install_id')->orderByDesc('id');
+    }
+
+    public function syncEvents(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(DesktopSyncEvent::class, 'desktop_install_id')->orderByDesc('id');
+    }
+
     public static function generateActivationCode(): string
     {
         return strtoupper(Str::random(4).'-'.Str::random(4).'-'.Str::random(4).'-'.Str::random(4));

@@ -54,6 +54,7 @@
                         <th>Statut</th>
                         <th>Activée</th>
                         <th>Dernier heartbeat</th>
+                        <th>Sync OUT</th>
                         <th>Accès offline jusqu’au</th>
                         <th>Version</th>
                         <th></th>
@@ -63,6 +64,7 @@
                     @forelse ($installs as $install)
                         @php
                             $offlineUntil = $install->offlineAccessExpiresAt($graceDays);
+                            $stats = $syncStats[$install->id] ?? ['event_count' => 0, 'last_received_at' => null];
                         @endphp
                         <tr>
                             <td><code style="user-select:all;">{{ $install->activation_code }}</code></td>
@@ -79,6 +81,12 @@
                             </td>
                             <td>{{ $install->activated_at?->format('d/m/Y H:i') ?: '—' }}</td>
                             <td>{{ $install->last_heartbeat_at?->format('d/m/Y H:i') ?: '—' }}</td>
+                            <td>
+                                {{ $stats['event_count'] }} evt
+                                @if (!empty($stats['last_received_at']))
+                                    <div style="font-size:11px;color:#64748b;">{{ $stats['last_received_at']->format('d/m/Y H:i') }}</div>
+                                @endif
+                            </td>
                             <td>{{ $offlineUntil?->format('d/m/Y') ?: '—' }}</td>
                             <td>{{ $install->app_version ?: '—' }}</td>
                             <td style="white-space:nowrap;">
@@ -102,7 +110,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9">Aucune installation desktop pour cette entreprise.</td>
+                            <td colspan="10">Aucune installation desktop pour cette entreprise.</td>
                         </tr>
                     @endforelse
                 </tbody>

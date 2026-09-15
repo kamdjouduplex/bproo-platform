@@ -15,10 +15,10 @@ Same monorepo. No second business codebase.
 
 ## Current phase
 
-**Phase 2 — Update channel** (signed manifest + download) — see [PHASE-2-UPDATES.md](./PHASE-2-UPDATES.md).  
-Phase 1 licence remains documented in [PHASE-1-LICENCE.md](./PHASE-1-LICENCE.md).
+**Phase 3 — OUT sync / cloud backup** — see [PHASE-3-SYNC-OUT.md](./PHASE-3-SYNC-OUT.md).  
+Earlier: [PHASE-1-LICENCE.md](./PHASE-1-LICENCE.md), [PHASE-2-UPDATES.md](./PHASE-2-UPDATES.md).
 
-Next coding target: **Phase 3 — local event bus + OUT sync** (cloud backup).
+Next coding target: **Phase 4 — Windows installer** (local runtime + outbox + apply updates).
 
 ## Non-goals (for now)
 

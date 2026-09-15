@@ -5,6 +5,7 @@ namespace App\Livewire\Admin;
 use App\Models\DesktopInstall;
 use App\Models\Tenant;
 use App\Services\DesktopLicenceService;
+use App\Services\DesktopSyncService;
 use Livewire\Component;
 
 /**
@@ -100,10 +101,16 @@ class TenantDesktopInstalls extends Component
     {
         $graceDays = (int) config('licence.offline_grace_days', 21);
         $installs = $this->tenant->desktopInstalls()->get();
+        $sync = app(DesktopSyncService::class);
+        $syncStats = [];
+        foreach ($installs as $install) {
+            $syncStats[$install->id] = $sync->statsForInstall($install);
+        }
 
         return view('livewire.admin.tenant-desktop-installs', [
             'installs' => $installs,
             'graceDays' => $graceDays,
+            'syncStats' => $syncStats,
         ])->layout('layouts.app', [
             'title' => 'Installations desktop',
             'subtitle' => $this->tenant->name.' · '.$this->tenant->code,

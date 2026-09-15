@@ -23,6 +23,10 @@ class BillingServiceProvider extends ServiceProvider
             Route::prefix('api')
                 ->middleware('api')
                 ->group(__DIR__.'/../../routes/updates.php');
+
+            Route::prefix('api')
+                ->middleware('api')
+                ->group(__DIR__.'/../../routes/sync.php');
         }
     }
 }
