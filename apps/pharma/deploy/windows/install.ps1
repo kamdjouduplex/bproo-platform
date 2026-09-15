@@ -74,17 +74,18 @@ if (-not (Test-Path $dbFile)) {
 }
 
 $dbPosix = ($dbFile -replace '\\', '/')
+$dbEnvValue = '"' + $dbPosix + '"'
 $lines = Get-Content $envFile
 $out = @()
 $seenDb = $false
 $seenConn = $false
 foreach ($line in $lines) {
     if ($line -match '^DB_CONNECTION=') { $out += "DB_CONNECTION=sqlite"; $seenConn = $true; continue }
-    if ($line -match '^DB_DATABASE=') { $out += "DB_DATABASE=$dbPosix"; $seenDb = $true; continue }
+    if ($line -match '^DB_DATABASE=') { $out += "DB_DATABASE=$dbEnvValue"; $seenDb = $true; continue }
     $out += $line
 }
 if (-not $seenConn) { $out += "DB_CONNECTION=sqlite" }
-if (-not $seenDb) { $out += "DB_DATABASE=$dbPosix" }
+if (-not $seenDb) { $out += "DB_DATABASE=$dbEnvValue" }
 $out | Set-Content $envFile
 
 New-Item -ItemType Directory -Force -Path (Join-Path $AppDir "storage\app\desktop\staging") | Out-Null

@@ -55,16 +55,18 @@ if (-not $seenAppVer) { $out += "APP_VERSION=$AppVersion" }
 $dbFile = Join-Path $Root "database\desktop.sqlite"
 if (-not (Test-Path $dbFile)) { New-Item -ItemType File -Path $dbFile | Out-Null }
 $dbPosix = ($dbFile -replace '\\', '/')
+# Dotenv breaks on unquoted paths with spaces (e.g. Program Files)
+$dbEnvValue = '"' + $dbPosix + '"'
 $final = @()
 $seenDb = $false
 $seenConn = $false
 foreach ($line in $out) {
     if ($line -match '^DB_CONNECTION=') { $final += "DB_CONNECTION=sqlite"; $seenConn = $true; continue }
-    if ($line -match '^DB_DATABASE=') { $final += "DB_DATABASE=$dbPosix"; $seenDb = $true; continue }
+    if ($line -match '^DB_DATABASE=') { $final += "DB_DATABASE=$dbEnvValue"; $seenDb = $true; continue }
     $final += $line
 }
 if (-not $seenConn) { $final += "DB_CONNECTION=sqlite" }
-if (-not $seenDb) { $final += "DB_DATABASE=$dbPosix" }
+if (-not $seenDb) { $final += "DB_DATABASE=$dbEnvValue" }
 $final | Set-Content $envFile
 
 if (-not (Select-String -Path $envFile -Pattern '^APP_KEY=base64:' -Quiet)) {
