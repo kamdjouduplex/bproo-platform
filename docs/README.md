@@ -28,5 +28,13 @@ Official architecture and migration docs for the Bproo ecosystem.
 | [adr/](./adr/) | Architecture Decision Records |
 | [runbooks/](./runbooks/) | Smoke test checklists |
 | [inventory/](./inventory/) | Company / module inventory |
+| [offline/](./offline/) | Desktop / offline runtime epic (licence, updates, sync) |
 
 Generated package-drift reports (if any) can be produced via `tools/fingerprint/compare-inovcom-packages.ps1` — they are not stored in the repo.
+
+## Recent ADRs
+
+| ADR | Title |
+|---|---|
+| [0001](./adr/0001-adopt-architecture-v1.md) | Adopt architecture v1 |
+| [0002](./adr/0002-offline-desktop-runtime.md) | Offline desktop runtime (licence, updates, sync) |
