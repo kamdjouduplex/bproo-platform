@@ -60,4 +60,29 @@ class DesktopSyncController extends Controller
             'ok' => true,
         ], $status));
     }
+
+    public function pullIn(Request $request, DesktopSyncService $sync): JsonResponse
+    {
+        try {
+            $result = $sync->pullIn([
+                'install_uuid' => (string) $request->input('install_uuid', ''),
+                'token' => (string) $request->input('token', ''),
+                'fingerprint' => (string) $request->input('fingerprint', ''),
+                'after_id' => $request->input('after_id'),
+                'limit' => $request->input('limit'),
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'ok' => false,
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'ok' => true,
+            'count' => $result['count'],
+            'next_after_id' => $result['next_after_id'],
+            'events' => $result['events'],
+        ]);
+    }
 }

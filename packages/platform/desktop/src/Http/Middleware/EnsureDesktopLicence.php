@@ -89,11 +89,11 @@ class EnsureDesktopLicence
     {
         $messages = [
             'missing_activation' => 'Cette installation n’est pas activée. Lancez Activer la licence.',
-            'invalid_signature' => 'Jeton licence invalide ou clé de signature incorrecte. Réactivez auprès du Control Center.',
-            'install_mismatch' => 'Jeton licence ne correspond pas à cette installation.',
-            'product_mismatch' => 'Produit non autorisé pour ce jeton.',
+            'invalid_signature' => 'Licence invalide. Réactivez l’installation ou contactez le support.',
+            'install_mismatch' => 'Cette licence ne correspond pas à cette installation.',
+            'product_mismatch' => 'Produit non autorisé pour cette licence.',
             'fingerprint_mismatch' => 'Cette licence est liée à une autre machine.',
-            'missing_signing_key' => 'Clé DESKTOP_LICENCE_SIGNING_KEY manquante. Elle doit être identique à celle du Control Center.',
+            'missing_signing_key' => 'Installation incomplète. Contactez le support Bproo Dev.',
         ];
         $message = $messages[$reason] ?? 'Licence desktop refusée.';
 

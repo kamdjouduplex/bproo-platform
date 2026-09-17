@@ -6,11 +6,15 @@ use Bproo\Platform\Desktop\Console\ActivateCommand;
 use Bproo\Platform\Desktop\Console\EnqueueCommand;
 use Bproo\Platform\Desktop\Console\HeartbeatCommand;
 use Bproo\Platform\Desktop\Console\LicenceStatusCommand;
+use Bproo\Platform\Desktop\Console\SyncInCommand;
 use Bproo\Platform\Desktop\Console\SyncOutCommand;
+use Bproo\Platform\Desktop\Console\SyncSmokeCommand;
 use Bproo\Platform\Desktop\Console\UpdatesApplyCommand;
 use Bproo\Platform\Desktop\Console\UpdatesCheckCommand;
+use Bproo\Platform\Desktop\Http\Livewire\DesktopUpdates;
 use Bproo\Platform\Desktop\Http\Middleware\EnsureDesktopLicence;
 use Illuminate\Support\ServiceProvider;
+use Livewire\Livewire;
 
 class DesktopServiceProvider extends ServiceProvider
 {
@@ -35,11 +39,17 @@ class DesktopServiceProvider extends ServiceProvider
         $router = $this->app['router'];
         $router->aliasMiddleware('desktop.licence', EnsureDesktopLicence::class);
 
+        if (class_exists(Livewire::class)) {
+            Livewire::component('desktop.updates', DesktopUpdates::class);
+        }
+
         if ($this->app->runningInConsole()) {
             $this->commands([
                 ActivateCommand::class,
                 HeartbeatCommand::class,
                 SyncOutCommand::class,
+                SyncInCommand::class,
+                SyncSmokeCommand::class,
                 UpdatesCheckCommand::class,
                 UpdatesApplyCommand::class,
                 EnqueueCommand::class,

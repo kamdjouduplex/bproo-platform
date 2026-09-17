@@ -31,6 +31,12 @@ class ControlCenterClient
      */
     public function computeFingerprint(): string
     {
+        // Allow simulated 2nd PC on the same machine (DESKTOP_FINGERPRINT=sim-pc-b).
+        $override = trim((string) env('DESKTOP_FINGERPRINT', ''));
+        if ($override !== '') {
+            return hash('sha256', 'override|'.$override.'|'.(string) config('desktop.product_key'));
+        }
+
         $raw = implode('|', [
             php_uname('n'),
             php_uname('s'),

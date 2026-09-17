@@ -7,6 +7,10 @@
 
     <section class="card" style="padding:16px;margin-bottom:16px;">
         <div class="table-title" style="margin-bottom:12px;">Nouvelle release (brouillon)</div>
+        <p style="margin:0 0 12px;font-size:13px;color:#b45309;max-width:48rem;">
+            Les gros zips (&gt; ~30&nbsp;Mo) échouent souvent via « fichier local » (limite PHP
+            <code>post_max_size</code>). Préférez le <strong>chemin local serveur</strong> ci-dessous.
+        </p>
         <form wire:submit.prevent="createDraft" class="form-grid">
             <div class="field">
                 <label class="field-label" for="product_key">Produit</label>
@@ -17,6 +21,7 @@
                     <option value="school">school</option>
                     <option value="bat">bat</option>
                 </select>
+                @error('product_key') <div style="color:#b91c1c;font-size:12px;">{{ $message }}</div> @enderror
             </div>
             <div class="field">
                 <label class="field-label" for="channel">Canal</label>
@@ -27,7 +32,8 @@
             </div>
             <div class="field">
                 <label class="field-label" for="version">Version (semver)</label>
-                <input id="version" type="text" class="form-control" wire:model="version" placeholder="1.0.0" required>
+                <input id="version" type="text" class="form-control" wire:model="version" placeholder="0.1.3" required>
+                @error('version') <div style="color:#b91c1c;font-size:12px;">{{ $message }}</div> @enderror
             </div>
             <div class="field">
                 <label class="field-label" for="min_version">Version mini client</label>
@@ -38,19 +44,29 @@
                 <textarea id="changelog" class="form-control" rows="3" wire:model="changelog"></textarea>
             </div>
             <div class="field" style="grid-column:1/-1;">
+                <label class="field-label" for="package_local_path">Chemin local serveur (recommandé pour gros zip)</label>
+                <input id="package_local_path" type="text" class="form-control" wire:model="package_local_path"
+                       placeholder="D:\Projects\bproo-platform\apps\pharma\deploy\windows\dist\bproo-pharma-desktop-0.1.3.zip">
+                @error('package_local_path') <div style="color:#b91c1c;font-size:12px;">{{ $message }}</div> @enderror
+            </div>
+            <div class="field" style="grid-column:1/-1;">
                 <label class="field-label" for="package_url">URL package (CDN)</label>
                 <input id="package_url" type="url" class="form-control" wire:model="package_url" placeholder="https://...">
+                @error('package_url') <div style="color:#b91c1c;font-size:12px;">{{ $message }}</div> @enderror
             </div>
             <div class="field">
                 <label class="field-label" for="package_sha256">SHA-256 (si URL)</label>
-                <input id="package_sha256" type="text" class="form-control" wire:model="package_sha256" placeholder="64 hex">
+                <input id="package_sha256" type="text" class="form-control" wire:model="package_sha256" placeholder="64 hex (auto si chemin/fichier)">
+                @error('package_sha256') <div style="color:#b91c1c;font-size:12px;">{{ $message }}</div> @enderror
             </div>
             <div class="field">
-                <label class="field-label" for="package_file">Ou fichier local</label>
+                <label class="field-label" for="package_file">Ou petit fichier (&lt; limite PHP)</label>
                 <input id="package_file" type="file" class="form-control" wire:model="package_file">
+                <div wire:loading wire:target="package_file" style="font-size:12px;color:#0f766e;margin-top:4px;">Upload en cours…</div>
                 @if ($package_file)
-                    <div style="font-size:12px;color:#64748b;margin-top:4px;">Upload… {{ $package_file->getClientOriginalName() }}</div>
+                    <div style="font-size:12px;color:#64748b;margin-top:4px;">Prêt : {{ $package_file->getClientOriginalName() }}</div>
                 @endif
+                @error('package_file') <div style="color:#b91c1c;font-size:12px;">{{ $message }}</div> @enderror
             </div>
             <div class="field" style="align-self:end;">
                 <label style="display:flex;gap:8px;align-items:center;">
@@ -58,7 +74,10 @@
                 </label>
             </div>
             <div class="field" style="align-self:end;">
-                <button type="submit" class="btn btn-primary" wire:loading.attr="disabled">Créer le brouillon</button>
+                <button type="submit" class="btn btn-primary" wire:loading.attr="disabled" wire:target="createDraft">
+                    <span wire:loading.remove wire:target="createDraft">Créer le brouillon</span>
+                    <span wire:loading wire:target="createDraft">Création…</span>
+                </button>
             </div>
         </form>
     </section>

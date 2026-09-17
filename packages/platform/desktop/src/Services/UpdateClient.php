@@ -70,16 +70,51 @@ class UpdateClient
             ]);
         }
 
-        $response = Http::timeout(300)->withHeaders([
-            'Accept' => 'application/octet-stream',
-        ])->get($url);
-
-        if ($response->failed()) {
-            throw new \RuntimeException('Téléchargement package échoué (HTTP '.$response->status().').');
+        File::ensureDirectoryExists(dirname($absolute));
+        if (is_file($absolute)) {
+            @unlink($absolute);
         }
 
-        File::ensureDirectoryExists(dirname($absolute));
-        file_put_contents($absolute, $response->body());
+        // Prefer same-machine copy when Control Center is local (avoids artisan serve cURL 18).
+        $localPath = (string) ($manifest['package_local_path'] ?? '');
+        if ($localPath !== '' && is_file($localPath) && is_readable($localPath)) {
+            if (! @copy($localPath, $absolute)) {
+                throw new \RuntimeException('Copie locale du package impossible.');
+            }
+        } else {
+            // Stream to disk — never buffer ~100MB+ in PHP memory (causes cURL 18 / OOM
+            // with artisan serve and Livewire).
+            $response = Http::timeout(600)
+                ->connectTimeout(30)
+                ->withOptions([
+                    'sink' => $absolute,
+                    'curl' => [
+                        CURLOPT_BUFFERSIZE => 256 * 1024,
+                    ],
+                ])
+                ->withHeaders([
+                    'Accept' => 'application/octet-stream',
+                    'Connection' => 'close',
+                ])
+                ->get($url);
+
+            if ($response->failed()) {
+                @unlink($absolute);
+                throw new \RuntimeException('Téléchargement package échoué (HTTP '.$response->status().').');
+            }
+        }
+
+        if (! is_file($absolute) || filesize($absolute) === 0) {
+            @unlink($absolute);
+            throw new \RuntimeException('Téléchargement package vide ou incomplet.');
+        }
+
+        $expectedSize = (int) ($manifest['package_size'] ?? 0);
+        if ($expectedSize > 0 && filesize($absolute) !== $expectedSize) {
+            $got = filesize($absolute);
+            @unlink($absolute);
+            throw new \RuntimeException("Téléchargement incomplet ({$got}/{$expectedSize} octets). Relancez le Control Center puis réessayez.");
+        }
 
         if ($sha !== '') {
             $actual = hash_file('sha256', $absolute);

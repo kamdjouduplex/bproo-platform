@@ -10,7 +10,7 @@ class UpdatesApplyCommand extends Command
 {
     protected $signature = 'desktop:updates-apply {--current= : Override current app version for check}';
 
-    protected $description = 'Télécharge, vérifie SHA-256, stage + healthcheck + rollback marker';
+    protected $description = 'Telecharge, verifie SHA-256, stage, promote in-place (+ pending si ACL)';
 
     public function handle(UpdateClient $updates, UpdateApplier $applier): int
     {
@@ -34,6 +34,9 @@ class UpdatesApplyCommand extends Command
             }
 
             $this->info($result['message']);
+            if (! empty($result['restart_required'])) {
+                $this->warn('Redemarrez Bproo Pharma (raccourci bureau) pour finaliser.');
+            }
             $this->line('Staging: '.$result['staging']);
             $this->line('Rollback: '.$result['rollback']);
         } catch (\Throwable $e) {

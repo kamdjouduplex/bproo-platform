@@ -71,11 +71,27 @@ class DesktopUpdateController extends Controller
         $disk = (string) $resolved['disk'];
         $path = (string) $resolved['path'];
         $filename = basename($path);
+        $absolute = Storage::disk($disk)->path($path);
 
-        return Storage::disk($disk)->download($path, $filename, [
+        if (! is_file($absolute) || ! is_readable($absolute)) {
+            return response()->json([
+                'ok' => false,
+                'errors' => ['package' => ['Fichier package introuvable sur le serveur.']],
+            ], 404);
+        }
+
+        // Large zips (~100MB+) must stream with Content-Length. Avoid buffering the
+        // whole file (breaks PHP built-in server / artisan serve mid-transfer).
+        @set_time_limit(0);
+        ignore_user_abort(true);
+
+        return response()->file($absolute, [
             'Content-Type' => 'application/octet-stream',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
             'X-Package-Sha256' => (string) $release->package_sha256,
             'X-Package-Version' => (string) $release->version,
+            'Cache-Control' => 'no-store',
+            'Connection' => 'close',
         ]);
     }
 }

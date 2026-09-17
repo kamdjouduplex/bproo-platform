@@ -32,11 +32,27 @@ class DesktopReleasesIndex extends Component
 
     public $package_file = null;
 
+    /** Absolute path on the Control Center machine (avoids PHP upload limits for large zips). */
+    public string $package_local_path = '';
+
     public string $filter_product = '';
 
     public string $filter_channel = '';
 
     public string $filter_status = '';
+
+    public function updatedPackageFile(): void
+    {
+        try {
+            $this->validate([
+                'package_file' => 'nullable|file|max:524288', // 512 MB (KB) — still capped by PHP ini
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            $this->package_file = null;
+            notify()->error(collect($e->errors())->flatten()->first() ?: 'Fichier refusé (taille / type).');
+            throw $e;
+        }
+    }
 
     public function createDraft(): void
     {
@@ -49,11 +65,19 @@ class DesktopReleasesIndex extends Component
             'package_sha256' => 'nullable|string|size:64',
             'min_version' => 'nullable|string|max:64',
             'mandatory' => 'boolean',
-            'package_file' => 'nullable|file|max:512000', // ~500 MB
+            'package_file' => 'nullable|file|max:524288',
+            'package_local_path' => 'nullable|string|max:1024',
         ]);
 
-        if (! $this->package_url && ! $this->package_file) {
-            notify()->error('Fournissez une URL de package ou un fichier.');
+        $localPath = trim($this->package_local_path);
+        if (! $this->package_url && ! $this->package_file && $localPath === '') {
+            notify()->error('Fournissez une URL, un fichier, ou un chemin local serveur vers le zip.');
+
+            return;
+        }
+
+        if ($localPath !== '' && (! is_file($localPath) || ! is_readable($localPath))) {
+            notify()->error('Chemin local introuvable ou illisible : '.$localPath);
 
             return;
         }
@@ -70,6 +94,7 @@ class DesktopReleasesIndex extends Component
                 'mandatory' => $this->mandatory,
                 'created_by' => auth()->id(),
                 'file' => $this->package_file,
+                'local_path' => $localPath !== '' ? $localPath : null,
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             notify()->error(collect($e->errors())->flatten()->first() ?: $e->getMessage());
@@ -81,7 +106,7 @@ class DesktopReleasesIndex extends Component
             return;
         }
 
-        $this->reset(['version', 'changelog', 'package_url', 'package_sha256', 'min_version', 'mandatory', 'package_file']);
+        $this->reset(['version', 'changelog', 'package_url', 'package_sha256', 'min_version', 'mandatory', 'package_file', 'package_local_path']);
         notify()->success('Brouillon de release créé.');
     }
 

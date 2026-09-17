@@ -33,7 +33,8 @@ class DesktopUpdateService
      *   mandatory?:bool,
      *   meta?:array<string,mixed>|null,
      *   created_by?:int|null,
-     *   file?:UploadedFile|null
+     *   file?:UploadedFile|null,
+     *   local_path?:string|null
      * }  $input
      */
     public function createDraft(array $input): DesktopRelease
@@ -68,7 +69,9 @@ class DesktopUpdateService
             'status' => DesktopRelease::STATUS_DRAFT,
             'changelog' => $input['changelog'] ?? null,
             'package_url' => $input['package_url'] ?? null,
-            'package_sha256' => $input['package_sha256'] ? strtolower((string) $input['package_sha256']) : null,
+            'package_sha256' => ! empty($input['package_sha256'])
+                ? strtolower((string) $input['package_sha256'])
+                : null,
             'package_size' => $input['package_size'] ?? null,
             'min_version' => $input['min_version'] ?? null,
             'mandatory' => (bool) ($input['mandatory'] ?? false),
@@ -78,11 +81,53 @@ class DesktopUpdateService
 
         if (! empty($input['file']) && $input['file'] instanceof UploadedFile) {
             $this->storePackageFile($release, $input['file']);
+        } elseif (! empty($input['local_path']) && is_string($input['local_path'])) {
+            $this->storePackageFromLocalPath($release, $input['local_path']);
         }
 
         $release->save();
 
         return $release->fresh();
+    }
+
+    public function storePackageFromLocalPath(DesktopRelease $release, string $localPath): void
+    {
+        $localPath = trim($localPath);
+        if ($localPath === '' || ! is_file($localPath) || ! is_readable($localPath)) {
+            throw ValidationException::withMessages([
+                'local_path' => 'Fichier local introuvable ou illisible.',
+            ]);
+        }
+
+        $disk = (string) config('updates.disk', 'desktop_updates');
+        $ext = pathinfo($localPath, PATHINFO_EXTENSION) ?: 'zip';
+        $path = sprintf(
+            '%s/%s/%s-%s.%s',
+            $release->product_key ?: 'unknown',
+            $release->channel ?: 'stable',
+            $release->version ?: '0.0.0',
+            Str::lower(Str::random(8)),
+            $ext
+        );
+
+        $sha = hash_file('sha256', $localPath) ?: null;
+        $size = filesize($localPath) ?: null;
+
+        Storage::disk($disk)->makeDirectory(dirname($path));
+        $dest = Storage::disk($disk)->path($path);
+        if (! @copy($localPath, $dest)) {
+            throw ValidationException::withMessages([
+                'local_path' => 'Impossible de copier le package vers le stockage desktop_updates.',
+            ]);
+        }
+
+        $release->fill([
+            'package_disk' => $disk,
+            'package_path' => $path,
+            'package_size' => $size,
+            'package_sha256' => $sha,
+            'package_url' => null,
+        ]);
     }
 
     public function storePackageFile(DesktopRelease $release, UploadedFile $file): void
@@ -209,7 +254,7 @@ class DesktopUpdateService
         $ttlHours = (int) config('updates.manifest_ttl_hours', 24);
         $downloadPath = url('/api/updates/download/'.$release->uuid);
 
-        return [
+        $manifest = [
             'typ' => 'bproo.desktop.update.manifest',
             'release_uuid' => $release->uuid,
             'product_key' => $release->product_key,
@@ -227,6 +272,18 @@ class DesktopUpdateService
             'issued_at' => now()->toIso8601String(),
             'expires_at' => now()->addHours(max(1, $ttlHours))->toIso8601String(),
         ];
+
+        // Same-machine smoke (local CC): let desktop copy the file instead of HTTP streaming
+        // through php artisan serve, which often aborts ~100MB transfers (cURL 18).
+        if (app()->environment('local') && $release->package_path) {
+            $disk = (string) ($release->package_disk ?: config('updates.disk', 'desktop_updates'));
+            $abs = Storage::disk($disk)->path((string) $release->package_path);
+            if (is_file($abs)) {
+                $manifest['package_local_path'] = $abs;
+            }
+        }
+
+        return $manifest;
     }
 
     /**

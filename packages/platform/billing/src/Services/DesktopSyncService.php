@@ -12,8 +12,8 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Phase 3 OUT sync — cloud backup of append-only desktop events.
- * Does not apply events into SaaS tenant databases (Phase 5+).
+ * Phase 3 OUT sync + Phase 5 IN pull — cloud hub for desktop events.
+ * Does not apply events into SaaS tenant databases yet.
  */
 class DesktopSyncService
 {
@@ -222,11 +222,78 @@ class DesktopSyncService
             'install_uuid' => $install->uuid,
             'event_count' => (int) DesktopSyncEvent::query()->where('desktop_install_id', $install->id)->count(),
             'batch_count' => (int) DesktopSyncBatch::query()->where('desktop_install_id', $install->id)->count(),
+            'tenant_event_count' => (int) DesktopSyncEvent::query()->where('tenant_id', $install->tenant_id)->count(),
             'last_event_id' => $lastEvent?->event_id,
             'last_event_type' => $lastEvent?->type,
             'last_received_at' => $lastEvent?->received_at?->toIso8601String(),
             'last_batch_uuid' => $lastBatch?->uuid,
             'last_batch_status' => $lastBatch?->status,
+        ];
+    }
+
+    /**
+     * Phase 5 IN sync — pull events from other installs of the same tenant.
+     *
+     * @param  array{
+     *   install_uuid:string,
+     *   token:string,
+     *   fingerprint:string,
+     *   after_id?:int|null,
+     *   limit?:int|null
+     * }  $input
+     * @return array{events: list<array<string,mixed>>, next_after_id: int|null, count: int}
+     */
+    public function pullIn(array $input): array
+    {
+        $this->assertTablesReady();
+        $install = $this->licences->assertLicensedInstall($input);
+
+        $afterId = (int) ($input['after_id'] ?? 0);
+        if ($afterId < 0) {
+            $afterId = 0;
+        }
+
+        $limit = (int) ($input['limit'] ?? 0);
+        if ($limit <= 0) {
+            $limit = (int) config('sync.max_events_per_batch', 200);
+        }
+        $limit = min($limit, (int) config('sync.max_events_per_batch', 200));
+
+        $rows = DesktopSyncEvent::query()
+            ->where('tenant_id', $install->tenant_id)
+            ->where('desktop_install_id', '!=', $install->id)
+            ->where('id', '>', $afterId)
+            ->orderBy('id')
+            ->limit($limit)
+            ->with('install:id,uuid')
+            ->get();
+
+        $events = [];
+        $nextAfterId = $afterId;
+
+        foreach ($rows as $row) {
+            $nextAfterId = (int) $row->id;
+            $events[] = [
+                'cloud_id' => (int) $row->id,
+                'event_id' => $row->event_id,
+                'type' => $row->type,
+                'schema_version' => (int) $row->schema_version,
+                'occurred_at' => optional($row->occurred_at)->toIso8601String(),
+                'received_at' => optional($row->received_at)->toIso8601String(),
+                'payload' => $row->payload ?? [],
+                'source_install_uuid' => $row->install?->uuid,
+            ];
+        }
+
+        $meta = $install->meta ?? [];
+        $meta['last_sync_in_at'] = now()->toIso8601String();
+        $meta['last_sync_in_after_id'] = $nextAfterId;
+        $install->update(['meta' => $meta]);
+
+        return [
+            'events' => $events,
+            'next_after_id' => $events === [] ? $afterId : $nextAfterId,
+            'count' => count($events),
         ];
     }
 

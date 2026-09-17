@@ -28,7 +28,12 @@ class RuntimeStateStore
         }
 
         try {
-            $data = json_decode((string) file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+            $raw = (string) file_get_contents($path);
+            // PowerShell Set-Content -Encoding UTF8 writes a BOM that breaks json_decode.
+            if (str_starts_with($raw, "\xEF\xBB\xBF")) {
+                $raw = substr($raw, 3);
+            }
+            $data = json_decode($raw, true, 512, JSON_THROW_ON_ERROR);
         } catch (\Throwable) {
             return [];
         }
